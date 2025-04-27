@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Phone, User } from "lucide-react";
+import { Calendar, Phone, User, Settings, Menu } from "lucide-react";
 import { CalendarGrid } from "@/components/calendar-grid";
 import { MealBookingForm } from "@/components/meal-booking-form";
 import { MissionaryContactCard } from "@/components/missionary-contact-card";
 import { UpcomingMealItem } from "@/components/upcoming-meal-item";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Select,
   SelectContent,
@@ -28,7 +29,7 @@ export default function Home() {
   const [sortOrder, setSortOrder] = useState("date-asc");
   
   // Fetch missionaries
-  const { data: missionaries } = useQuery({
+  const { data: missionaries } = useQuery<any[]>({
     queryKey: ['/api/missionaries'],
   });
   
@@ -84,6 +85,8 @@ export default function Home() {
     }
   });
   
+  const isMobile = useIsMobile();
+  
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
@@ -91,8 +94,10 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
-              <Calendar className="h-8 w-8 text-primary" />
-              <h1 className="ml-2 text-xl font-bold text-gray-900">Missionary Meal Calendar</h1>
+              <Calendar className="h-8 w-8 text-primary flex-shrink-0" />
+              <h1 className="ml-2 text-xl font-bold text-gray-900 truncate">
+                {isMobile ? "Missionary Meals" : "Missionary Meal Calendar"}
+              </h1>
             </div>
             <div className="hidden md:flex space-x-2">
               <Button variant="ghost" onClick={() => window.open('#', '_blank')}>
@@ -102,7 +107,12 @@ export default function Home() {
                 Admin Login
               </Button>
             </div>
-            {/* Mobile menu button would go here */}
+            {/* Mobile menu */}
+            <div className="flex md:hidden">
+              <Button variant="ghost" size="sm" onClick={() => setLocation('/admin')}>
+                <Settings className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -111,15 +121,18 @@ export default function Home() {
       <main className="flex-grow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Tabs defaultValue="calendar" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-8 border-b border-gray-200 w-full justify-start">
-              <TabsTrigger value="calendar" className="px-1 py-4">
+            <TabsList className="mb-8 border-b border-gray-200 w-full justify-start overflow-x-auto">
+              <TabsTrigger value="calendar" className="px-1 py-3 sm:py-4 text-sm sm:text-base whitespace-nowrap">
+                <Calendar className="w-4 h-4 mr-1 inline md:hidden" />
                 Schedule a Meal
               </TabsTrigger>
-              <TabsTrigger value="contact" className="px-1 py-4">
-                Contact Missionaries
+              <TabsTrigger value="contact" className="px-1 py-3 sm:py-4 text-sm sm:text-base whitespace-nowrap">
+                <Phone className="w-4 h-4 mr-1 inline md:hidden" />
+                Contact
               </TabsTrigger>
-              <TabsTrigger value="upcoming" className="px-1 py-4">
-                Upcoming Meals
+              <TabsTrigger value="upcoming" className="px-1 py-3 sm:py-4 text-sm sm:text-base whitespace-nowrap">
+                <User className="w-4 h-4 mr-1 inline md:hidden" />
+                My Meals
               </TabsTrigger>
             </TabsList>
             
@@ -138,21 +151,26 @@ export default function Home() {
                     <Label className="block text-sm font-medium text-gray-700 mb-1">
                       Select Missionaries
                     </Label>
-                    <RadioGroup 
-                      defaultValue="elders" 
-                      value={missionaryType} 
-                      onValueChange={(value) => handleMissionaryTypeChange(value as "elders" | "sisters")}
-                      className="flex space-x-4"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="elders" id="elders" />
-                        <Label htmlFor="elders" className="text-sm text-gray-700">Elders</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="sisters" id="sisters" />
-                        <Label htmlFor="sisters" className="text-sm text-gray-700">Sisters</Label>
-                      </div>
-                    </RadioGroup>
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:space-x-4">
+                      <Button
+                        type="button"
+                        variant={missionaryType === "elders" ? "default" : "outline"}
+                        className={`py-2 flex justify-center items-center ${missionaryType === "elders" ? "bg-primary text-white" : "border border-gray-300"}`}
+                        onClick={() => handleMissionaryTypeChange("elders")}
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        <span>Elders</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={missionaryType === "sisters" ? "default" : "outline"}
+                        className={`py-2 flex justify-center items-center ${missionaryType === "sisters" ? "bg-amber-500 text-white" : "border border-gray-300"}`}
+                        onClick={() => handleMissionaryTypeChange("sisters")}
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        <span>Sisters</span>
+                      </Button>
+                    </div>
                   </div>
                   <div className="flex-1">
                     <Label className="block text-sm font-medium text-gray-700 mb-1">
@@ -209,24 +227,7 @@ export default function Home() {
                 />
               )}
               
-              <style jsx>{`
-                .missionary-booked-elders {
-                  background-color: rgba(59, 130, 246, 0.1);
-                  border: 1px solid #3b82f6;
-                }
-                .missionary-booked-sisters {
-                  background-color: rgba(245, 158, 11, 0.1);
-                  border: 1px solid #f59e0b;
-                }
-                .missionary-booked-both {
-                  background: linear-gradient(135deg, 
-                            rgba(59, 130, 246, 0.1) 0%, 
-                            rgba(59, 130, 246, 0.1) 50%, 
-                            rgba(245, 158, 11, 0.1) 50%, 
-                            rgba(245, 158, 11, 0.1) 100%);
-                  border: 1px dashed #94a3b8;
-                }
-              `}</style>
+              {/* Calendar styling is moved to index.css for better compatibility */}
             </TabsContent>
             
             <TabsContent value="contact">
