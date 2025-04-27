@@ -1,0 +1,358 @@
+import { useState } from "react";
+import { useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { ArrowLeft, Calendar, User, Settings } from "lucide-react";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+
+// Validation schema for missionary form
+const missionaryFormSchema = z.object({
+  name: z.string().min(2, { message: "Name must be at least 2 characters" }),
+  type: z.enum(["elders", "sisters"]),
+  phoneNumber: z.string().min(10, { message: "Please enter a valid phone number" }),
+  messengerAccount: z.string().optional(),
+  preferredNotification: z.enum(["text", "messenger"]),
+  active: z.boolean().default(true),
+});
+
+export default function Admin() {
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState("missionaries");
+  
+  // Mock login handler (in a real app, this would authenticate with the backend)
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    toast({
+      title: "Admin Login",
+      description: "This would authenticate in a real application.",
+    });
+  };
+  
+  // Set up form for adding/editing missionaries
+  const form = useForm<z.infer<typeof missionaryFormSchema>>({
+    resolver: zodResolver(missionaryFormSchema),
+    defaultValues: {
+      name: "",
+      type: "elders",
+      phoneNumber: "",
+      messengerAccount: "",
+      preferredNotification: "text",
+      active: true,
+    },
+  });
+  
+  // Fetch all missionaries
+  const { data: missionaries, isLoading } = useQuery({
+    queryKey: ['/api/missionaries'],
+  });
+  
+  // Mutation for adding a new missionary
+  const addMissionaryMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof missionaryFormSchema>) => {
+      return apiRequest("POST", "/api/missionaries", data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Missionary Added",
+        description: "The new missionary has been added successfully.",
+      });
+      form.reset();
+      queryClient.invalidateQueries({ queryKey: ['/api/missionaries'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to add missionary. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Handle missionary form submission
+  function onSubmit(data: z.infer<typeof missionaryFormSchema>) {
+    addMissionaryMutation.mutate(data);
+  }
+  
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center">
+              <Settings className="h-8 w-8 text-primary" />
+              <h1 className="ml-2 text-xl font-bold text-gray-900">Missionary Calendar Admin</h1>
+            </div>
+            <Button 
+              variant="ghost" 
+              className="flex items-center"
+              onClick={() => setLocation('/')}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Calendar
+            </Button>
+          </div>
+        </div>
+      </header>
+      
+      {/* Main Content */}
+      <main className="flex-grow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Admin Dashboard</CardTitle>
+              <CardDescription>
+                Manage missionary information and view meal scheduling statistics.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="mb-6">
+                  <TabsTrigger value="missionaries">
+                    <User className="mr-2 h-4 w-4" />
+                    Missionaries
+                  </TabsTrigger>
+                  <TabsTrigger value="meals">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Meal Schedules
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="missionaries">
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div>
+                      <h3 className="text-lg font-medium mb-4">Add Missionary</h3>
+                      <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                          <FormField
+                            control={form.control}
+                            name="name"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Missionary Name(s)</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g. Elder Smith & Elder Johnson" {...field} />
+                                </FormControl>
+                                <FormDescription>
+                                  Enter the names of the missionaries
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="type"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Missionary Type</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select missionary type" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="elders">Elders</SelectItem>
+                                    <SelectItem value="sisters">Sisters</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="phoneNumber"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Phone Number</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g. 5551234567" {...field} />
+                                </FormControl>
+                                <FormDescription>
+                                  Enter the phone number for SMS notifications
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="messengerAccount"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Messenger Account (Optional)</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g. missionaries.elders" {...field} />
+                                </FormControl>
+                                <FormDescription>
+                                  Enter their Facebook Messenger account name
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="preferredNotification"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Preferred Notification Method</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select notification method" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="text">Text Message</SelectItem>
+                                    <SelectItem value="messenger">Facebook Messenger</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="active"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                <div className="space-y-0.5">
+                                  <FormLabel>Active</FormLabel>
+                                  <FormDescription>
+                                    Set as active to make available for scheduling
+                                  </FormDescription>
+                                </div>
+                                <FormControl>
+                                  <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <Button type="submit">Add Missionary</Button>
+                        </form>
+                      </Form>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-lg font-medium mb-4">Current Missionaries</h3>
+                      {isLoading ? (
+                        <p>Loading missionaries...</p>
+                      ) : missionaries && missionaries.length > 0 ? (
+                        <div className="space-y-4">
+                          {missionaries.map((missionary: any) => (
+                            <Card key={missionary.id}>
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <h4 className="font-medium">{missionary.name}</h4>
+                                    <p className="text-sm text-gray-500">
+                                      {missionary.type.charAt(0).toUpperCase() + missionary.type.slice(1)} • 
+                                      Phone: {missionary.phoneNumber}
+                                    </p>
+                                    <p className="text-xs text-gray-400">
+                                      Notifications via {missionary.preferredNotification}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <div className={`w-3 h-3 rounded-full mr-2 ${missionary.active ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                    <span className="text-sm">{missionary.active ? 'Active' : 'Inactive'}</span>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : (
+                        <p>No missionaries found. Add one to get started.</p>
+                      )}
+                    </div>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="meals">
+                  <div className="grid gap-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Upcoming Meal Schedule Overview</CardTitle>
+                        <CardDescription>
+                          View and manage all scheduled meals for missionaries.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <p>This section would display a list of all upcoming meals with options to filter by date range, missionary, or host.</p>
+                        <p className="text-sm text-gray-500 mt-2">Note: This functionality would be fully implemented in a production application.</p>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Scheduling Statistics</CardTitle>
+                        <CardDescription>
+                          View meal scheduling statistics and trends.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <p>This section would display statistics like:</p>
+                        <ul className="list-disc list-inside mt-2 space-y-1">
+                          <li>Total meals scheduled for the month</li>
+                          <li>Most active hosts</li>
+                          <li>Days with no scheduled meals</li>
+                          <li>Cancellation rate</li>
+                        </ul>
+                        <p className="text-sm text-gray-500 mt-2">Note: This functionality would be fully implemented in a production application.</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+      
+      {/* Footer */}
+      <footer className="bg-white mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col items-center justify-between md:flex-row">
+            <div className="flex items-center">
+              <p className="text-sm text-gray-500">&copy; {new Date().getFullYear()} Missionary Meal Calendar Admin</p>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
