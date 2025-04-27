@@ -103,7 +103,7 @@ export default function Home() {
               <Button variant="ghost" onClick={() => setLocation('/missionary-portal')}>
                 Missionary Portal
               </Button>
-              <Button variant="ghost" onClick={() => setLocation('/admin')}>
+              <Button variant="ghost" onClick={() => setLocation('/auth')}>
                 Admin Login
               </Button>
             </div>
@@ -112,7 +112,7 @@ export default function Home() {
               <Button variant="ghost" size="sm" onClick={() => setLocation('/missionary-portal')}>
                 <Bell className="h-5 w-5" />
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setLocation('/admin')}>
+              <Button variant="ghost" size="sm" onClick={() => setLocation('/auth')}>
                 <Settings className="h-5 w-5" />
               </Button>
             </div>
