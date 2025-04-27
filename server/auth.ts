@@ -2,10 +2,13 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
 import session from "express-session";
+import createMemoryStore from "memorystore";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User } from "@shared/schema";
+
+const MemoryStore = createMemoryStore(session);
 
 const scryptAsync = promisify(scrypt);
 
@@ -34,7 +37,6 @@ async function comparePasswords(supplied: string, stored: string) {
 
 export function setupAuth(app: Express) {
   // Create a MemoryStore for session storage (in production we would use a proper store)
-  const MemoryStore = require('memorystore')(session);
   const sessionStore = new MemoryStore({
     checkPeriod: 86400000 // prune expired entries every 24h
   });

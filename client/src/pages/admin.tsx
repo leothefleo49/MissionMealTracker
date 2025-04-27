@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Calendar, User, Settings } from "lucide-react";
+import { ArrowLeft, Calendar, User, Settings, LogOut } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 
 // Validation schema for missionary form
 const missionaryFormSchema = z.object({
@@ -39,13 +40,14 @@ export default function Admin() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("missionaries");
+  const { user, logoutMutation } = useAuth();
   
-  // Mock login handler (in a real app, this would authenticate with the backend)
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    toast({
-      title: "Admin Login",
-      description: "This would authenticate in a real application.",
+  // Handle logout
+  const handleLogout = () => {
+    logoutMutation.mutate(undefined, {
+      onSuccess: () => {
+        setLocation('/auth');
+      }
     });
   };
   
@@ -63,14 +65,15 @@ export default function Admin() {
   });
   
   // Fetch all missionaries
-  const { data: missionaries, isLoading } = useQuery({
+  const { data: missionaries, isLoading } = useQuery<any[]>({
     queryKey: ['/api/missionaries'],
+    initialData: [],
   });
   
   // Mutation for adding a new missionary
   const addMissionaryMutation = useMutation({
     mutationFn: async (data: z.infer<typeof missionaryFormSchema>) => {
-      return apiRequest("POST", "/api/missionaries", data);
+      return apiRequest("POST", "/api/admin/missionaries", data);
     },
     onSuccess: () => {
       toast({
@@ -80,12 +83,18 @@ export default function Admin() {
       form.reset();
       queryClient.invalidateQueries({ queryKey: ['/api/missionaries'] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      const errorMessage = error?.message || "Failed to add missionary. Please try again.";
       toast({
         title: "Error",
-        description: "Failed to add missionary. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
+      
+      // If unauthorized or forbidden, redirect to login
+      if (error?.status === 401 || error?.status === 403) {
+        setLocation('/auth');
+      }
     },
   });
   
@@ -103,15 +112,30 @@ export default function Admin() {
             <div className="flex items-center">
               <Settings className="h-8 w-8 text-primary" />
               <h1 className="ml-2 text-xl font-bold text-gray-900">Missionary Calendar Admin</h1>
+              {user && (
+                <div className="ml-4 text-sm text-gray-500">
+                  Logged in as: <span className="font-medium">{user.username}</span>
+                </div>
+              )}
             </div>
-            <Button 
-              variant="ghost" 
-              className="flex items-center"
-              onClick={() => setLocation('/')}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Calendar
-            </Button>
+            <div className="flex space-x-2">
+              <Button 
+                variant="ghost" 
+                className="flex items-center"
+                onClick={() => setLocation('/')}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Calendar
+              </Button>
+              <Button 
+                variant="outline" 
+                className="flex items-center"
+                onClick={handleLogout}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       </header>

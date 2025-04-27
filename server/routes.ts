@@ -1,12 +1,25 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { insertMealSchema, updateMealSchema, checkMealAvailabilitySchema } from "@shared/schema";
+import { insertMealSchema, updateMealSchema, checkMealAvailabilitySchema, insertMissionarySchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
+import { setupAuth, createAdminUser } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Set up authentication
+  setupAuth(app);
+  await createAdminUser();
+  
+  // Middleware to check if user is admin
+  const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated() || !req.user?.isAdmin) {
+      return res.status(403).json({ message: 'Access denied: Admin privileges required' });
+    }
+    next();
+  };
+  
   // Helpers for notifications (simulated for now)
   const notifyMissionary = async (missionaryId: number, message: string) => {
     const missionary = await storage.getMissionary(missionaryId);
@@ -289,6 +302,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin-only routes for managing missionaries
+  app.post('/api/admin/missionaries', requireAdmin, async (req, res) => {
+    try {
+      const missionaryData = insertMissionarySchema.parse(req.body);
+      const missionary = await storage.createMissionary(missionaryData);
+      res.status(201).json(missionary);
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+
+  app.patch('/api/admin/missionaries/:id', requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const missionaryId = parseInt(id, 10);
+      
+      if (isNaN(missionaryId)) {
+        return res.status(400).json({ message: 'Invalid missionary ID' });
+      }
+      
+      const existingMissionary = await storage.getMissionary(missionaryId);
+      if (!existingMissionary) {
+        return res.status(404).json({ message: 'Missionary not found' });
+      }
+      
+      const updatedMissionary = await storage.updateMissionary(missionaryId, req.body);
+      
+      if (updatedMissionary) {
+        res.json(updatedMissionary);
+      } else {
+        res.status(404).json({ message: 'Missionary not found' });
+      }
+    } catch (err) {
+      console.error('Error updating missionary:', err);
+      res.status(500).json({ message: 'Failed to update missionary' });
+    }
+  });
+
+  // Admin dashboard statistics
+  app.get('/api/admin/stats', requireAdmin, async (req, res) => {
+    try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      
+      // Get all meals for the current month
+      const meals = await storage.getMealsByDateRange(startOfMonth, endOfMonth);
+      
+      // Get all missionaries
+      const missionaries = await storage.getAllMissionaries();
+      
+      const stats = {
+        totalMissionaries: missionaries.length,
+        activeMissionaries: missionaries.filter(m => m.active).length,
+        totalMealsThisMonth: meals.length,
+        eldersBookings: meals.filter(meal => {
+          const missionary = missionaries.find(m => m.id === meal.missionaryId);
+          return missionary && missionary.type === 'elders';
+        }).length,
+        sistersBookings: meals.filter(meal => {
+          const missionary = missionaries.find(m => m.id === meal.missionaryId);
+          return missionary && missionary.type === 'sisters';
+        }).length,
+        cancelledMeals: meals.filter(m => m.cancelled).length
+      };
+      
+      res.json(stats);
+    } catch (err) {
+      console.error('Error fetching admin stats:', err);
+      res.status(500).json({ message: 'Failed to fetch statistics' });
+    }
+  });
+  
   const httpServer = createServer(app);
   return httpServer;
 }
