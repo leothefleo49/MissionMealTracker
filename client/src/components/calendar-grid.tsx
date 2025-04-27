@@ -215,28 +215,7 @@ export function CalendarGrid({
         )}
       </div>
       
-      <style jsx>{`
-        .calendar-day {
-          aspect-ratio: 1;
-          max-width: 100%;
-        }
-        .calendar-day.missionary-booked-elders {
-          background-color: rgba(59, 130, 246, 0.1);
-          border: 1px solid #3b82f6;
-        }
-        .calendar-day.missionary-booked-sisters {
-          background-color: rgba(245, 158, 11, 0.1);
-          border: 1px solid #f59e0b;
-        }
-        .calendar-day.missionary-booked-both {
-          background: linear-gradient(135deg, 
-                    rgba(59, 130, 246, 0.1) 0%, 
-                    rgba(59, 130, 246, 0.1) 50%, 
-                    rgba(245, 158, 11, 0.1) 50%, 
-                    rgba(245, 158, 11, 0.1) 100%);
-          border: 1px dashed #94a3b8;
-        }
-      `}</style>
+      {/* Calendar styling moved to global CSS for better compatibility */}
     </div>
   );
 }

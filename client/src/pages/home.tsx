@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Phone, User, Settings, Menu } from "lucide-react";
+import { Calendar, Phone, User, Settings, Menu, Bell } from "lucide-react";
 import { CalendarGrid } from "@/components/calendar-grid";
 import { MealBookingForm } from "@/components/meal-booking-form";
 import { MissionaryContactCard } from "@/components/missionary-contact-card";
@@ -100,15 +100,18 @@ export default function Home() {
               </h1>
             </div>
             <div className="hidden md:flex space-x-2">
-              <Button variant="ghost" onClick={() => window.open('#', '_blank')}>
-                Help
+              <Button variant="ghost" onClick={() => setLocation('/missionary-portal')}>
+                Missionary Portal
               </Button>
               <Button variant="ghost" onClick={() => setLocation('/admin')}>
                 Admin Login
               </Button>
             </div>
             {/* Mobile menu */}
-            <div className="flex md:hidden">
+            <div className="flex md:hidden space-x-1">
+              <Button variant="ghost" size="sm" onClick={() => setLocation('/missionary-portal')}>
+                <Bell className="h-5 w-5" />
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => setLocation('/admin')}>
                 <Settings className="h-5 w-5" />
               </Button>
