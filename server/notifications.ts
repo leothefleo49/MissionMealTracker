@@ -153,10 +153,10 @@ export class TwilioService extends BaseNotificationService {
         
         console.log(`SMS sent successfully to ${missionary.phoneNumber}, SID: ${result.sid}`);
         successful = true;
-      } catch (error) {
+      } catch (error: unknown) {
         console.error(`Failed to send SMS to ${missionary.phoneNumber}:`, error);
         successful = false;
-        failureReason = error.message || 'Unknown error';
+        failureReason = error instanceof Error ? error.message : 'Unknown error';
       }
     }
     
