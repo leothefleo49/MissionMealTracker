@@ -11,6 +11,7 @@ import Home from "@/pages/home";
 import Admin from "@/pages/admin";
 import MissionaryPortal from "@/pages/missionary-portal";
 import AuthPage from "@/pages/auth-page";
+import WardPage from "@/pages/ward-page";
 
 function Router() {
   return (
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       <ProtectedRoute path="/admin" component={Admin} />
       <Route path="/missionary-portal" component={MissionaryPortal} />
+      <Route path="/ward/:accessCode" component={WardPage} />
       <Route component={NotFound} />
     </Switch>
   );
