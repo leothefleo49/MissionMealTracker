@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Calendar, User, Settings, LogOut } from "lucide-react";
+import { ArrowLeft, Calendar, User, Settings, LogOut, Building } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -25,6 +25,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 
+// Import ward management components
+import { WardManagement } from "@/components/ward-management";
+import { WardUsers } from "@/components/ward-users";
+import { WardSelector } from "@/components/ward-selector";
+
 // Validation schema for missionary form
 const missionaryFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
@@ -33,6 +38,7 @@ const missionaryFormSchema = z.object({
   messengerAccount: z.string().optional(),
   preferredNotification: z.enum(["text", "messenger"]),
   active: z.boolean().default(true),
+  wardId: z.number().optional(), // Ward ID will be set from the selected ward
 });
 
 export default function Admin() {
@@ -40,7 +46,7 @@ export default function Admin() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("missionaries");
-  const { user, logoutMutation } = useAuth();
+  const { user, logoutMutation, selectedWard } = useAuth();
   
   // Handle logout
   const handleLogout = () => {
@@ -64,9 +70,26 @@ export default function Admin() {
     },
   });
   
-  // Fetch all missionaries
+  // Fetch missionaries for the selected ward
   const { data: missionaries, isLoading } = useQuery<any[]>({
-    queryKey: ['/api/missionaries'],
+    queryKey: ['/api/wards', selectedWard?.id, 'missionaries'],
+    queryFn: async () => {
+      if (!selectedWard) return [];
+      
+      // Fetch both elders and sisters for the selected ward
+      const eldersRes = await fetch(`/api/wards/${selectedWard.id}/missionaries/elders`);
+      const sistersRes = await fetch(`/api/wards/${selectedWard.id}/missionaries/sisters`);
+      
+      if (!eldersRes.ok || !sistersRes.ok) {
+        throw new Error("Failed to fetch missionaries");
+      }
+      
+      const elders = await eldersRes.json();
+      const sisters = await sistersRes.json();
+      
+      return [...elders, ...sisters];
+    },
+    enabled: !!selectedWard,
     initialData: [],
   });
   
@@ -81,7 +104,13 @@ export default function Admin() {
         description: "The new missionary has been added successfully.",
       });
       form.reset();
-      queryClient.invalidateQueries({ queryKey: ['/api/missionaries'] });
+      
+      // Invalidate the ward-specific missionaries query
+      if (selectedWard) {
+        queryClient.invalidateQueries({ 
+          queryKey: ['/api/wards', selectedWard.id, 'missionaries'] 
+        });
+      }
     },
     onError: (error: any) => {
       const errorMessage = error?.message || "Failed to add missionary. Please try again.";
@@ -100,7 +129,22 @@ export default function Admin() {
   
   // Handle missionary form submission
   function onSubmit(data: z.infer<typeof missionaryFormSchema>) {
-    addMissionaryMutation.mutate(data);
+    if (!selectedWard) {
+      toast({
+        title: "No Ward Selected",
+        description: "Please select a ward before adding missionaries.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Add the wardId to the missionary data
+    const missionaryData = {
+      ...data,
+      wardId: selectedWard.id
+    };
+    
+    addMissionaryMutation.mutate(missionaryData);
   }
   
   return (
@@ -161,9 +205,29 @@ export default function Admin() {
                     <Calendar className="mr-2 h-4 w-4" />
                     Meal Schedules
                   </TabsTrigger>
+                  <TabsTrigger value="wards">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Ward Management
+                  </TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="missionaries">
+                  {/* Ward Selector */}
+                  <div className="mb-6">
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="flex items-center mb-4">
+                          <Building className="mr-2 h-5 w-5 text-muted-foreground" />
+                          <h3 className="text-lg font-medium">Current Ward</h3>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Select the ward you want to manage. Missionaries are specific to each ward.
+                        </p>
+                        <WardSelector />
+                      </CardContent>
+                    </Card>
+                  </div>
+
                   <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <div>
                       <h3 className="text-lg font-medium mb-4">Add Missionary</h3>
@@ -327,6 +391,22 @@ export default function Admin() {
                 </TabsContent>
                 
                 <TabsContent value="meals">
+                  {/* Ward Selector */}
+                  <div className="mb-6">
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="flex items-center mb-4">
+                          <Building className="mr-2 h-5 w-5 text-muted-foreground" />
+                          <h3 className="text-lg font-medium">Current Ward</h3>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Select the ward to view meal schedules. Each ward has its own meal calendar.
+                        </p>
+                        <WardSelector />
+                      </CardContent>
+                    </Card>
+                  </div>
+                
                   <div className="grid gap-6">
                     <Card>
                       <CardHeader>
@@ -359,6 +439,53 @@ export default function Admin() {
                         <p className="text-sm text-gray-500 mt-2">Note: This functionality would be fully implemented in a production application.</p>
                       </CardContent>
                     </Card>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="wards">
+                  <div className="space-y-8">
+                    {/* Display the Ward Management component for super admins only */}
+                    {user?.isSuperAdmin && (
+                      <WardManagement />
+                    )}
+                    
+                    {/* Display the Ward Users component for all admins */}
+                    <WardUsers />
+                    
+                    {/* Selected Ward Information */}
+                    {selectedWard && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Selected Ward: {selectedWard.name}</CardTitle>
+                          <CardDescription>
+                            Share the following link with ward members to access the meal calendar
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="bg-gray-100 p-3 rounded-md font-mono text-sm break-all">
+                            {`${window.location.origin}/ward/${selectedWard.accessCode}`}
+                          </div>
+                          <p className="mt-4 text-sm text-muted-foreground">
+                            Ward members will use this link to access the ward-specific calendar
+                            without needing to sign in. This URL contains a unique access code and should
+                            only be shared with trusted ward members.
+                          </p>
+                        </CardContent>
+                        <CardFooter>
+                          <Button
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/ward/${selectedWard.accessCode}`);
+                              toast({
+                                title: "Link Copied",
+                                description: "The ward link has been copied to your clipboard.",
+                              });
+                            }}
+                          >
+                            Copy Ward Link
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    )}
                   </div>
                 </TabsContent>
               </Tabs>

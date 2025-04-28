@@ -37,7 +37,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { randomBytes } from "crypto";
+// Using browser-compatible crypto API instead of Node.js crypto
 
 // Extend the ward schema with validation
 const createWardSchema = insertWardSchema.extend({
@@ -87,10 +87,14 @@ export function WardManagement() {
     },
   });
 
-  // Function to generate a random access code for ward URLs
+  // Function to generate a random access code for ward URLs using browser crypto
   function generateAccessCode() {
     // Generate a random string of 16 bytes (32 hex characters)
-    return randomBytes(16).toString("hex");
+    const array = new Uint8Array(16);
+    window.crypto.getRandomValues(array);
+    return Array.from(array)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
   }
 
   // Create ward mutation
