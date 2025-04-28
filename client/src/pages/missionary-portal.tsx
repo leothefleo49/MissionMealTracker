@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useParams } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,14 +10,24 @@ import { CalendarGrid } from "@/components/calendar-grid";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function MissionaryPortal() {
+  const params = useParams();
+  const accessCode = params.accessCode;
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("upcoming");
   const [missionaryType, setMissionaryType] = useState<"elders" | "sisters">("elders");
   const isMobile = useIsMobile();
   
+  // Fetch ward data
+  const { data: ward } = useQuery<any>({
+    queryKey: ['/api/wards/by-code', accessCode],
+  });
+  
+  const wardId = ward?.id;
+  
   // Fetch missionaries data
   const { data: missionaries } = useQuery<any[]>({
-    queryKey: ['/api/missionaries'],
+    queryKey: ['/api/missionaries', wardId],
+    enabled: !!wardId,
   });
   
   // Get missionary ID based on type
@@ -39,10 +49,10 @@ export default function MissionaryPortal() {
             <Button 
               variant="ghost" 
               className="flex items-center"
-              onClick={() => setLocation('/')}
+              onClick={() => setLocation(`/ward/${accessCode}`)}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Calendar
+              Back to Ward
             </Button>
           </div>
         </div>

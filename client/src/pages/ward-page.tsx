@@ -162,7 +162,16 @@ export default function WardPage() {
                 )}
               </div>
             </div>
-            <div className="flex">
+            <div className="flex space-x-2">
+              <Button 
+                variant="outline" 
+                size={isMobile ? "sm" : "default"}
+                onClick={() => setLocation(`/ward/${accessCode}/missionary-portal`)}
+                className="flex items-center"
+              >
+                <UserPlus className="h-4 w-4 mr-1" />
+                {isMobile ? "Portal" : "Missionary Portal"}
+              </Button>
               <Button 
                 variant="ghost" 
                 size={isMobile ? "sm" : "default"}

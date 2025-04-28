@@ -19,8 +19,8 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/auth" component={AuthPage} />
       <ProtectedRoute path="/admin" component={Admin} />
-      <Route path="/missionary-portal" component={MissionaryPortal} />
       <Route path="/ward/:accessCode" component={WardPage} />
+      <Route path="/ward/:accessCode/missionary-portal" component={MissionaryPortal} />
       <Route component={NotFound} />
     </Switch>
   );
