@@ -1,24 +1,23 @@
-import { pgTable, text, serial, integer, timestamp, boolean, uuid } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
+import { boolean, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { relations } from "drizzle-orm";
 
-// Wards table (new)
+// Wards table
 export const wards = pgTable("wards", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  accessCode: uuid("access_code").notNull().unique(), // Unique access code for direct ward access
-  active: boolean("active").default(true).notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  accessCode: text("access_code").notNull().unique(),
 });
 
 export const wardsRelations = relations(wards, ({ many }) => ({
-  users: many(userWards),
   missionaries: many(missionaries),
+  userAccess: many(userWards),
 }));
 
 export const insertWardSchema = createInsertSchema(wards).pick({
   name: true,
+  accessCode: true,
 });
 
 export type InsertWard = z.infer<typeof insertWardSchema>;
@@ -30,10 +29,9 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   isAdmin: boolean("is_admin").default(false).notNull(),
-  isSuperAdmin: boolean("is_super_admin").default(false).notNull(), // Can manage all wards
+  isSuperAdmin: boolean("is_super_admin").default(false).notNull(),
 });
 
-// User-Ward relationship table (new)
 export const userWards = pgTable("user_wards", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -89,6 +87,7 @@ export const missionaries = pgTable("missionaries", {
 export const missionariesRelations = relations(missionaries, ({ one, many }) => ({
   ward: one(wards, { fields: [missionaries.wardId], references: [wards.id] }),
   meals: many(meals),
+  messagesSent: many(messageLogs),
 }));
 
 export const insertMissionarySchema = createInsertSchema(missionaries).pick({
@@ -161,3 +160,74 @@ export const checkMealAvailabilitySchema = z.object({
 });
 
 export type CheckMealAvailability = z.infer<typeof checkMealAvailabilitySchema>;
+
+// Message Logs table - for tracking SMS/Messenger notifications
+export const messageLogs = pgTable("message_logs", {
+  id: serial("id").primaryKey(),
+  missionaryId: integer("missionary_id").notNull().references(() => missionaries.id),
+  wardId: integer("ward_id").notNull().references(() => wards.id),
+  sentAt: timestamp("sent_at").notNull().defaultNow(),
+  messageType: text("message_type").notNull(), // 'before_meal', 'day_of', 'weekly_summary'
+  messageContent: text("message_content").notNull(),
+  deliveryMethod: text("delivery_method").notNull(), // 'sms', 'messenger'
+  successful: boolean("successful").notNull(),
+  failureReason: text("failure_reason"),
+  charCount: integer("char_count").notNull(),
+  segmentCount: integer("segment_count").notNull(), // For SMS that are split into multiple messages
+});
+
+export const messageLogsRelations = relations(messageLogs, ({ one }) => ({
+  missionary: one(missionaries, { fields: [messageLogs.missionaryId], references: [missionaries.id] }),
+  ward: one(wards, { fields: [messageLogs.wardId], references: [wards.id] }),
+}));
+
+export const insertMessageLogSchema = createInsertSchema(messageLogs).pick({
+  missionaryId: true,
+  wardId: true,
+  messageType: true,
+  messageContent: true,
+  deliveryMethod: true,
+  successful: true,
+  failureReason: true,
+  charCount: true,
+  segmentCount: true,
+});
+
+export type InsertMessageLog = z.infer<typeof insertMessageLogSchema>;
+export type MessageLog = typeof messageLogs.$inferSelect;
+
+// Message Stats schema for API responses
+export const messageStatsSchema = z.object({
+  totalMessages: z.number(),
+  totalSuccessful: z.number(),
+  totalFailed: z.number(),
+  totalCharacters: z.number(),
+  totalSegments: z.number(),
+  estimatedCost: z.number(),
+  byWard: z.array(z.object({
+    wardId: z.number(),
+    wardName: z.string(),
+    messageCount: z.number(),
+    successRate: z.number(),
+    characters: z.number(),
+    segments: z.number(),
+    estimatedCost: z.number(),
+  })),
+  byMissionary: z.array(z.object({
+    missionaryId: z.number(),
+    missionaryName: z.string(),
+    messageCount: z.number(),
+    successRate: z.number(),
+    characters: z.number(),
+    segments: z.number(),
+    estimatedCost: z.number(),
+  })),
+  byPeriod: z.array(z.object({
+    period: z.string(), // 'today', 'this_week', 'this_month', 'last_month'
+    messageCount: z.number(),
+    segments: z.number(),
+    estimatedCost: z.number(),
+  })),
+});
+
+export type MessageStats = z.infer<typeof messageStatsSchema>;
