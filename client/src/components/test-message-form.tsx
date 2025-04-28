@@ -74,7 +74,10 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
       notificationMethod: "text",
       messageType: "custom",
       customMessage: "",
+      messengerAccount: "",
       schedulingOption: "immediate",
+      scheduledDate: undefined,
+      scheduledTime: "12:00",
       mealDetails: {
         date: format(new Date(), "yyyy-MM-dd"),
         startTime: "17:30",
@@ -208,8 +211,7 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                       <FormControl>
                         <Input 
                           placeholder="username or URL" 
-                          {...field} 
-                          value={field.value || ""}
+                          {...field}
                         />
                       </FormControl>
                       <FormDescription>
@@ -289,7 +291,6 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                           placeholder="Enter your message here"
                           className="min-h-[120px]"
                           {...field}
-                          value={field.value || ""}
                         />
                       </FormControl>
                       <FormMessage />
