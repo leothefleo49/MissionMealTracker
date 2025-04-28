@@ -61,6 +61,11 @@ interface Missionary {
   weeklySummaryTime?: string;
   dietaryRestrictions?: string;
   wardId: number;
+  // Consent management fields
+  consentStatus: "pending" | "granted" | "denied";
+  consentDate?: Date | null;
+  consentVerificationToken?: string | null;
+  consentVerificationSentAt?: Date | null;
 }
 
 interface EditMissionaryDialogProps {
