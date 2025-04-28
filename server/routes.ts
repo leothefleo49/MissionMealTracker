@@ -1111,8 +1111,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clean up the phone number (Twilio sends it with a + prefix)
       const phoneNumber = fromNumber.replace(/\s+/g, "");
       
-      // Try to find the missionary by phone number
+      console.log(`Received SMS from: ${phoneNumber}, body: ${messageBody}`);
+      
+      // Try to find the missionary by phone number - add logging for diagnosis
       const missionaries = await storage.getAllMissionaries();
+      console.log(`Found ${missionaries.length} missionaries in the database`);
+      
+      // Log all missionary phone numbers for debugging
+      missionaries.forEach(m => {
+        console.log(`Missionary ${m.id} (${m.name}): phone=${m.phoneNumber}`);
+      });
+      
       const missionary = missionaries.find(m => m.phoneNumber === phoneNumber);
       
       if (!missionary) {
