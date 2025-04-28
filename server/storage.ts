@@ -86,6 +86,7 @@ export class MemStorage implements IStorage {
       // Create initial ward
       this.createWard({
         name: 'Main Ward',
+        accessCode: crypto.randomUUID(), // Generate random access code
       }).then(ward => {
         // Add admin to ward
         this.addUserToWard({ userId: user.id, wardId: ward.id });
@@ -98,7 +99,13 @@ export class MemStorage implements IStorage {
           phoneNumber: '5551234567',
           messengerAccount: 'missionaries.elders',
           preferredNotification: 'text',
-          active: true
+          active: true,
+          notificationScheduleType: 'before_meal',
+          hoursBefore: 3,
+          dayOfTime: '09:00',
+          weeklySummaryDay: 'sunday',
+          weeklySummaryTime: '18:00',
+          useMultipleNotifications: false
         });
         
         this.createMissionary({
@@ -108,7 +115,13 @@ export class MemStorage implements IStorage {
           phoneNumber: '5559876543',
           messengerAccount: 'missionaries.sisters',
           preferredNotification: 'messenger',
-          active: true
+          active: true,
+          notificationScheduleType: 'day_of',
+          hoursBefore: 2,
+          dayOfTime: '08:00',
+          weeklySummaryDay: 'monday',
+          weeklySummaryTime: '17:00',
+          useMultipleNotifications: false
         });
       });
     });
@@ -155,14 +168,19 @@ export class MemStorage implements IStorage {
 
   async createWard(ward: InsertWard): Promise<Ward> {
     const id = this.wardCurrentId++;
-    // Generate a random UUID for access code
-    const accessCode = crypto.randomUUID();
+    // If accessCode not provided, generate a random UUID
+    const accessCode = ward.accessCode || crypto.randomUUID();
     const newWard: Ward = { 
       ...ward, 
       id, 
       accessCode,
+      description: null,
+      allowCombinedBookings: false,
+      maxBookingsPerPeriod: 1,
+      bookingPeriodDays: 30,
       active: true,
-      createdAt: new Date()
+      maxBookingsPerAddress: 1,
+      maxBookingsPerPhone: 1
     };
     this.wards.set(id, newWard);
     return newWard;
@@ -244,13 +262,20 @@ export class MemStorage implements IStorage {
 
   async createMissionary(insertMissionary: InsertMissionary): Promise<Missionary> {
     const id = this.missionaryCurrentId++;
-    // Ensure proper null handling for optional fields
+    // Ensure proper null handling for optional fields and set default values for notification settings
     const missionary: Missionary = { 
       ...insertMissionary, 
       id, 
       active: true,
       messengerAccount: insertMissionary.messengerAccount || null,
-      preferredNotification: insertMissionary.preferredNotification || 'text'
+      preferredNotification: insertMissionary.preferredNotification || 'text',
+      // Default notification settings if not provided
+      notificationScheduleType: insertMissionary.notificationScheduleType || 'before_meal',
+      hoursBefore: insertMissionary.hoursBefore || 3,
+      dayOfTime: insertMissionary.dayOfTime || '09:00',
+      weeklySummaryDay: insertMissionary.weeklySummaryDay || 'sunday',
+      weeklySummaryTime: insertMissionary.weeklySummaryTime || '18:00',
+      useMultipleNotifications: insertMissionary.useMultipleNotifications || false
     };
     this.missionaries.set(id, missionary);
     return missionary;
