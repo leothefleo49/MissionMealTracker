@@ -353,8 +353,8 @@ export class MessageStatsService {
         return {
           period: name,
           messageCount: result.messageCount || 0,
-          segments: result.segments || 0,
-          estimatedCost: this.calculateEstimatedCost(result.segments || 0),
+          segments: Number(result.segments || 0),
+          estimatedCost: this.calculateEstimatedCost(Number(result.segments || 0)),
         };
       })
     );
@@ -365,9 +365,9 @@ export class MessageStatsService {
       wardName: ward.wardName,
       messageCount: ward.messageCount,
       successRate: ward.messageCount > 0 ? (ward.successCount / ward.messageCount) * 100 : 100,
-      characters: ward.characters || 0,
-      segments: ward.segments || 0,
-      estimatedCost: this.calculateEstimatedCost(ward.segments || 0),
+      characters: Number(ward.characters || 0),
+      segments: Number(ward.segments || 0),
+      estimatedCost: this.calculateEstimatedCost(Number(ward.segments || 0)),
     }));
     
     const formattedByMissionary = byMissionary.map((missionary) => ({
@@ -375,20 +375,20 @@ export class MessageStatsService {
       missionaryName: missionary.missionaryName,
       messageCount: missionary.messageCount,
       successRate: missionary.messageCount > 0 ? (missionary.successCount / missionary.messageCount) * 100 : 100,
-      characters: missionary.characters || 0,
-      segments: missionary.segments || 0,
-      estimatedCost: this.calculateEstimatedCost(missionary.segments || 0),
+      characters: Number(missionary.characters || 0),
+      segments: Number(missionary.segments || 0),
+      estimatedCost: this.calculateEstimatedCost(Number(missionary.segments || 0)),
     }));
     
     // Calculate overall estimated cost
-    const estimatedCost = this.calculateEstimatedCost(totalCounts.totalSegments || 0);
+    const estimatedCost = this.calculateEstimatedCost(Number(totalCounts.totalSegments || 0));
     
     return {
       totalMessages: totalCounts.totalMessages || 0,
       totalSuccessful: totalCounts.totalSuccessful || 0,
       totalFailed: totalCounts.totalFailed || 0,
-      totalCharacters: totalCounts.totalCharacters || 0,
-      totalSegments: totalCounts.totalSegments || 0,
+      totalCharacters: Number(totalCounts.totalCharacters || 0),
+      totalSegments: Number(totalCounts.totalSegments || 0),
       estimatedCost,
       byWard: formattedByWard,
       byMissionary: formattedByMissionary,
@@ -458,10 +458,10 @@ export class NotificationManager {
         mealTime.setHours(parseInt(hours), parseInt(minutes));
         
         const reminderTime = new Date(mealTime.getTime());
-        reminderTime.setHours(reminderTime.getHours() - missionary.hoursBefore);
+        reminderTime.setHours(reminderTime.getHours() - (missionary.hoursBefore || 3)); // Default to 3 hours if not set
         
         // For demo purposes, log the scheduled notification
-        console.log(`Reminder for ${missionary.name} scheduled for ${reminderTime.toISOString()} (${missionary.hoursBefore} hours before meal)`);
+        console.log(`Reminder for ${missionary.name} scheduled for ${reminderTime.toISOString()} (${missionary.hoursBefore || 3} hours before meal)`);
         
         // In a real application, use a job scheduler like node-cron
         /*
