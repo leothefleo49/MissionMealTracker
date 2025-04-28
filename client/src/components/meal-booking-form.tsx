@@ -33,7 +33,7 @@ const formSchema = z.object({
 
 type BookingFormProps = {
   selectedDate: Date;
-  missionaryType: "elders" | "sisters";
+  missionaryType: string; // Changed to string to support missionary IDs
   onCancel: () => void;
   onSuccess: () => void;
 };
@@ -44,9 +44,17 @@ export function MealBookingForm({ selectedDate, missionaryType, onCancel, onSucc
   const queryClient = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
   
-  // Get missionaries of the selected type
-  const { data: missionaries, isLoading: loadingMissionaries } = useQuery({
+  // Define missionary interface
+  interface Missionary {
+    id: number;
+    name: string;
+    type: string;
+  }
+  
+  // Get the selected missionary
+  const { data: missionary, isLoading: loadingMissionary } = useQuery<Missionary>({
     queryKey: [`/api/missionaries/${missionaryType}`],
+    enabled: !!missionaryType,
   });
   
   // Form setup
@@ -64,14 +72,12 @@ export function MealBookingForm({ selectedDate, missionaryType, onCancel, onSucc
   // Handle form submission
   const bookMealMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      if (!missionaries || missionaries.length === 0) {
-        throw new Error("No missionaries available");
+      if (!missionary) {
+        throw new Error("No missionary selected");
       }
       
       // Format the date for the API
       const mealDate = new Date(selectedDate);
-      // Use the first missionary of the selected type
-      const missionary = missionaries[0];
       
       return apiRequest("POST", "/api/meals", {
         missionaryId: missionary.id,
@@ -117,13 +123,13 @@ export function MealBookingForm({ selectedDate, missionaryType, onCancel, onSucc
   }
   
   const formattedDate = format(selectedDate, "EEEE, MMMM do");
-  const missionaryTypeDisplay = missionaryType.charAt(0).toUpperCase() + missionaryType.slice(1);
+  const missionaryDisplay = missionary?.name || "Missionaries";
   
   return (
     <Card className="mb-8 bg-white shadow-sm border border-gray-200">
       <CardContent className="p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">
-          Schedule for {formattedDate} with {missionaryTypeDisplay}
+          Schedule for {formattedDate} with {missionaryDisplay}
         </h3>
         
         <Form {...form}>
@@ -238,7 +244,7 @@ export function MealBookingForm({ selectedDate, missionaryType, onCancel, onSucc
               </Button>
               <Button 
                 type="submit"
-                disabled={submitting || loadingMissionaries}
+                disabled={submitting || loadingMissionary}
               >
                 Schedule Meal
               </Button>
