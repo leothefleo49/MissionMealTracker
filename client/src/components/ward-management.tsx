@@ -485,6 +485,28 @@ export function WardManagement() {
                           <Copy className="h-4 w-4" />
                         </Button>
                       </div>
+                    
+                      <p className="text-sm font-medium mb-1 mt-3">Ward Calendar Link:</p>
+                      <div className="flex items-center gap-2 w-full overflow-x-auto">
+                        <code className="bg-slate-100 px-2 py-1 rounded text-sm truncate max-w-[180px] sm:max-w-full">
+                          {window.location.origin}/ward/{ward.accessCode}
+                        </code>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0 flex-shrink-0" 
+                          onClick={() => {
+                            const url = `${window.location.origin}/ward/${ward.accessCode}`;
+                            navigator.clipboard.writeText(url);
+                            toast({
+                              title: "Link copied!",
+                              description: "Ward link copied to clipboard."
+                            });
+                          }}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Button 

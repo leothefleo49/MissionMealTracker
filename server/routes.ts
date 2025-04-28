@@ -861,11 +861,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const verificationCode = generateVerificationCode();
         
         // Update missionary with the verification token
-        await storage.updateMissionary(mockMissionary.id, {
+        const updatedMissionary = await storage.updateMissionary(mockMissionary.id, {
           consentVerificationToken: verificationCode,
           consentVerificationSentAt: new Date(),
           consentStatus: 'pending'
         });
+        
+        // Make sure we also update our local reference to the missionary
+        Object.assign(mockMissionary, updatedMissionary);
         
         // Prepare consent message following Twilio's best practices
         const consentMessage = 
