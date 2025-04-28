@@ -863,20 +863,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // For custom messages, we'd need to extend the notification system
             // For now, use the sendMealReminder with a modified meal object
             if (!customMessage) {
-              return res.status(400).json({ message: "Message text is required for custom messages" });
-            }
-            
-            try {
-              const customMeal = {
-                ...mockMeal,
-                mealDescription: customMessage,
-                specialNotes: "",
-              };
-              
-              result = await notificationManager.sendMealReminder(mockMissionary as any, customMeal as any);
-            } catch (error) {
-              console.error("Error sending custom test message:", error);
-              result = false;
+              // If mockMeal is available, we can use that as a fallback instead of failing
+              if (mockMeal) {
+                result = await notificationManager.sendMealReminder(mockMissionary as any, mockMeal as any);
+              } else {
+                return res.status(400).json({ message: "Message text is required for custom messages" });
+              }
+            } else {
+              try {
+                const customMeal = {
+                  ...mockMeal,
+                  mealDescription: customMessage,
+                  specialNotes: "",
+                };
+                
+                result = await notificationManager.sendMealReminder(mockMissionary as any, customMeal as any);
+              } catch (error) {
+                console.error("Error sending custom test message:", error);
+                result = false;
+              }
             }
             break;
             
