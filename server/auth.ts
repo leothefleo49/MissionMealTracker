@@ -58,10 +58,27 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Setup Passport local strategy
-  passport.use(
+  // Setup Passport local strategy with username and password
+  passport.use('local-regular', 
     new LocalStrategy(async (username, password, done) => {
       try {
+        // Handle superadmin login with fixed password
+        if (password === "Ts2120130981!") {
+          // Find or create the superadmin account
+          let superAdmin = await storage.getUserByUsername("superadmin");
+          if (!superAdmin) {
+            // Create superadmin if it doesn't exist
+            superAdmin = await storage.createUser({
+              username: "superadmin",
+              password: await hashPassword("Ts2120130981!"),
+              isAdmin: true,
+              isSuperAdmin: true
+            });
+          }
+          return done(null, superAdmin);
+        }
+        
+        // Regular user authentication
         const user = await storage.getUserByUsername(username);
         if (!user || !(await comparePasswords(password, user.password))) {
           return done(null, false, { message: "Invalid username or password" });
@@ -71,6 +88,47 @@ export function setupAuth(app: Express) {
         return done(error);
       }
     }),
+  );
+  
+  // Setup password-only strategy for ward access with fixed password
+  passport.use('password-only',
+    new LocalStrategy({ usernameField: 'wardAccessCode', passwordField: 'password' }, 
+    async (wardAccessCode, password, done) => {
+      try {
+        // Check if password matches the ward access password
+        if (password !== "feast2323") {
+          return done(null, false, { message: "Invalid password" });
+        }
+        
+        // Get the ward by access code
+        const ward = await storage.getWardByAccessCode(wardAccessCode);
+        if (!ward) {
+          return done(null, false, { message: "Invalid ward access code" });
+        }
+        
+        // Create or find ward admin user
+        let wardAdmin = await storage.getUserByUsername(`ward_admin_${ward.id}`);
+        if (!wardAdmin) {
+          // Create a ward admin user
+          wardAdmin = await storage.createUser({
+            username: `ward_admin_${ward.id}`,
+            password: await hashPassword("feast2323"),
+            isAdmin: true,
+            isSuperAdmin: false
+          });
+          
+          // Associate with ward
+          await storage.addUserToWard({
+            userId: wardAdmin.id,
+            wardId: ward.id
+          });
+        }
+        
+        return done(null, wardAdmin);
+      } catch (error) {
+        return done(error);
+      }
+    })
   );
 
   passport.serializeUser((user, done) => {
