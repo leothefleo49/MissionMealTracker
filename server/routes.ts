@@ -14,6 +14,7 @@ import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { setupAuth, createSuperAdminUser } from "./auth";
 import { notificationManager } from "./notifications";
+import { randomBytes } from "crypto";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication

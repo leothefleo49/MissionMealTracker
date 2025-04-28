@@ -134,6 +134,12 @@ export class TwilioService extends BaseNotificationService {
   }
   
   private async sendText(missionary: Missionary, message: string, messageType: string): Promise<boolean> {
+    // Check consent status - don't send messages unless consent has been granted
+    if (missionary.consentStatus !== 'granted') {
+      console.log(`Cannot send SMS to ${missionary.name}: Consent status is ${missionary.consentStatus}`);
+      return false;
+    }
+    
     const charCount = message.length;
     const segmentCount = this.calculateSegments(message);
     let successful = false;
@@ -234,6 +240,12 @@ export class MessengerService extends BaseNotificationService {
   
   private async sendMessengerMessage(missionary: Missionary, message: string, messageType: string): Promise<boolean> {
     if (!missionary.messengerAccount) return false;
+    
+    // Check consent status - don't send messages unless consent has been granted
+    if (missionary.consentStatus !== 'granted') {
+      console.log(`Cannot send Messenger message to ${missionary.name}: Consent status is ${missionary.consentStatus}`);
+      return false;
+    }
     
     const charCount = message.length;
     const segmentCount = 1; // Facebook doesn't have message segments like SMS
