@@ -529,18 +529,6 @@ export function WardManagement() {
                         </span>
                       </div>
                       <div className="flex flex-col xs:flex-row xs:justify-between">
-                        <span className="whitespace-nowrap">Max bookings per address:</span>
-                        <span className="font-medium">
-                          {ward.maxBookingsPerAddress === 0 ? 'Unlimited' : ward.maxBookingsPerAddress}
-                        </span>
-                      </div>
-                      <div className="flex flex-col xs:flex-row xs:justify-between">
-                        <span className="whitespace-nowrap">Max bookings per phone:</span>
-                        <span className="font-medium">
-                          {ward.maxBookingsPerPhone === 0 ? 'Unlimited' : ward.maxBookingsPerPhone}
-                        </span>
-                      </div>
-                      <div className="flex flex-col xs:flex-row xs:justify-between">
                         <span className="whitespace-nowrap">Max bookings per {ward.bookingPeriodDays} days:</span>
                         <span className="font-medium">
                           {ward.maxBookingsPerPeriod === 0 ? 'Unlimited' : ward.maxBookingsPerPeriod}
@@ -632,54 +620,6 @@ export function WardManagement() {
                       </FormItem>
                     )}
                   />
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <FormField
-                      control={editForm.control}
-                      name="maxBookingsPerAddress"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Max bookings per address</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              placeholder="1"
-                              {...field}
-                              onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                              value={field.value}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            0 for unlimited
-                          </FormDescription>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={editForm.control}
-                      name="maxBookingsPerPhone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Max bookings per phone number</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              placeholder="1"
-                              {...field}
-                              onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                              value={field.value}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            0 for unlimited
-                          </FormDescription>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                     <FormField
