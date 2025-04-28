@@ -29,7 +29,7 @@ export type MealStatus = {
 type CalendarGridProps = {
   onSelectDate: (date: Date) => void;
   selectedDate?: Date | null;
-  missionaryType: "elders" | "sisters";
+  missionaryType: string;
   startMonth?: Date;
   maxMonths?: number;
 };
@@ -175,10 +175,14 @@ export function CalendarGrid({
               dayClass = "missionary-booked-sisters";
             }
             
-            // Check if this day is available for the selected missionary type
+            // Check if this day is available for the selected missionary
+            // When missionaryType is a numeric ID, the calendar doesn't block days based on type
+            const isMissionaryId = !isNaN(parseInt(missionaryType, 10));
             const isDayUnavailable = 
-              (missionaryType === "elders" && mealStatus.eldersBooked) ||
-              (missionaryType === "sisters" && mealStatus.sistersBooked);
+              !isMissionaryId && (
+                (missionaryType === "elders" && mealStatus.eldersBooked) ||
+                (missionaryType === "sisters" && mealStatus.sistersBooked)
+              );
             
             // Check if the date is within the booking range
             const isOutsideBookingRange = !isWithinBookingRange(day);

@@ -24,7 +24,7 @@ export default function WardPage() {
   const { accessCode } = params;
   const [, setLocation] = useLocation();
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [missionaryType, setMissionaryType] = useState<"elders" | "sisters">("elders");
+  const [missionaryType, setMissionaryType] = useState<string>("");
   const [activeTab, setActiveTab] = useState("calendar");
   const [filterMissionaryType, setFilterMissionaryType] = useState("all");
   const [sortOrder, setSortOrder] = useState("date-asc");
@@ -46,8 +46,16 @@ export default function WardPage() {
   // Fetch missionaries for this ward
   const { data: missionaries, isLoading: loadingMissionaries } = useQuery<any[]>({
     queryKey: ['/api/wards', ward?.id, 'missionaries'],
-    enabled: !!ward?.id,
+    queryFn: () => fetch(`/api/wards/${ward?.id}/missionaries`).then(res => res.json()),
+    enabled: !!ward?.id
   });
+
+  // Set default missionary when missionaries data changes
+  useEffect(() => {
+    if (missionaries && missionaries.length > 0 && !missionaryType) {
+      setMissionaryType(missionaries[0].id.toString());
+    }
+  }, [missionaries, missionaryType]);
   
   // Fetch upcoming meals
   const now = new Date();
@@ -79,10 +87,10 @@ export default function WardPage() {
     setSelectedDate(date);
   };
   
-  // Handle missionary type selection
-  const handleMissionaryTypeChange = (value: "elders" | "sisters") => {
+  // Handle missionary selection
+  const handleMissionaryTypeChange = (value: string) => {
     setMissionaryType(value);
-    setSelectedDate(null); // Reset selected date when changing missionary type
+    setSelectedDate(null); // Reset selected date when changing missionary
   };
   
   // Handle form cancellation
