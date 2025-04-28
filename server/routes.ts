@@ -792,6 +792,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Test message: using formatted phone number ${formattedPhoneNumber}`);
       
+      // For debugging consent issues
+      console.log(`Creating test missionary with consent status: 'approved'`);
+      
       const mockMissionary = {
         id: 999999, // Use a very unlikely ID to avoid collisions
         name: "Test Missionary",

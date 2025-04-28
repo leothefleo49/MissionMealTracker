@@ -134,8 +134,16 @@ export class TwilioService extends BaseNotificationService {
   }
   
   private async sendText(missionary: Missionary, message: string, messageType: string): Promise<boolean> {
+    // Log full missionary object for debugging
+    console.log(`Attempting to send text to missionary: ${JSON.stringify({
+      id: missionary.id,
+      name: missionary.name,
+      phone: missionary.phoneNumber,
+      consentStatus: missionary.consentStatus
+    })}`);
+    
     // Check consent status - don't send messages unless consent has been granted
-    if (missionary.consentStatus !== 'granted') {
+    if (missionary.consentStatus !== 'granted' && missionary.consentStatus !== 'approved') {
       console.log(`Cannot send SMS to ${missionary.name}: Consent status is ${missionary.consentStatus}`);
       return false;
     }
@@ -241,8 +249,16 @@ export class MessengerService extends BaseNotificationService {
   private async sendMessengerMessage(missionary: Missionary, message: string, messageType: string): Promise<boolean> {
     if (!missionary.messengerAccount) return false;
     
+    // Log full missionary object for debugging
+    console.log(`Attempting to send messenger message to missionary: ${JSON.stringify({
+      id: missionary.id,
+      name: missionary.name,
+      messengerAccount: missionary.messengerAccount,
+      consentStatus: missionary.consentStatus
+    })}`);
+    
     // Check consent status - don't send messages unless consent has been granted
-    if (missionary.consentStatus !== 'granted') {
+    if (missionary.consentStatus !== 'granted' && missionary.consentStatus !== 'approved') {
       console.log(`Cannot send Messenger message to ${missionary.name}: Consent status is ${missionary.consentStatus}`);
       return false;
     }
