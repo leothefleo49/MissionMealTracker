@@ -612,7 +612,7 @@ export function WardManagement() {
       
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Ward</DialogTitle>
             <DialogDescription>
@@ -679,7 +679,7 @@ export function WardManagement() {
                     )}
                   />
                   
-                  <div className="grid md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <FormField
                       control={editForm.control}
                       name="maxBookingsPerAddress"
@@ -727,7 +727,7 @@ export function WardManagement() {
                     />
                   </div>
                   
-                  <div className="grid md:grid-cols-2 gap-3 mt-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                     <FormField
                       control={editForm.control}
                       name="maxBookingsPerPeriod"

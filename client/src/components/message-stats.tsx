@@ -227,11 +227,13 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
           </div>
           
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-1 sm:grid-cols-3 w-full">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="wards">By Ward</TabsTrigger>
-              <TabsTrigger value="missionaries">By Missionary</TabsTrigger>
-            </TabsList>
+            <div className="overflow-x-auto">
+              <TabsList className="grid grid-cols-3 w-full min-w-[300px]">
+                <TabsTrigger value="overview" className="text-xs sm:text-sm whitespace-nowrap">Overview</TabsTrigger>
+                <TabsTrigger value="wards" className="text-xs sm:text-sm whitespace-nowrap">By Ward</TabsTrigger>
+                <TabsTrigger value="missionaries" className="text-xs sm:text-sm whitespace-nowrap">By Missionary</TabsTrigger>
+              </TabsList>
+            </div>
             
             <TabsContent value="overview" className="mt-6">
               <Card>
@@ -350,7 +352,7 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
             <TabsContent value="missionaries" className="mt-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Message Usage by Missionary</CardTitle>
+                  <CardTitle className="text-base sm:text-lg md:text-xl">Message Usage by Missionary</CardTitle>
                   <CardDescription>
                     View message volume and cost breakdown by missionary
                   </CardDescription>
