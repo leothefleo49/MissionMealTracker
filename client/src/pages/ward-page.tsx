@@ -190,7 +190,7 @@ export default function WardPage() {
       <main className="flex-grow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Tabs defaultValue="calendar" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-8 border-b border-gray-200 w-full justify-start overflow-x-auto">
+            <TabsList className="mb-8 border-b border-gray-200 w-full justify-start overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
               <TabsTrigger value="calendar" className="px-1 py-3 sm:py-4 text-sm sm:text-base whitespace-nowrap">
                 <Calendar className="w-4 h-4 mr-1 inline md:hidden" />
                 Schedule a Meal
@@ -220,26 +220,34 @@ export default function WardPage() {
                     <Label className="block text-sm font-medium text-gray-700 mb-1">
                       Select Missionaries
                     </Label>
-                    <div className="grid grid-cols-2 gap-2 sm:flex sm:space-x-4">
-                      <Button
-                        type="button"
-                        variant={missionaryType === "elders" ? "default" : "outline"}
-                        className={`py-2 flex justify-center items-center ${missionaryType === "elders" ? "bg-primary text-white" : "border border-gray-300"}`}
-                        onClick={() => handleMissionaryTypeChange("elders")}
-                      >
-                        <User className="h-4 w-4 mr-2" />
-                        <span>Elders</span>
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={missionaryType === "sisters" ? "default" : "outline"}
-                        className={`py-2 flex justify-center items-center ${missionaryType === "sisters" ? "bg-amber-500 text-white" : "border border-gray-300"}`}
-                        onClick={() => handleMissionaryTypeChange("sisters")}
-                      >
-                        <User className="h-4 w-4 mr-2" />
-                        <span>Sisters</span>
-                      </Button>
-                    </div>
+                    {loadingMissionaries ? (
+                      <div className="h-10 flex items-center">
+                        <span className="text-sm text-gray-500">Loading missionaries...</span>
+                      </div>
+                    ) : missionaries && missionaries.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                        {missionaries.map((missionary: any) => (
+                          <Button
+                            key={missionary.id}
+                            type="button"
+                            variant={missionaryType === missionary.id.toString() ? "default" : "outline"}
+                            className={`py-2 flex justify-center items-center ${
+                              missionaryType === missionary.id.toString() 
+                                ? missionary.type === "sisters" ? "bg-amber-500 text-white" : "bg-primary text-white" 
+                                : "border border-gray-300"
+                            }`}
+                            onClick={() => handleMissionaryTypeChange(missionary.id.toString())}
+                          >
+                            <User className="h-4 w-4 mr-2" />
+                            <span>{missionary.name}</span>
+                          </Button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="h-10 flex items-center">
+                        <span className="text-sm text-gray-500">No missionaries available</span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1">
                     <Label className="block text-sm font-medium text-gray-700 mb-1">
