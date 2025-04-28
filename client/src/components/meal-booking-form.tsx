@@ -55,6 +55,7 @@ export function MealBookingForm({ selectedDate, missionaryType, wardId, onCancel
   // Get the selected missionary
   const { data: missionary, isLoading: loadingMissionary } = useQuery<Missionary>({
     queryKey: [`/api/missionaries/${missionaryType}`],
+    queryFn: () => fetch(`/api/missionaries/${missionaryType}`).then(res => res.json()),
     enabled: !!missionaryType && !isNaN(parseInt(missionaryType, 10)),
   });
   
