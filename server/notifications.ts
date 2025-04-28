@@ -244,23 +244,27 @@ export class MessengerService extends BaseNotificationService {
     console.log(`[MESSENGER SIMULATION] Sending message to ${missionary.messengerAccount}: ${message}`);
     successful = true;
     
-    // Log the message statistics to the database
-    try {
-      const messageLog: InsertMessageLog = {
-        missionaryId: missionary.id,
-        wardId: missionary.wardId,
-        messageType,
-        messageContent: message,
-        deliveryMethod: 'messenger',
-        successful,
-        failureReason,
-        charCount,
-        segmentCount
-      };
-      
-      await db.insert(messageLogs).values(messageLog);
-    } catch (dbError) {
-      console.error('Failed to log message statistics:', dbError);
+    // Only log to the database if this is not a test message (id < 999000)
+    // Test messages use ID 999999 which would violate foreign key constraints
+    if (missionary.id < 999000) {
+      // Log the message statistics to the database
+      try {
+        const messageLog: InsertMessageLog = {
+          missionaryId: missionary.id,
+          wardId: missionary.wardId,
+          messageType,
+          messageContent: message,
+          deliveryMethod: 'messenger',
+          successful,
+          failureReason,
+          charCount,
+          segmentCount
+        };
+        
+        await db.insert(messageLogs).values(messageLog);
+      } catch (dbError) {
+        console.error('Failed to log message statistics:', dbError);
+      }
     }
     
     return successful;
