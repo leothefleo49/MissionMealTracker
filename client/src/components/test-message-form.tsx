@@ -102,12 +102,21 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
       const response = await apiRequest("POST", "/api/admin/test-message", data);
       return await response.json();
     },
-    onSuccess: () => {
-      toast({
-        title: "Test message sent",
-        description: "The test message was sent successfully!",
-      });
-      form.reset();
+    onSuccess: (data) => {
+      // Check if this was a consent request vs. an actual message
+      if (data.requiresConsent) {
+        toast({
+          title: "Consent Request Sent",
+          description: "A consent request was sent. The recipient must reply with 'YES' followed by the verification code before receiving actual messages.",
+          duration: 10000,
+        });
+      } else {
+        toast({
+          title: "Test message sent",
+          description: "The test message was sent successfully!",
+        });
+        form.reset();
+      }
     },
     onError: (error: Error) => {
       toast({

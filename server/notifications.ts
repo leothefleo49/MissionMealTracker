@@ -147,8 +147,9 @@ export class TwilioService extends BaseNotificationService {
       consentStatus: missionary.consentStatus
     })}`);
     
-    // Check consent status - don't send messages unless consent has been granted
-    if (missionary.consentStatus !== 'granted' && missionary.consentStatus !== 'approved') {
+    // Check consent status - don't send messages unless consent has been explicitly granted
+    // Only 'granted' is considered valid consent as per Twilio best practices
+    if (missionary.consentStatus !== 'granted') {
       console.log(`Cannot send SMS to ${missionary.name}: Consent status is ${missionary.consentStatus}`);
       return false;
     }
@@ -258,8 +259,9 @@ export class MessengerService extends BaseNotificationService {
       consentStatus: missionary.consentStatus
     })}`);
     
-    // Check consent status - don't send messages unless consent has been granted
-    if (missionary.consentStatus !== 'granted' && missionary.consentStatus !== 'approved') {
+    // Check consent status - don't send messages unless consent has been explicitly granted
+    // Only 'granted' is considered valid consent as per best practices
+    if (missionary.consentStatus !== 'granted') {
       console.log(`Cannot send Messenger message to ${missionary.name}: Consent status is ${missionary.consentStatus}`);
       return false;
     }

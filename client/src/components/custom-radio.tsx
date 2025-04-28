@@ -13,21 +13,27 @@ interface CustomRadioProps {
 
 export function CustomRadio({ value, checked, onChange, label, name, disabled = false }: CustomRadioProps) {
   return (
-    <FormItem className="flex items-start space-x-3 space-y-0 rounded-md border p-3 shadow-sm">
+    <FormItem 
+      className={cn(
+        "flex flex-col sm:flex-row items-center sm:items-start gap-3 rounded-md border p-4 shadow-sm",
+        checked ? "border-primary bg-primary/5" : "border-input",
+        disabled && "opacity-50 cursor-not-allowed"
+      )}
+      onClick={() => !disabled && onChange(value)}
+    >
       <FormControl>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center justify-center">
           <div 
             className={cn(
-              "flex h-5 w-5 items-center justify-center rounded-full border",
+              "flex aspect-square w-6 items-center justify-center rounded-full border-2",
               checked 
-                ? "border-primary bg-primary text-primary-foreground" 
-                : "border-input",
+                ? "border-primary" 
+                : "border-gray-300",
               disabled && "opacity-50 cursor-not-allowed"
             )}
-            onClick={() => !disabled && onChange(value)}
           >
             {checked && (
-              <div className="h-2.5 w-2.5 rounded-full bg-white" />
+              <div className="aspect-square w-3 rounded-full bg-primary" />
             )}
           </div>
           <input 
@@ -41,7 +47,10 @@ export function CustomRadio({ value, checked, onChange, label, name, disabled = 
           />
         </div>
       </FormControl>
-      <FormLabel className={cn("text-sm font-medium", disabled && "opacity-50")}>
+      <FormLabel className={cn(
+        "text-sm font-medium flex-1 text-center sm:text-left cursor-pointer",
+        disabled && "opacity-50"
+      )}>
         {label}
       </FormLabel>
     </FormItem>

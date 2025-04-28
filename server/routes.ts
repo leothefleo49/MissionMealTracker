@@ -814,8 +814,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             weeklySummaryDay: "monday",
             weeklySummaryTime: "08:00",
             wardId,
-            consentStatus: 'granted',
-            consentDate: new Date(),
+            consentStatus: 'pending',
+            consentDate: null,
             consentVerificationToken: null,
             consentVerificationSentAt: null,
             dietaryRestrictions: ""
@@ -854,6 +854,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Handle different message types
       let result = false;
       
+      // First, check if the missionary has consented yet
+      // If not, we need to send a consent request first
+      if (mockMissionary.consentStatus !== 'granted') {
+        // Generate a verification code
+        const verificationCode = generateVerificationCode();
+        
+        // Update missionary with the verification token
+        await storage.updateMissionary(mockMissionary.id, {
+          consentVerificationToken: verificationCode,
+          consentVerificationSentAt: new Date(),
+          consentStatus: 'pending'
+        });
+        
+        // Prepare consent message following Twilio's best practices
+        const consentMessage = 
+          `This is the Ward Missionary Meal Scheduler. To receive meal notifications, reply with YES ${verificationCode}. ` +
+          "Reply STOP at any time to opt out. Msg & data rates may apply.";
+        
+        try {
+          // Send consent message using direct Twilio API to bypass consent checks
+          if (notificationManager.smsService && notificationManager.smsService.twilioClient) {
+            await notificationManager.smsService.twilioClient.messages.create({
+              body: consentMessage,
+              from: notificationManager.smsService.twilioPhoneNumber,
+              to: mockMissionary.phoneNumber
+            });
+            result = true;
+          } else {
+            // Fallback for development without Twilio
+            console.log(`[CONSENT REQUEST] Sending to ${mockMissionary.phoneNumber}: ${consentMessage}`);
+            result = true;
+          }
+          
+          // Return a special message about the consent process
+          return res.status(200).json({ 
+            success: true, 
+            message: "Consent request sent. User must respond with 'YES' before receiving regular messages.",
+            requiresConsent: true
+          });
+        } catch (error) {
+          console.error("Failed to send consent request:", error);
+          return res.status(500).json({ message: "Failed to send consent request" });
+        }
+      }
+      
+      // If consent has been granted, proceed with the regular message
       // For scheduled messages, add to a queue (just mock this for now)
       if (schedulingOption === "scheduled") {
         console.log(`Test message scheduled for ${scheduledDate} at ${scheduledTime}`);
