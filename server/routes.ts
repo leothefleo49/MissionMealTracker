@@ -902,6 +902,199 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Utility function to generate a random 6-digit verification code
+  function generateVerificationCode(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  // Send consent request message to a missionary
+  app.post("/api/missionaries/:id/request-consent", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const missionaryId = parseInt(id, 10);
+      
+      if (isNaN(missionaryId)) {
+        return res.status(400).json({ message: "Invalid missionary ID" });
+      }
+      
+      const missionary = await storage.getMissionary(missionaryId);
+      if (!missionary) {
+        return res.status(404).json({ message: "Missionary not found" });
+      }
+      
+      // Generate a verification code
+      const verificationCode = generateVerificationCode();
+      
+      // Update missionary with the verification token and timestamp
+      await storage.updateMissionary(missionaryId, {
+        consentVerificationToken: verificationCode,
+        consentVerificationSentAt: new Date(),
+        consentStatus: 'pending'
+      });
+      
+      // Create a test missionary object with the same details but ID 999999 to avoid DB logging
+      const testMissionary = {
+        ...missionary,
+        id: 999999
+      };
+      
+      // Prepare consent message
+      const consentMessage = 
+        `This is the Ward Missionary Meal Scheduler. To receive meal notifications, reply with YES ${verificationCode} (example: YES ${verificationCode}). ` +
+        "Reply STOP at any time to opt out of messages. Msg & data rates may apply.";
+      
+      // Send the message without checking consent status (since we're asking for consent)
+      // We're using a custom message directly to bypass consent checks
+      let success = false;
+      
+      try {
+        if (testMissionary.preferredNotification === 'messenger' && testMissionary.messengerAccount) {
+          // For messenger notifications
+          console.log(`[MESSENGER CONSENT REQUEST] Sending to ${testMissionary.messengerAccount}: ${consentMessage}`);
+          success = true;
+        } else {
+          // For SMS notifications - using Twilio client directly to bypass consent checks
+          if (notificationManager.smsService && notificationManager.smsService.twilioClient) {
+            await notificationManager.smsService.twilioClient.messages.create({
+              body: consentMessage,
+              from: notificationManager.smsService.twilioPhoneNumber,
+              to: testMissionary.phoneNumber
+            });
+            success = true;
+          } else {
+            // Fallback for development without Twilio
+            console.log(`[SMS CONSENT REQUEST] Sending to ${testMissionary.phoneNumber}: ${consentMessage}`);
+            success = true;
+          }
+        }
+      } catch (error) {
+        console.error("Failed to send consent request:", error);
+        success = false;
+      }
+      
+      if (success) {
+        res.json({ message: "Consent request sent successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to send consent request" });
+      }
+    } catch (err) {
+      console.error("Error requesting consent:", err);
+      res.status(500).json({ message: "Failed to request consent" });
+    }
+  });
+
+  // Endpoint for Twilio webhook to receive message responses
+  app.post("/api/sms/webhook", async (req, res) => {
+    try {
+      // Extract the message content and sender phone number
+      const { Body: messageBody, From: fromNumber } = req.body;
+      
+      if (!messageBody || !fromNumber) {
+        return res.status(200).send("<Response></Response>");
+      }
+      
+      // Clean up the phone number (Twilio sends it with a + prefix)
+      const phoneNumber = fromNumber.replace(/\s+/g, "");
+      
+      // Try to find the missionary by phone number
+      const missionaries = await storage.getAllMissionaries();
+      const missionary = missionaries.find(m => m.phoneNumber === phoneNumber);
+      
+      if (!missionary) {
+        return res.status(200).send("<Response></Response>");
+      }
+      
+      // Check if this is a consent response
+      const message = messageBody.trim().toLowerCase();
+      
+      if (message.startsWith("yes ")) {
+        const parts = messageBody.trim().split(" ");
+        if (parts.length >= 2) {
+          const code = parts[1];
+          
+          // Verify the code matches the one we sent
+          if (code === missionary.consentVerificationToken) {
+            // Update missionary consent status
+            await storage.updateMissionary(missionary.id, {
+              consentStatus: 'granted',
+              consentDate: new Date()
+            });
+            
+            // Send confirmation
+            const confirmMessage = "Thank you! You have successfully opted in to receive meal notifications. Reply STOP at any time to opt out.";
+            
+            // Create a test missionary to avoid database logging
+            const testMissionary = { ...missionary, id: 999999 };
+            
+            try {
+              if (testMissionary.preferredNotification === 'messenger' && testMissionary.messengerAccount) {
+                console.log(`[MESSENGER CONFIRMATION] Sending to ${testMissionary.messengerAccount}: ${confirmMessage}`);
+              } else {
+                // Use Twilio client directly to bypass consent checks (we just received consent)
+                if (notificationManager.smsService && notificationManager.smsService.twilioClient) {
+                  await notificationManager.smsService.twilioClient.messages.create({
+                    body: confirmMessage,
+                    from: notificationManager.smsService.twilioPhoneNumber,
+                    to: testMissionary.phoneNumber
+                  });
+                } else {
+                  console.log(`[SMS CONFIRMATION] Sending to ${testMissionary.phoneNumber}: ${confirmMessage}`);
+                }
+              }
+            } catch (error) {
+              console.error("Failed to send confirmation message:", error);
+            }
+            
+            return res.status(200).send("<Response></Response>");
+          }
+        }
+      } 
+      else if (message === "stop" || message === "unsubscribe" || message === "cancel") {
+        // Handle opt-out requests
+        await storage.updateMissionary(missionary.id, {
+          consentStatus: 'denied',
+          consentDate: new Date()
+        });
+        
+        return res.status(200).send("<Response></Response>");
+      }
+      
+      // For all other messages, just acknowledge
+      return res.status(200).send("<Response></Response>");
+    } catch (err) {
+      console.error("Error handling SMS webhook:", err);
+      return res.status(200).send("<Response></Response>");
+    }
+  });
+  
+  // Get consent status for a missionary
+  app.get("/api/missionaries/:id/consent-status", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const missionaryId = parseInt(id, 10);
+      
+      if (isNaN(missionaryId)) {
+        return res.status(400).json({ message: "Invalid missionary ID" });
+      }
+      
+      const missionary = await storage.getMissionary(missionaryId);
+      if (!missionary) {
+        return res.status(404).json({ message: "Missionary not found" });
+      }
+      
+      res.json({
+        missionaryId: missionary.id,
+        name: missionary.name,
+        consentStatus: missionary.consentStatus,
+        consentDate: missionary.consentDate,
+        consentVerificationSentAt: missionary.consentVerificationSentAt
+      });
+    } catch (err) {
+      console.error("Error fetching consent status:", err);
+      res.status(500).json({ message: "Failed to fetch consent status" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

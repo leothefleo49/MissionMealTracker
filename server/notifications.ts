@@ -46,7 +46,7 @@ abstract class BaseNotificationService implements INotificationService {
   }
   
   // Calculate SMS segments based on character count
-  protected calculateSegments(message: string): number {
+  public calculateSegments(message: string): number {
     // GSM-7 encoding allows 160 characters per segment
     // Unicode/non-standard characters use UCS-2 encoding, allowing 70 characters per segment
     
@@ -75,8 +75,8 @@ abstract class BaseNotificationService implements INotificationService {
 import twilio from 'twilio';
 
 export class TwilioService extends BaseNotificationService {
-  private twilioClient: any;
-  private twilioPhoneNumber: string;
+  public twilioClient: any;
+  public twilioPhoneNumber: string;
   
   constructor() {
     super();
@@ -436,8 +436,8 @@ export class MessageStatsService {
 
 // Notification Manager handles service selection based on missionary preferences
 export class NotificationManager {
-  private smsService: TwilioService;
-  private messengerService: MessengerService;
+  public smsService: TwilioService;
+  public messengerService: MessengerService;
   private statsService: MessageStatsService;
   
   constructor() {
@@ -446,7 +446,7 @@ export class NotificationManager {
     this.statsService = new MessageStatsService();
   }
   
-  private getServiceForMissionary(missionary: Missionary): BaseNotificationService {
+  public getServiceForMissionary(missionary: Missionary): BaseNotificationService {
     return missionary.preferredNotification === 'messenger' && missionary.messengerAccount 
       ? this.messengerService 
       : this.smsService;
@@ -523,6 +523,45 @@ export class NotificationManager {
   // Get message statistics for a specific ward
   async getWardMessageStats(wardId: number): Promise<MessageStats> {
     return this.statsService.getWardMessageStats(wardId);
+  }
+  
+  // Helper method for sending consent-related messages
+  async sendCustomMessage(missionary: Missionary, message: string, messageType: string): Promise<boolean> {
+    const service = this.getServiceForMissionary(missionary);
+    
+    // We need to bypass the normal consent checks for consent messages
+    // This should only be used for consent-related messages
+    if (service === this.smsService) {
+      // For SMS
+      const charCount = message.length;
+      const segmentCount = this.smsService.calculateSegments(message);
+      let successful = false;
+      
+      try {
+        if (this.smsService.twilioClient) {
+          await this.smsService.twilioClient.messages.create({
+            body: message,
+            from: this.smsService.twilioPhoneNumber,
+            to: missionary.phoneNumber
+          });
+          successful = true;
+        } else {
+          // Fallback for development without Twilio
+          console.log(`[SMS CUSTOM MESSAGE] Sending to ${missionary.phoneNumber}: ${message}`);
+          successful = true;
+        }
+      } catch (error) {
+        console.error("Failed to send custom SMS:", error);
+        successful = false;
+      }
+      
+      return successful;
+    } 
+    else {
+      // For Messenger
+      console.log(`[MESSENGER CUSTOM MESSAGE] Sending to ${missionary.messengerAccount}: ${message}`);
+      return true;
+    }
   }
 }
 
