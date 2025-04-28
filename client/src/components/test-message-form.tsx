@@ -121,11 +121,16 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
     const formattedData = {
       ...data,
       wardId,
+    };
+    
+    // Create a modified version for API submission
+    const apiSubmission = {
+      ...formattedData,
       // Convert date to string format if it exists
       scheduledDate: data.scheduledDate ? format(data.scheduledDate, "yyyy-MM-dd") : undefined,
     };
     
-    sendTestMessageMutation.mutate(formattedData);
+    sendTestMessageMutation.mutate(apiSubmission as any);
   }
   
   return (

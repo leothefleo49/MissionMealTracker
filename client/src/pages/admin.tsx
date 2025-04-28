@@ -585,16 +585,6 @@ export default function Admin() {
                     <WardSelector onWardChange={(ward) => setSelectedWardId(ward?.id || null)} />
                   </div>
                   
-                  {/* Test Message Feature */}
-                  <div className="border rounded-lg p-4 mb-8 bg-gray-50">
-                    <h3 className="text-lg font-medium mb-4">Test Notification System</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Send test messages to verify your notification configuration.
-                      You can send immediate or scheduled test messages to any phone number.
-                    </p>
-                    <TestMessageForm wardId={selectedWardId} />
-                  </div>
-                  
                   {/* Upcoming Meals (placeholder for now) */}
                   <div className="mb-8">
                     <h3 className="text-lg font-medium mb-4">Upcoming Meals</h3>
@@ -632,6 +622,16 @@ export default function Admin() {
                       Select a ward to view statistics or leave empty to see all wards.
                     </p>
                     <WardSelector onWardChange={(ward) => setSelectedWardId(ward?.id || null)} />
+                  </div>
+                  
+                  {/* Test Message Feature */}
+                  <div className="border rounded-lg p-4 mb-8 bg-gray-50">
+                    <h3 className="text-lg font-medium mb-4">Test Notification System</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Send test messages to verify your notification configuration.
+                      You can send immediate or scheduled test messages to any phone number.
+                    </p>
+                    <TestMessageForm wardId={selectedWardId} />
                   </div>
                   
                   {/* Message Statistics Component */}
