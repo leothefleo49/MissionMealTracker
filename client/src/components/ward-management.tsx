@@ -295,7 +295,7 @@ export function WardManagement() {
               Add Ward
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Ward</DialogTitle>
               <DialogDescription>
@@ -390,52 +390,6 @@ export function WardManagement() {
                       </FormItem>
                     )}
                   />
-                  
-                  <div className="grid md:grid-cols-2 gap-3">
-                    <FormField
-                      control={createForm.control}
-                      name="maxBookingsPerAddress"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Max bookings per address</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              placeholder="1"
-                              {...field}
-                              onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            0 for unlimited
-                          </FormDescription>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={createForm.control}
-                      name="maxBookingsPerPhone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Max bookings per phone number</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              placeholder="1"
-                              {...field}
-                              onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            0 for unlimited
-                          </FormDescription>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
                   
                   <div className="grid md:grid-cols-2 gap-3 mt-3">
                     <FormField
