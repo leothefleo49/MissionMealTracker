@@ -91,6 +91,12 @@ export const missionaries = pgTable("missionaries", {
   weeklySummaryDay: text("weekly_summary_day").default("sunday"), // Day of week to send weekly summary
   weeklySummaryTime: text("weekly_summary_time").default("18:00"), // Time to send weekly summary
   useMultipleNotifications: boolean("use_multiple_notifications").default(false), // True if using multiple notification types
+  
+  // Consent management
+  consentStatus: text("consent_status").default("pending").notNull(), // 'pending', 'granted', 'denied'
+  consentDate: timestamp("consent_date"), // When consent was granted or denied
+  consentVerificationToken: text("consent_verification_token"), // Token used for verification
+  consentVerificationSentAt: timestamp("consent_verification_sent_at"), // When verification was sent
 });
 
 export const missionariesRelations = relations(missionaries, ({ one, many }) => ({
