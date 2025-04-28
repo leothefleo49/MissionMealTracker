@@ -216,20 +216,22 @@ export default function Admin() {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-2 w-full">
-                  <TabsTrigger value="missionaries" className="flex items-center justify-center w-full">
-                    <User className="mr-2 h-4 w-4" />
-                    <span className="text-sm">Missionaries</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="meals" className="flex items-center justify-center w-full">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    <span className="text-sm">Meals</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="wards" className="flex items-center justify-center w-full">
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span className="text-sm">Wards</span>
-                  </TabsTrigger>
-                </TabsList>
+                <div className="border-b mb-8">
+                  <TabsList className="mb-0 grid grid-cols-1 sm:grid-cols-3 gap-2 w-full">
+                    <TabsTrigger value="missionaries" className="flex items-center justify-center w-full py-2">
+                      <User className="mr-2 h-4 w-4" />
+                      <span className="text-sm">Missionaries</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="meals" className="flex items-center justify-center w-full py-2">
+                      <Calendar className="mr-2 h-4 w-4" />
+                      <span className="text-sm">Meals</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="wards" className="flex items-center justify-center w-full py-2">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span className="text-sm">Wards</span>
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
                 
                 <TabsContent value="missionaries">
                   {/* Ward Selector */}

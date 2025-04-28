@@ -216,14 +216,14 @@ export function WardManagement() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Ward Management</h2>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-center sm:justify-between items-center gap-4">
+        {/* Title is already being shown by the parent component now */}
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="default">Create New Ward</Button>
+            <Button variant="default" className="w-full sm:w-auto">Create New Ward</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Create New Ward</DialogTitle>
               <DialogDescription>
