@@ -37,11 +37,15 @@ export default function Admin() {
   const [activeTab, setActiveTab] = useState("missionaries");
   const [selectedWardId, setSelectedWardId] = useState<number | null>(null);
 
-  // Get current user
-  const { data: user, isLoading } = useQuery({
-    queryKey: ["/api/user"],
-    retry: false,
-  });
+  // Get current user and selected ward from auth context
+  const { user, isLoading, selectedWard } = useAuth();
+  
+  // Set selected ward ID when selectedWard changes
+  useEffect(() => {
+    if (selectedWard) {
+      setSelectedWardId(selectedWard.id);
+    }
+  }, [selectedWard]);
 
   // Check if user is authenticated and is admin
   if (isLoading) {
