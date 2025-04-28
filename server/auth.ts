@@ -18,6 +18,7 @@ declare global {
       id: number;
       username: string;
       isAdmin: boolean;
+      isSuperAdmin: boolean;
     }
   }
 }
@@ -101,7 +102,8 @@ export function setupAuth(app: Express) {
         return res.status(200).json({
           id: user.id,
           username: user.username,
-          isAdmin: user.isAdmin
+          isAdmin: user.isAdmin,
+          isSuperAdmin: user.isSuperAdmin
         });
       });
     })(req, res, next);
@@ -121,7 +123,8 @@ export function setupAuth(app: Express) {
       res.json({
         id: req.user.id,
         username: req.user.username,
-        isAdmin: req.user.isAdmin
+        isAdmin: req.user.isAdmin,
+        isSuperAdmin: req.user.isSuperAdmin
       });
     } else {
       res.status(401).json({ message: "Not authenticated" });
@@ -147,7 +150,8 @@ export async function createAdminUser() {
       const adminUser = {
         username: "admin",
         password: await hashPassword("admin123"), // This should be changed immediately
-        isAdmin: true
+        isAdmin: true,
+        isSuperAdmin: true
       };
       await storage.createUser(adminUser);
       console.log("Default admin user created");

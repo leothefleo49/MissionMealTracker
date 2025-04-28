@@ -2,7 +2,14 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { insertMealSchema, updateMealSchema, checkMealAvailabilitySchema, insertMissionarySchema } from "@shared/schema";
+import { 
+  insertMealSchema, 
+  updateMealSchema, 
+  checkMealAvailabilitySchema, 
+  insertMissionarySchema,
+  insertWardSchema,
+  insertUserWardSchema
+} from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { setupAuth, createAdminUser } from "./auth";
@@ -16,6 +23,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
     if (!req.isAuthenticated() || !req.user?.isAdmin) {
       return res.status(403).json({ message: 'Access denied: Admin privileges required' });
+    }
+    next();
+  };
+  
+  // Middleware to check if user is superadmin
+  const requireSuperAdmin = (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated() || !req.user?.isSuperAdmin) {
+      return res.status(403).json({ message: 'Access denied: SuperAdmin privileges required' });
     }
     next();
   };
@@ -347,11 +362,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       
-      // Get all meals for the current month
-      const meals = await storage.getMealsByDateRange(startOfMonth, endOfMonth);
+      // Get wardId from query parameter, defaults to user's wards if not provided
+      const wardId = req.query.wardId ? parseInt(req.query.wardId as string, 10) : undefined;
       
-      // Get all missionaries
-      const missionaries = await storage.getAllMissionaries();
+      // Validate ward access if wardId is provided
+      if (wardId) {
+        // Get user's wards
+        const userWards = await storage.getUserWards(req.user!.id);
+        const userWardIds = userWards.map(ward => ward.id);
+        
+        // Check if user has access to this ward or is superadmin
+        if (!req.user!.isSuperAdmin && !userWardIds.includes(wardId)) {
+          return res.status(403).json({ message: 'You do not have access to this ward' });
+        }
+      }
+      
+      // Get meals for this month and optionally filtered by ward
+      const meals = await storage.getMealsByDateRange(startOfMonth, endOfMonth, wardId);
+      
+      // Get all missionaries, optionally filtered by ward
+      const missionaries = wardId 
+        ? await storage.getMissionariesByWard(wardId)
+        : await storage.getAllMissionaries();
       
       const stats = {
         totalMissionaries: missionaries.length,
@@ -372,6 +404,258 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err) {
       console.error('Error fetching admin stats:', err);
       res.status(500).json({ message: 'Failed to fetch statistics' });
+    }
+  });
+  
+  // Ward Management Routes (SuperAdmin only)
+  app.get('/api/admin/wards', requireAdmin, async (req, res) => {
+    try {
+      let wards;
+      
+      // If super admin, get all wards
+      if (req.user!.isSuperAdmin) {
+        wards = await storage.getAllWards();
+      } else {
+        // Regular admin can only see their wards
+        wards = await storage.getUserWards(req.user!.id);
+      }
+      
+      res.json(wards);
+    } catch (err) {
+      console.error('Error fetching wards:', err);
+      res.status(500).json({ message: 'Failed to fetch wards' });
+    }
+  });
+  
+  // Create new ward (SuperAdmin only)
+  app.post('/api/admin/wards', requireSuperAdmin, async (req, res) => {
+    try {
+      const wardData = insertWardSchema.parse(req.body);
+      const ward = await storage.createWard(wardData);
+      res.status(201).json(ward);
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+  
+  // Update ward (SuperAdmin only)
+  app.patch('/api/admin/wards/:id', requireSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const wardId = parseInt(id, 10);
+      
+      if (isNaN(wardId)) {
+        return res.status(400).json({ message: 'Invalid ward ID' });
+      }
+      
+      const existingWard = await storage.getWard(wardId);
+      if (!existingWard) {
+        return res.status(404).json({ message: 'Ward not found' });
+      }
+      
+      const updatedWard = await storage.updateWard(wardId, req.body);
+      
+      if (updatedWard) {
+        res.json(updatedWard);
+      } else {
+        res.status(404).json({ message: 'Ward not found' });
+      }
+    } catch (err) {
+      console.error('Error updating ward:', err);
+      res.status(500).json({ message: 'Failed to update ward' });
+    }
+  });
+  
+  // Add user to ward (Admin only)
+  app.post('/api/admin/wards/:wardId/users', requireAdmin, async (req, res) => {
+    try {
+      const { wardId } = req.params;
+      const parsedWardId = parseInt(wardId, 10);
+      
+      if (isNaN(parsedWardId)) {
+        return res.status(400).json({ message: 'Invalid ward ID' });
+      }
+      
+      // Check if user is superadmin or has access to this ward
+      if (!req.user!.isSuperAdmin) {
+        const userWards = await storage.getUserWards(req.user!.id);
+        const userWardIds = userWards.map(ward => ward.id);
+        
+        if (!userWardIds.includes(parsedWardId)) {
+          return res.status(403).json({ message: 'You do not have access to this ward' });
+        }
+      }
+      
+      // Validate request body
+      const { userId } = req.body;
+      if (!userId || isNaN(parseInt(userId, 10))) {
+        return res.status(400).json({ message: 'Valid userId is required' });
+      }
+      
+      // Add user to ward
+      const userWard = await storage.addUserToWard({ 
+        userId: parseInt(userId, 10), 
+        wardId: parsedWardId 
+      });
+      
+      res.status(201).json(userWard);
+    } catch (err) {
+      console.error('Error adding user to ward:', err);
+      res.status(500).json({ message: 'Failed to add user to ward' });
+    }
+  });
+  
+  // Remove user from ward (Admin only)
+  app.delete('/api/admin/wards/:wardId/users/:userId', requireAdmin, async (req, res) => {
+    try {
+      const { wardId, userId } = req.params;
+      const parsedWardId = parseInt(wardId, 10);
+      const parsedUserId = parseInt(userId, 10);
+      
+      if (isNaN(parsedWardId) || isNaN(parsedUserId)) {
+        return res.status(400).json({ message: 'Invalid ward ID or user ID' });
+      }
+      
+      // Check if user is superadmin or has access to this ward
+      if (!req.user!.isSuperAdmin) {
+        const userWards = await storage.getUserWards(req.user!.id);
+        const userWardIds = userWards.map(ward => ward.id);
+        
+        if (!userWardIds.includes(parsedWardId)) {
+          return res.status(403).json({ message: 'You do not have access to this ward' });
+        }
+      }
+      
+      // Remove user from ward
+      const success = await storage.removeUserFromWard(parsedUserId, parsedWardId);
+      
+      if (success) {
+        res.status(204).end();
+      } else {
+        res.status(404).json({ message: 'User-ward relationship not found' });
+      }
+    } catch (err) {
+      console.error('Error removing user from ward:', err);
+      res.status(500).json({ message: 'Failed to remove user from ward' });
+    }
+  });
+  
+  // Public access to ward by access code
+  app.get('/api/wards/:accessCode', async (req, res) => {
+    try {
+      const { accessCode } = req.params;
+      
+      if (!accessCode || accessCode.length < 10) {
+        return res.status(400).json({ message: 'Invalid access code' });
+      }
+      
+      const ward = await storage.getWardByAccessCode(accessCode);
+      
+      if (!ward) {
+        return res.status(404).json({ message: 'Ward not found' });
+      }
+      
+      if (!ward.active) {
+        return res.status(403).json({ message: 'This ward is no longer active' });
+      }
+      
+      // Return basic ward info without sensitive data
+      res.json({
+        id: ward.id,
+        name: ward.name,
+        accessCode: ward.accessCode
+      });
+    } catch (err) {
+      console.error('Error accessing ward by code:', err);
+      res.status(500).json({ message: 'Failed to access ward' });
+    }
+  });
+  
+  // Get missionaries by ward and type for the meal calendar
+  app.get('/api/wards/:wardId/missionaries/:type', async (req, res) => {
+    try {
+      const { wardId, type } = req.params;
+      const parsedWardId = parseInt(wardId, 10);
+      
+      if (isNaN(parsedWardId)) {
+        return res.status(400).json({ message: 'Invalid ward ID' });
+      }
+      
+      if (type !== 'elders' && type !== 'sisters') {
+        return res.status(400).json({ message: 'Type must be either "elders" or "sisters"' });
+      }
+      
+      const missionaries = await storage.getMissionariesByType(type, parsedWardId);
+      res.json(missionaries);
+    } catch (err) {
+      console.error('Error fetching missionaries by ward and type:', err);
+      res.status(500).json({ message: 'Failed to fetch missionaries' });
+    }
+  });
+  
+  // Get all meals for a specific ward
+  app.get('/api/wards/:wardId/meals', async (req, res) => {
+    try {
+      const { wardId } = req.params;
+      const parsedWardId = parseInt(wardId, 10);
+      
+      if (isNaN(parsedWardId)) {
+        return res.status(400).json({ message: 'Invalid ward ID' });
+      }
+      
+      const startDateParam = req.query.startDate as string;
+      const endDateParam = req.query.endDate as string;
+      
+      if (!startDateParam || !endDateParam) {
+        return res.status(400).json({ message: 'startDate and endDate are required' });
+      }
+      
+      const startDate = new Date(startDateParam);
+      const endDate = new Date(endDateParam);
+      
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return res.status(400).json({ message: 'Invalid date format' });
+      }
+      
+      const meals = await storage.getMealsByDateRange(startDate, endDate, parsedWardId);
+      
+      // Get missionaries to include their information
+      const missionaries = await storage.getMissionariesByWard(parsedWardId);
+      const missionaryMap = new Map(missionaries.map(m => [m.id, m]));
+      
+      const mealsWithMissionaries = meals.map(meal => ({
+        ...meal,
+        missionary: missionaryMap.get(meal.missionaryId)
+      }));
+      
+      res.json(mealsWithMissionaries);
+    } catch (err) {
+      console.error('Error fetching meals by ward:', err);
+      res.status(500).json({ message: 'Failed to fetch meals' });
+    }
+  });
+  
+  // Check meal availability for a specific ward
+  app.post('/api/wards/:wardId/meals/check-availability', async (req, res) => {
+    try {
+      const { wardId } = req.params;
+      const parsedWardId = parseInt(wardId, 10);
+      
+      if (isNaN(parsedWardId)) {
+        return res.status(400).json({ message: 'Invalid ward ID' });
+      }
+      
+      const data = checkMealAvailabilitySchema.parse({
+        ...req.body,
+        wardId: parsedWardId
+      });
+      
+      const date = new Date(data.date);
+      const isAvailable = await storage.checkMealAvailability(date, data.missionaryType, parsedWardId);
+      
+      res.json({ available: isAvailable });
+    } catch (err) {
+      handleZodError(err, res);
     }
   });
   
