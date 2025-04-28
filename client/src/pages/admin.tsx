@@ -232,7 +232,7 @@ export default function Admin() {
                     </Card>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-6">
                     <div>
                       <h3 className="text-lg font-medium mb-4">Add Missionary</h3>
                       <Form {...form}>
@@ -353,7 +353,7 @@ export default function Admin() {
                             )}
                           />
                           
-                          <Button type="submit">Add Missionary</Button>
+                          <Button type="submit" className="w-full">Add Missionary</Button>
                         </form>
                       </Form>
                     </div>
@@ -367,8 +367,8 @@ export default function Admin() {
                           {missionaries.map((missionary: any) => (
                             <Card key={missionary.id}>
                               <CardContent className="p-4">
-                                <div className="flex items-center justify-between">
-                                  <div>
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                                  <div className="mb-2 sm:mb-0">
                                     <h4 className="font-medium">{missionary.name}</h4>
                                     <p className="text-sm text-gray-500">
                                       {missionary.type.charAt(0).toUpperCase() + missionary.type.slice(1)} • 
