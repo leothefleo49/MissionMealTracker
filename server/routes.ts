@@ -843,7 +843,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hostEmail: "test@example.com",
         mealDescription: mealDetails.mealDescription || "Test meal",
         specialNotes: mealDetails.specialNotes || "",
-        missionaryId: 999999,
+        missionaryId: testMissionary.id, // Use the actual missionary ID for proper logging
         missionary: { type: "elders", name: "Test Missionary" },
         status: "confirmed",
         wardId,
@@ -960,11 +960,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         consentStatus: 'pending'
       });
       
-      // Create a test missionary object with the same details but ID 999999 to avoid DB logging
-      const testMissionary = {
-        ...missionary,
-        id: 999999
-      };
+      // We can use the actual missionary as test message tracking will now work properly
+      const testMissionary = missionary;
       
       // Prepare consent message
       const consentMessage = 
@@ -1051,8 +1048,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Send confirmation
             const confirmMessage = "Thank you! You have successfully opted in to receive meal notifications. Reply STOP at any time to opt out.";
             
-            // Create a test missionary to avoid database logging
-            const testMissionary = { ...missionary, id: 999999 };
+            // Use the actual missionary for sending confirmation messages
+            const testMissionary = missionary;
             
             try {
               if (testMissionary.preferredNotification === 'messenger' && testMissionary.messengerAccount) {
