@@ -72,6 +72,8 @@ abstract class BaseNotificationService implements INotificationService {
 }
 
 // Twilio SMS Service
+import twilio from 'twilio';
+
 export class TwilioService extends BaseNotificationService {
   private twilioClient: any;
   private twilioPhoneNumber: string;
@@ -86,10 +88,10 @@ export class TwilioService extends BaseNotificationService {
       this.twilioPhoneNumber = '';
     } else {
       try {
-        // We don't want to import Twilio if it's not configured to avoid unnecessary errors
-        const twilio = require('twilio');
+        // Initialize the Twilio client with account credentials
         this.twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
         this.twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
+        console.log("Twilio client initialized successfully.");
       } catch (error) {
         console.error("Failed to initialize Twilio client:", error);
         this.twilioClient = null;
