@@ -347,16 +347,17 @@ export function WardManagement() {
                 <div className="space-y-2">
                   <div>
                     <span className="font-semibold">Access URL:</span>
-                    <div className="text-sm mt-1 bg-gray-100 p-2 rounded">
+                    <div className="text-sm mt-1 bg-gray-100 p-2 rounded break-all">
                       {`${window.location.origin}/ward/${ward.accessCode}`}
                     </div>
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-between">
+              <CardFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between">
                 <Button
                   variant="outline"
                   size="sm"
+                  className="w-full sm:w-auto"
                   onClick={() => handleRegenerateAccessCode(ward.id)}
                 >
                   Regenerate URL
@@ -364,6 +365,7 @@ export function WardManagement() {
                 <Button
                   variant="default"
                   size="sm"
+                  className="w-full sm:w-auto"
                   onClick={() => handleEditWard(ward)}
                 >
                   Edit Ward
