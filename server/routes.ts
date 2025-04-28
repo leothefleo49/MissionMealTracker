@@ -777,11 +777,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Set up mock data for testing
+      // Format the phone number to E.164 format
+      // If number doesn't start with +, add the + prefix
+      let formattedPhoneNumber = phoneNumber;
+      if (!formattedPhoneNumber.startsWith('+')) {
+        formattedPhoneNumber = '+' + formattedPhoneNumber;
+      }
+      
+      // For US numbers without country code, add +1 prefix if the number is 10 digits
+      if (formattedPhoneNumber.startsWith('+') && !formattedPhoneNumber.startsWith('+1') && formattedPhoneNumber.length === 11) {
+        formattedPhoneNumber = '+1' + formattedPhoneNumber.substring(1);
+      }
+      
+      console.log(`Test message: using formatted phone number ${formattedPhoneNumber}`);
+      
       const mockMissionary = {
         id: 999999, // Use a very unlikely ID to avoid collisions
         name: "Test Missionary",
         type: "elders",
-        phoneNumber,
+        phoneNumber: formattedPhoneNumber,
         messengerAccount: messengerAccount || "",
         preferredNotification: notificationMethod,
         active: true,
@@ -801,7 +815,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         date: mealDetails.date || new Date().toISOString().split('T')[0],
         startTime: mealDetails.startTime || "17:30",
         hostName: mealDetails.hostName || "Test Host",
-        hostPhone: phoneNumber,
+        hostPhone: formattedPhoneNumber, // Use the properly formatted phone number
         hostEmail: "test@example.com",
         mealDescription: mealDetails.mealDescription || "Test meal",
         specialNotes: mealDetails.specialNotes || "",

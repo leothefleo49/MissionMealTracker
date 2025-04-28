@@ -39,7 +39,7 @@ import { useToast } from "@/hooks/use-toast";
 
 // Schema for test message form
 const testMessageSchema = z.object({
-  phoneNumber: z.string().min(10, "Please enter a valid phone number"),
+  phoneNumber: z.string().min(10, "Please enter a valid phone number with country code (e.g., +1XXXXXXXXXX)"),
   notificationMethod: z.enum(["text", "messenger"]),
   messengerAccount: z.string().optional(),
   messageType: z.enum(["custom", "meal_reminder", "day_of", "weekly_summary"]),
@@ -168,10 +168,10 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                     <FormItem>
                       <FormLabel>Phone Number</FormLabel>
                       <FormControl>
-                        <Input placeholder="+1 555-123-4567" {...field} />
+                        <Input placeholder="+1XXXXXXXXXX" {...field} />
                       </FormControl>
                       <FormDescription>
-                        Enter phone number in any format
+                        Include country code (e.g., +1 for US/Canada)
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
