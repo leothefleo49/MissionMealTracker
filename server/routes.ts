@@ -1122,7 +1122,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Missionary ${m.id} (${m.name}): phone=${m.phoneNumber}`);
       });
       
-      const missionary = missionaries.find(m => m.phoneNumber === phoneNumber);
+      // Try both exact match and normalized match (removing + prefix for better compatibility)
+      let missionary = missionaries.find(m => m.phoneNumber === phoneNumber);
+      
+      // If not found with exact match, try alternative formats
+      if (!missionary) {
+        console.log("Missionary not found with exact phone number match, trying alternative formats...");
+        
+        // Try without the + prefix
+        const numberWithoutPlus = phoneNumber.startsWith('+') ? phoneNumber.substring(1) : phoneNumber;
+        missionary = missionaries.find(m => 
+          m.phoneNumber === numberWithoutPlus || 
+          (m.phoneNumber.startsWith('+') && m.phoneNumber.substring(1) === numberWithoutPlus)
+        );
+        
+        if (missionary) {
+          console.log(`Found missionary ${missionary.id} using alternative phone format matching`);
+        }
+      }
       
       if (!missionary) {
         return res.status(200).send("<Response></Response>");
@@ -1131,13 +1148,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if this is a consent response
       const message = messageBody.trim().toLowerCase();
       
-      if (message.startsWith("yes ")) {
+      console.log(`Processing message: "${message}"`);
+      console.log(`Missionary ${missionary.id} verification token: ${missionary.consentVerificationToken}`);
+      
+      // Accept both formats: "YES code" and "yes code" for better user experience
+      if (message.startsWith("yes ") || message.startsWith("YES ")) {
+        console.log("Detected potential consent response");
         const parts = messageBody.trim().split(" ");
         if (parts.length >= 2) {
           const code = parts[1];
+          console.log(`Verification code received: ${code}`);
           
           // Verify the code matches the one we sent
           if (code === missionary.consentVerificationToken) {
+            console.log("Verification code matches! Granting consent.");
             // Update missionary consent status
             await storage.updateMissionary(missionary.id, {
               consentStatus: 'granted',
