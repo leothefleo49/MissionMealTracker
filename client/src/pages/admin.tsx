@@ -139,7 +139,7 @@ export default function Admin() {
 
   function onSubmit(data: z.infer<typeof missionaryFormSchema>) {
     // If no ward is selected, show error
-    if (!data.wardId) {
+    if (!selectedWardId) {
       toast({
         title: "Ward required",
         description: "Please select a ward before adding a missionary.",
@@ -148,13 +148,19 @@ export default function Admin() {
       return;
     }
 
+    // Ensure wardId is a number
+    const formData = {
+      ...data,
+      wardId: selectedWardId
+    };
+
     // Process multipleSettings if selected
-    if (data.notificationScheduleType === "multiple" && data.multipleSettings) {
+    if (formData.notificationScheduleType === "multiple" && formData.multipleSettings) {
       // Process settings based on selected options
       // This would be done on the server side
     }
 
-    createMissionary.mutate(data);
+    createMissionary.mutate(formData);
   }
 
   // Logout handler

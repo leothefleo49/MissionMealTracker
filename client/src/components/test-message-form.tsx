@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -88,6 +88,13 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
       wardId: wardId || 0,
     },
   });
+  
+  // Set initial states based on form default values
+  useEffect(() => {
+    setIsMessenger(form.getValues("notificationMethod") === "messenger");
+    setIsCustomMessage(form.getValues("messageType") === "custom");
+    setIsScheduled(form.getValues("schedulingOption") === "scheduled");
+  }, []);
   
   const sendTestMessageMutation = useMutation({
     mutationFn: async (data: z.infer<typeof testMessageSchema>) => {

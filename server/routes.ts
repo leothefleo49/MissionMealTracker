@@ -82,11 +82,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/missionaries/:type', async (req, res) => {
     try {
       const { type } = req.params;
+      const wardId = parseInt(req.query.wardId as string, 10) || 1; // Default to ward 1 if not specified
+      
       if (type !== 'elders' && type !== 'sisters') {
         return res.status(400).json({ message: 'Type must be either "elders" or "sisters"' });
       }
       
-      const missionaries = await storage.getMissionariesByType(type);
+      const missionaries = await storage.getMissionariesByType(type, wardId);
       res.json(missionaries);
     } catch (err) {
       console.error('Error fetching missionaries by type:', err);
