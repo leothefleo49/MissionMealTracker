@@ -173,14 +173,16 @@ export default function Home() {
             <p className="text-lg text-gray-600 mb-4">
               Are you a ward missionary coordinator? Set up your ward's calendar today.
             </p>
-            <Button 
-              size="lg" 
-              onClick={() => setLocation('/auth')}
-              className="flex items-center gap-2"
-            >
-              <ExternalLink className="h-4 w-4" />
-              Get Started
-            </Button>
+            <div className="flex justify-center">
+              <Button 
+                size="lg" 
+                onClick={() => setLocation('/auth')}
+                className="flex items-center gap-2"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Get Started
+              </Button>
+            </div>
           </div>
         </div>
       </main>

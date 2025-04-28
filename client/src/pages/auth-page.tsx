@@ -70,7 +70,7 @@ export default function AuthPage() {
                         <FormItem>
                           <FormLabel>Username</FormLabel>
                           <FormControl>
-                            <Input placeholder="admin" {...field} />
+                            <Input placeholder="WardMissionFoodCalendar" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

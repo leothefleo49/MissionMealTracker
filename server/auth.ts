@@ -144,17 +144,17 @@ export function setupAuth(app: Express) {
 export async function createAdminUser() {
   try {
     // Check if admin already exists
-    const existingAdmin = await storage.getUserByUsername("admin");
+    const existingAdmin = await storage.getUserByUsername("WardMissionFoodCalendar");
     if (!existingAdmin) {
-      // Create an admin user with default password (should be changed in production)
+      // Create an admin user with specified credentials
       const adminUser = {
-        username: "admin",
-        password: await hashPassword("admin123"), // This should be changed immediately
+        username: "WardMissionFoodCalendar",
+        password: await hashPassword("feast"), 
         isAdmin: true,
         isSuperAdmin: true
       };
       await storage.createUser(adminUser);
-      console.log("Default admin user created");
+      console.log("Admin user created with custom credentials");
     }
   } catch (error) {
     console.error("Error creating admin user:", error);
