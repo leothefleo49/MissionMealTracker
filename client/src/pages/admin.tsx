@@ -189,7 +189,36 @@ export default function Admin() {
       {/* Mobile-friendly tab navigation */}
       <div className="bg-white border-b mb-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-3 gap-2 py-2">
+          {/* For very small screens (folding phones) - Vertical stacked buttons */}
+          <div className="grid grid-cols-1 sm:hidden gap-1 py-1">
+            <Button
+              variant={activeTab === "missionaries" ? "default" : "ghost"}
+              className="flex items-center justify-start py-2"
+              onClick={() => setActiveTab("missionaries")}
+            >
+              <User className="mr-2 h-4 w-4 flex-shrink-0" />
+              <span className="text-sm truncate">Missionaries</span>
+            </Button>
+            <Button
+              variant={activeTab === "meals" ? "default" : "ghost"}
+              className="flex items-center justify-start py-2"
+              onClick={() => setActiveTab("meals")}
+            >
+              <Calendar className="mr-2 h-4 w-4 flex-shrink-0" />
+              <span className="text-sm truncate">Meals</span>
+            </Button>
+            <Button
+              variant={activeTab === "wards" ? "default" : "ghost"}
+              className="flex items-center justify-start py-2"
+              onClick={() => setActiveTab("wards")}
+            >
+              <Settings className="mr-2 h-4 w-4 flex-shrink-0" />
+              <span className="text-sm truncate">Wards</span>
+            </Button>
+          </div>
+          
+          {/* For regular mobile and larger screens - Horizontal buttons */}
+          <div className="hidden sm:grid grid-cols-3 gap-2 py-2">
             <Button
               variant={activeTab === "missionaries" ? "default" : "ghost"}
               className="flex items-center justify-center py-2"
