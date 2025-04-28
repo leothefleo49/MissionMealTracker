@@ -79,7 +79,7 @@ export default function Admin() {
       weeklySummaryDay: z.enum(["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]).optional(),
       weeklySummaryTime: z.string().optional(),
     }).optional(),
-    wardId: z.number(),
+    wardId: z.number().nullable().transform(val => val || 0),
   });
 
   const form = useForm({
@@ -105,7 +105,7 @@ export default function Admin() {
         weeklySummaryDay: "sunday" as const,
         weeklySummaryTime: "08:00",
       },
-      wardId: selectedWardId || undefined,
+      wardId: selectedWardId || 0,
     },
   });
 

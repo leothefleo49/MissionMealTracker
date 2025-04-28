@@ -121,6 +121,7 @@ export type Missionary = typeof missionaries.$inferSelect;
 export const meals = pgTable("meals", {
   id: serial("id").primaryKey(),
   missionaryId: integer("missionary_id").notNull().references(() => missionaries.id),
+  wardId: integer("ward_id").notNull().references(() => wards.id, { onDelete: "cascade" }),
   date: timestamp("date").notNull(),
   startTime: text("start_time").notNull(), // Format: "HH:MM" in 24h format
   hostName: text("host_name").notNull(),
@@ -133,10 +134,12 @@ export const meals = pgTable("meals", {
 
 export const mealsRelations = relations(meals, ({ one }) => ({
   missionary: one(missionaries, { fields: [meals.missionaryId], references: [missionaries.id] }),
+  ward: one(wards, { fields: [meals.wardId], references: [wards.id] }),
 }));
 
 export const insertMealSchema = createInsertSchema(meals).pick({
   missionaryId: true,
+  wardId: true,
   date: true,
   startTime: true,
   hostName: true,
