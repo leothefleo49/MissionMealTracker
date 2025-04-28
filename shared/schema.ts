@@ -82,6 +82,7 @@ export const missionaries = pgTable("missionaries", {
   messengerAccount: text("messenger_account"),
   preferredNotification: text("preferred_notification").default("text").notNull(), // 'text' or 'messenger'
   active: boolean("active").default(true).notNull(),
+  dietaryRestrictions: text("dietary_restrictions"), // Food allergies or dietary restrictions
   
   // Notification settings
   notificationScheduleType: text("notification_schedule_type").default("before_meal").notNull(), // 'before_meal', 'day_of', 'weekly_summary', 'multiple'
@@ -106,6 +107,7 @@ export const insertMissionarySchema = createInsertSchema(missionaries).pick({
   messengerAccount: true,
   preferredNotification: true,
   active: true,
+  dietaryRestrictions: true,
   notificationScheduleType: true,
   hoursBefore: true,
   dayOfTime: true,

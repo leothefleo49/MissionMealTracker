@@ -268,6 +268,7 @@ export class MemStorage implements IStorage {
       id, 
       active: true,
       messengerAccount: insertMissionary.messengerAccount || null,
+      dietaryRestrictions: insertMissionary.dietaryRestrictions || null,
       preferredNotification: insertMissionary.preferredNotification || 'text',
       // Default notification settings if not provided
       notificationScheduleType: insertMissionary.notificationScheduleType || 'before_meal',

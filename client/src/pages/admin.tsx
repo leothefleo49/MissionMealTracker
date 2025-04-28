@@ -70,6 +70,7 @@ export default function Admin() {
     messengerAccount: z.string().optional(),
     preferredNotification: z.enum(["text", "messenger"]),
     active: z.boolean().default(true),
+    dietaryRestrictions: z.string().optional(),
     notificationScheduleType: z.enum(["before_meal", "day_of", "weekly_summary", "multiple"]),
     hoursBefore: z.number().min(1).max(48).optional(),
     dayOfTime: z.string().optional(),
@@ -96,6 +97,7 @@ export default function Admin() {
       messengerAccount: "",
       preferredNotification: "text" as const,
       active: true,
+      dietaryRestrictions: "",
       notificationScheduleType: "before_meal" as const,
       hoursBefore: 3,
       dayOfTime: "08:00",
@@ -385,6 +387,23 @@ export default function Admin() {
                                 </FormControl>
                                 <FormDescription>
                                   Enter their Facebook Messenger account name
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="dietaryRestrictions"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Dietary Restrictions/Allergies (Optional)</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g. gluten-free, peanut allergy, etc." {...field} />
+                                </FormControl>
+                                <FormDescription>
+                                  Enter any dietary restrictions or food allergies
                                 </FormDescription>
                                 <FormMessage />
                               </FormItem>
