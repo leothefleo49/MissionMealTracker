@@ -793,7 +793,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Test message: using formatted phone number ${formattedPhoneNumber}`);
       
       // For debugging consent issues
-      console.log(`Creating test missionary with consent status: 'approved'`);
+      console.log(`Creating test missionary with consent status: 'granted'`);
       
       const mockMissionary = {
         id: 999999, // Use a very unlikely ID to avoid collisions
@@ -811,8 +811,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         wardId,
         createdAt: new Date(),
         updatedAt: new Date(),
-        // Add consent fields for testing
-        consentStatus: 'approved',
+        // Add consent fields for testing - use 'granted' specifically to match exact checks
+        consentStatus: 'granted',
         consentDate: new Date(),
         consentVerificationToken: null,
         consentVerificationSentAt: null
@@ -851,6 +851,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (!mockMeal) {
               return res.status(400).json({ message: "Meal details are required for meal reminders" });
             }
+            console.log('Before sending meal reminder, mockMissionary:', JSON.stringify({
+              id: mockMissionary.id,
+              name: mockMissionary.name,
+              consentStatus: mockMissionary.consentStatus
+            }));
             result = await notificationManager.sendMealReminder(mockMissionary as any, mockMeal as any);
             break;
             

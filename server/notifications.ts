@@ -101,6 +101,11 @@ export class TwilioService extends BaseNotificationService {
   }
 
   async sendMealReminder(missionary: Missionary, meal: Meal): Promise<boolean> {
+    console.log('TwilioService.sendMealReminder, missionary:', JSON.stringify({
+      id: missionary.id,
+      name: missionary.name,
+      consentStatus: missionary.consentStatus
+    }));
     const message = this.formatMealMessage(meal);
     const reminderText = `MEAL REMINDER: ${message} See you soon!`;
     return this.sendText(missionary, reminderText, 'before_meal');
@@ -469,6 +474,11 @@ export class NotificationManager {
   }
   
   async sendMealReminder(missionary: Missionary, meal: Meal): Promise<boolean> {
+    console.log('NotificationManager.sendMealReminder, missionary:', JSON.stringify({
+      id: missionary.id,
+      name: missionary.name,
+      consentStatus: missionary.consentStatus
+    }));
     const service = this.getServiceForMissionary(missionary);
     return service.sendMealReminder(missionary, meal);
   }
