@@ -525,30 +525,32 @@ export function WardManagement() {
               </CardHeader>
               <CardContent>
                 <div className="mb-3">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                     <div>
                       <p className="text-sm font-medium mb-1">Access Code:</p>
-                      <div className="flex items-center gap-2">
-                        <code className="bg-slate-100 px-2 py-1 rounded text-sm">{ward.accessCode}</code>
+                      <div className="flex items-center gap-2 max-w-full overflow-x-auto">
+                        <code className="bg-slate-100 px-2 py-1 rounded text-sm truncate max-w-[180px] sm:max-w-full">{ward.accessCode}</code>
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="h-8 w-8 p-0" 
+                          className="h-8 w-8 p-0 flex-shrink-0" 
                           onClick={() => copyAccessCodeToClipboard(ward.accessCode)}
                         >
                           <Copy className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={() => handleRegenerateAccessCode(ward.id)}
                         disabled={regenerateAccessCodeMutation.isPending}
+                        className="whitespace-nowrap"
                       >
                         <RefreshCw className="h-4 w-4 mr-2" />
-                        Regenerate Code
+                        <span className="hidden sm:inline">Regenerate Code</span>
+                        <span className="sm:hidden">Regenerate</span>
                       </Button>
                       <Button 
                         variant="outline" 
@@ -566,26 +568,26 @@ export function WardManagement() {
                   <div>
                     <h4 className="text-sm font-medium mb-2">Scheduling Settings</h4>
                     <div className="bg-slate-50 p-3 rounded-md border text-sm space-y-2">
-                      <div className="flex justify-between">
-                        <span>Combined bookings:</span>
+                      <div className="flex flex-col xs:flex-row xs:justify-between">
+                        <span className="whitespace-nowrap">Combined bookings:</span>
                         <span className="font-medium">
                           {ward.allowCombinedBookings ? 'Allowed' : 'Not allowed'}
                         </span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Max bookings per address:</span>
+                      <div className="flex flex-col xs:flex-row xs:justify-between">
+                        <span className="whitespace-nowrap">Max bookings per address:</span>
                         <span className="font-medium">
                           {ward.maxBookingsPerAddress === 0 ? 'Unlimited' : ward.maxBookingsPerAddress}
                         </span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Max bookings per phone:</span>
+                      <div className="flex flex-col xs:flex-row xs:justify-between">
+                        <span className="whitespace-nowrap">Max bookings per phone:</span>
                         <span className="font-medium">
                           {ward.maxBookingsPerPhone === 0 ? 'Unlimited' : ward.maxBookingsPerPhone}
                         </span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Max bookings per {ward.bookingPeriodDays} days:</span>
+                      <div className="flex flex-col xs:flex-row xs:justify-between">
+                        <span className="whitespace-nowrap">Max bookings per {ward.bookingPeriodDays} days:</span>
                         <span className="font-medium">
                           {ward.maxBookingsPerPeriod === 0 ? 'Unlimited' : ward.maxBookingsPerPeriod}
                         </span>
