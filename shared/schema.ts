@@ -76,6 +76,14 @@ export const missionaries = pgTable("missionaries", {
   messengerAccount: text("messenger_account"),
   preferredNotification: text("preferred_notification").default("text").notNull(), // 'text' or 'messenger'
   active: boolean("active").default(true).notNull(),
+  
+  // Notification settings
+  notificationScheduleType: text("notification_schedule_type").default("before_meal").notNull(), // 'before_meal', 'day_of', 'weekly_summary', 'multiple'
+  hoursBefore: integer("hours_before").default(3), // Hours before the meal to send notification
+  dayOfTime: text("day_of_time").default("09:00"), // Time of day to send notification for 'day_of' schedule
+  weeklySummaryDay: text("weekly_summary_day").default("sunday"), // Day of week to send weekly summary
+  weeklySummaryTime: text("weekly_summary_time").default("18:00"), // Time to send weekly summary
+  useMultipleNotifications: boolean("use_multiple_notifications").default(false), // True if using multiple notification types
 });
 
 export const missionariesRelations = relations(missionaries, ({ one, many }) => ({
@@ -91,6 +99,12 @@ export const insertMissionarySchema = createInsertSchema(missionaries).pick({
   messengerAccount: true,
   preferredNotification: true,
   active: true,
+  notificationScheduleType: true,
+  hoursBefore: true,
+  dayOfTime: true,
+  weeklySummaryDay: true,
+  weeklySummaryTime: true,
+  useMultipleNotifications: true,
 });
 
 export type InsertMissionary = z.infer<typeof insertMissionarySchema>;

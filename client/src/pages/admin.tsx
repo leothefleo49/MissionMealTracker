@@ -39,6 +39,14 @@ const missionaryFormSchema = z.object({
   preferredNotification: z.enum(["text", "messenger"]),
   active: z.boolean().default(true),
   wardId: z.number().optional(), // Ward ID will be set from the selected ward
+  
+  // Notification settings
+  notificationScheduleType: z.enum(["before_meal", "day_of", "weekly_summary", "multiple"]).default("before_meal"),
+  hoursBefore: z.number().min(1).max(48).default(3),
+  dayOfTime: z.string().default("09:00"),
+  weeklySummaryDay: z.enum(["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]).default("sunday"),
+  weeklySummaryTime: z.string().default("18:00"),
+  useMultipleNotifications: z.boolean().default(false),
 });
 
 export default function Admin() {
@@ -67,6 +75,14 @@ export default function Admin() {
       messengerAccount: "",
       preferredNotification: "text",
       active: true,
+      
+      // Default notification settings
+      notificationScheduleType: "before_meal",
+      hoursBefore: 3,
+      dayOfTime: "09:00",
+      weeklySummaryDay: "sunday",
+      weeklySummaryTime: "18:00",
+      useMultipleNotifications: false,
     },
   });
   
@@ -353,6 +369,158 @@ export default function Admin() {
                             )}
                           />
                           
+                          {/* Notification Settings Section */}
+                          <div className="bg-gray-50 p-4 rounded-lg border">
+                            <h4 className="text-base font-medium mb-2">Notification Settings</h4>
+                            <p className="text-sm text-gray-500 mb-4">Configure when and how missionaries receive notifications about meals</p>
+                            
+                            <FormField
+                              control={form.control}
+                              name="notificationScheduleType"
+                              render={({ field }) => (
+                                <FormItem className="mb-4">
+                                  <FormLabel>Notification Schedule Type</FormLabel>
+                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select notification type" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      <SelectItem value="before_meal">Before Each Meal</SelectItem>
+                                      <SelectItem value="day_of">Morning of Meal Day</SelectItem>
+                                      <SelectItem value="weekly_summary">Weekly Summary</SelectItem>
+                                      <SelectItem value="multiple">Multiple Notifications</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <FormDescription>
+                                    Choose when missionaries should receive notifications about meals
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            
+                            {form.watch("notificationScheduleType") === "before_meal" && (
+                              <FormField
+                                control={form.control}
+                                name="hoursBefore"
+                                render={({ field }) => (
+                                  <FormItem className="mb-4">
+                                    <FormLabel>Hours Before Meal</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        min={1}
+                                        max={48}
+                                        placeholder="e.g. 3"
+                                        {...field}
+                                        onChange={(e) => field.onChange(parseInt(e.target.value))}
+                                      />
+                                    </FormControl>
+                                    <FormDescription>
+                                      How many hours before the meal should they be notified
+                                    </FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            )}
+                            
+                            {form.watch("notificationScheduleType") === "day_of" && (
+                              <FormField
+                                control={form.control}
+                                name="dayOfTime"
+                                render={({ field }) => (
+                                  <FormItem className="mb-4">
+                                    <FormLabel>Time of Day</FormLabel>
+                                    <FormControl>
+                                      <Input type="time" {...field} />
+                                    </FormControl>
+                                    <FormDescription>
+                                      What time of day to send the notification (24-hour format)
+                                    </FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            )}
+                            
+                            {form.watch("notificationScheduleType") === "weekly_summary" && (
+                              <>
+                                <FormField
+                                  control={form.control}
+                                  name="weeklySummaryDay"
+                                  render={({ field }) => (
+                                    <FormItem className="mb-4">
+                                      <FormLabel>Weekly Summary Day</FormLabel>
+                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select day of week" />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          <SelectItem value="sunday">Sunday</SelectItem>
+                                          <SelectItem value="monday">Monday</SelectItem>
+                                          <SelectItem value="tuesday">Tuesday</SelectItem>
+                                          <SelectItem value="wednesday">Wednesday</SelectItem>
+                                          <SelectItem value="thursday">Thursday</SelectItem>
+                                          <SelectItem value="friday">Friday</SelectItem>
+                                          <SelectItem value="saturday">Saturday</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <FormDescription>
+                                        Day of the week to send the weekly summary
+                                      </FormDescription>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                
+                                <FormField
+                                  control={form.control}
+                                  name="weeklySummaryTime"
+                                  render={({ field }) => (
+                                    <FormItem className="mb-4">
+                                      <FormLabel>Weekly Summary Time</FormLabel>
+                                      <FormControl>
+                                        <Input type="time" {...field} />
+                                      </FormControl>
+                                      <FormDescription>
+                                        Time to send the weekly summary (24-hour format)
+                                      </FormDescription>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </>
+                            )}
+                            
+                            {form.watch("notificationScheduleType") === "multiple" && (
+                              <FormField
+                                control={form.control}
+                                name="useMultipleNotifications"
+                                render={({ field }) => (
+                                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm mb-4">
+                                    <div className="space-y-0.5">
+                                      <FormLabel>Enable Multiple Notifications</FormLabel>
+                                      <FormDescription>
+                                        Send both immediate and weekly summary notifications
+                                      </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            )}
+                          </div>
+                          
                           <Button type="submit" className="w-full">Add Missionary</Button>
                         </form>
                       </Form>
@@ -367,16 +535,33 @@ export default function Admin() {
                           {missionaries.map((missionary: any) => (
                             <Card key={missionary.id}>
                               <CardContent className="p-4">
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                                  <div className="mb-2 sm:mb-0">
+                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
+                                  <div className="mb-4 sm:mb-0">
                                     <h4 className="font-medium">{missionary.name}</h4>
                                     <p className="text-sm text-gray-500">
                                       {missionary.type.charAt(0).toUpperCase() + missionary.type.slice(1)} • 
                                       Phone: {missionary.phoneNumber}
                                     </p>
-                                    <p className="text-xs text-gray-400">
+                                    <p className="text-xs text-gray-400 mb-2">
                                       Notifications via {missionary.preferredNotification}
                                     </p>
+                                    
+                                    {/* Notification schedule info */}
+                                    <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded border">
+                                      <div className="font-medium mb-1">Notification Schedule:</div>
+                                      {missionary.notificationScheduleType === "before_meal" && (
+                                        <p>Notified {missionary.hoursBefore} hours before each meal</p>
+                                      )}
+                                      {missionary.notificationScheduleType === "day_of" && (
+                                        <p>Notified at {missionary.dayOfTime} on the day of each meal</p>
+                                      )}
+                                      {missionary.notificationScheduleType === "weekly_summary" && (
+                                        <p>Receives weekly summary every {missionary.weeklySummaryDay} at {missionary.weeklySummaryTime}</p>
+                                      )}
+                                      {missionary.notificationScheduleType === "multiple" && (
+                                        <p>Receives multiple notifications (custom schedule)</p>
+                                      )}
+                                    </div>
                                   </div>
                                   <div className="flex items-center">
                                     <div className={`w-3 h-3 rounded-full mr-2 ${missionary.active ? 'bg-green-500' : 'bg-red-500'}`}></div>
