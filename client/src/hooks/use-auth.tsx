@@ -4,16 +4,27 @@ import {
   useMutation,
   UseMutationResult,
 } from "@tanstack/react-query";
-import { User } from "@shared/schema";
-import { apiRequest, queryClient } from "../lib/queryClient";
+import { Ward } from "@shared/schema";
+import { apiRequest, queryClient, getQueryFn } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
+// Define User type here since the server may return additional properties
+interface AuthUser {
+  id: number;
+  username: string;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+}
+
 type AuthContextType = {
-  user: User | null;
+  user: AuthUser | null;
   isLoading: boolean;
   error: Error | null;
-  loginMutation: UseMutationResult<User, Error, LoginData>;
+  loginMutation: UseMutationResult<AuthUser, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
+  userWards: Ward[] | null;
+  selectedWard: Ward | null;
+  setSelectedWard: (ward: Ward | null) => void;
 };
 
 type LoginData = {
@@ -26,13 +37,14 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [authInitialized, setAuthInitialized] = useState(false);
+  const [selectedWard, setSelectedWard] = useState<Ward | null>(null);
   
+  // Get current authenticated user
   const {
     data: user,
     error,
     isLoading,
-    refetch
-  } = useQuery<User | null, Error>({
+  } = useQuery<AuthUser | null, Error>({
     queryKey: ["/api/user"],
     queryFn: async () => {
       try {
@@ -47,10 +59,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     enabled: authInitialized,
   });
 
+  // Get user's wards if they are authenticated and an admin
+  const { data: userWards } = useQuery<Ward[], Error>({
+    queryKey: ["/api/admin/wards"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    enabled: !!user?.isAdmin,
+  });
+
   // Initialize auth state
   useEffect(() => {
     setAuthInitialized(true);
   }, []);
+
+  // Set the first ward as selected when wards are first loaded
+  useEffect(() => {
+    if (userWards && userWards.length > 0 && !selectedWard) {
+      setSelectedWard(userWards[0]);
+    }
+  }, [userWards, selectedWard]);
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
@@ -61,8 +87,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return await res.json();
     },
-    onSuccess: (loggedInUser: User) => {
+    onSuccess: (loggedInUser: AuthUser) => {
       queryClient.setQueryData(["/api/user"], loggedInUser);
+      
+      // If the user is an admin, fetch their wards
+      if (loggedInUser.isAdmin) {
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
+      }
+      
       toast({
         title: "Login successful",
         description: `Welcome back, ${loggedInUser.username}!`,
@@ -84,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
+      setSelectedWard(null);
       toast({
         title: "Logged out",
         description: "You have been successfully logged out.",
@@ -102,11 +135,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user: user ?? null,
+        user,
         isLoading,
         error,
         loginMutation,
         logoutMutation,
+        userWards: userWards ?? null,
+        selectedWard,
+        setSelectedWard,
       }}
     >
       {children}
