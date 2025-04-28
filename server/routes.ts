@@ -722,6 +722,162 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Test message endpoint
+  app.post("/api/admin/test-message", requireAdmin, async (req, res) => {
+    try {
+      const {
+        phoneNumber,
+        notificationMethod,
+        messengerAccount,
+        messageType,
+        customMessage,
+        mealDetails,
+        schedulingOption,
+        scheduledDate,
+        scheduledTime,
+        wardId
+      } = req.body;
+      
+      // Basic validation
+      if (!phoneNumber) {
+        return res.status(400).json({ message: "Phone number is required" });
+      }
+      
+      if (notificationMethod === "messenger" && !messengerAccount) {
+        return res.status(400).json({ message: "Messenger account is required for messenger notifications" });
+      }
+      
+      if (messageType === "custom" && !customMessage) {
+        return res.status(400).json({ message: "Message text is required for custom messages" });
+      }
+      
+      // For scheduled messages, we need both date and time
+      if (schedulingOption === "scheduled" && (!scheduledDate || !scheduledTime)) {
+        return res.status(400).json({ message: "Date and time are required for scheduled messages" });
+      }
+      
+      // Get the target ward
+      const ward = await storage.getWard(wardId);
+      if (!ward) {
+        return res.status(404).json({ message: "Ward not found" });
+      }
+      
+      // Check if user is admin of this ward
+      if (!req.user!.isSuperAdmin) {
+        const userWards = await storage.getUserWards(req.user!.id);
+        const hasAccess = userWards.some(w => w.id === wardId);
+        
+        if (!hasAccess) {
+          return res.status(403).json({ message: 'Access denied for this ward' });
+        }
+      }
+      
+      // Set up mock data for testing
+      const mockMissionary = {
+        id: 999999, // Use a very unlikely ID to avoid collisions
+        name: "Test Missionary",
+        type: "elders",
+        phoneNumber,
+        messengerAccount: messengerAccount || "",
+        preferredNotification: notificationMethod,
+        active: true,
+        notificationScheduleType: "before_meal",
+        hoursBefore: 3,
+        dayOfTime: "08:00",
+        weeklySummaryDay: "monday",
+        weeklySummaryTime: "08:00",
+        wardId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      // Set up mock meal
+      const mockMeal = mealDetails ? {
+        id: 999999, // Use a very unlikely ID to avoid collisions
+        date: mealDetails.date || new Date().toISOString().split('T')[0],
+        startTime: mealDetails.startTime || "17:30",
+        hostName: mealDetails.hostName || "Test Host",
+        hostPhone: phoneNumber,
+        hostEmail: "test@example.com",
+        mealDescription: mealDetails.mealDescription || "Test meal",
+        specialNotes: mealDetails.specialNotes || "",
+        missionaryId: 999999,
+        missionary: { type: "elders", name: "Test Missionary" },
+        status: "confirmed",
+        wardId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      } : null;
+      
+      // Handle different message types
+      let result = false;
+      
+      // For scheduled messages, add to a queue (just mock this for now)
+      if (schedulingOption === "scheduled") {
+        console.log(`Test message scheduled for ${scheduledDate} at ${scheduledTime}`);
+        // In a real implementation, you would add this to a database queue
+        result = true;
+      } else {
+        // Send immediate message
+        switch (messageType) {
+          case "meal_reminder":
+            if (!mockMeal) {
+              return res.status(400).json({ message: "Meal details are required for meal reminders" });
+            }
+            result = await notificationManager.sendMealReminder(mockMissionary as any, mockMeal as any);
+            break;
+            
+          case "day_of":
+            if (!mockMeal) {
+              return res.status(400).json({ message: "Meal details are required for day-of reminders" });
+            }
+            result = await notificationManager.sendDayOfReminder(mockMissionary as any, [mockMeal as any]);
+            break;
+            
+          case "weekly_summary":
+            if (!mockMeal) {
+              return res.status(400).json({ message: "Meal details are required for weekly summaries" });
+            }
+            result = await notificationManager.sendWeeklySummary(mockMissionary as any, [mockMeal as any]);
+            break;
+            
+          case "custom":
+            // For custom messages, we'd need to extend the notification system
+            // For now, use the sendMealReminder with a modified meal object
+            if (!customMessage) {
+              return res.status(400).json({ message: "Message text is required for custom messages" });
+            }
+            
+            try {
+              const customMeal = {
+                ...mockMeal,
+                mealDescription: customMessage,
+                specialNotes: "",
+              };
+              
+              result = await notificationManager.sendMealReminder(mockMissionary as any, customMeal as any);
+            } catch (error) {
+              console.error("Error sending custom test message:", error);
+              result = false;
+            }
+            break;
+            
+          default:
+            return res.status(400).json({ message: "Invalid message type" });
+        }
+      }
+      
+      if (result) {
+        res.status(200).json({ success: true, message: "Test message sent successfully" });
+      } else {
+        res.status(500).json({ success: false, message: "Failed to send test message" });
+      }
+    } catch (error) {
+      console.error("Test message error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
   const httpServer = createServer(app);
   return httpServer;
 }
