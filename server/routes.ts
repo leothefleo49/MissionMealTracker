@@ -13,6 +13,7 @@ import {
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { setupAuth, createAdminUser } from "./auth";
+import { notificationManager } from "./notifications";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
@@ -89,6 +90,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(missionaries);
     } catch (err) {
       console.error('Error fetching missionaries by type:', err);
+      res.status(500).json({ message: 'Failed to fetch missionaries' });
+    }
+  });
+  
+  // Get missionaries by ward
+  app.get('/api/admin/missionaries/ward/:wardId', requireAdmin, async (req, res) => {
+    try {
+      const { wardId } = req.params;
+      const parsedWardId = parseInt(wardId, 10);
+      
+      if (isNaN(parsedWardId)) {
+        return res.status(400).json({ message: 'Invalid ward ID' });
+      }
+      
+      // Check if user has access to this ward
+      if (!req.user!.isSuperAdmin) {
+        const userWards = await storage.getUserWards(req.user!.id);
+        const hasAccess = userWards.some(ward => ward.id === parsedWardId);
+        
+        if (!hasAccess) {
+          return res.status(403).json({ message: 'You do not have access to this ward' });
+        }
+      }
+      
+      const missionaries = await storage.getMissionariesByWard(parsedWardId);
+      res.json(missionaries);
+    } catch (err) {
+      console.error('Error fetching missionaries by ward:', err);
       res.status(500).json({ message: 'Failed to fetch missionaries' });
     }
   });
@@ -656,6 +685,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ available: isAvailable });
     } catch (err) {
       handleZodError(err, res);
+    }
+  });
+  
+  // Message statistics API route
+  app.get('/api/message-stats', requireAdmin, async (req, res) => {
+    try {
+      const wardId = req.query.wardId ? parseInt(req.query.wardId as string) : undefined;
+      
+      let stats;
+      if (wardId) {
+        // If user is not super admin, verify they have access to this ward
+        if (!req.user!.isSuperAdmin) {
+          const userWards = await storage.getUserWards(req.user!.id);
+          const hasAccess = userWards.some(ward => ward.id === wardId);
+          
+          if (!hasAccess) {
+            return res.status(403).json({ message: 'You do not have access to this ward' });
+          }
+        }
+        
+        stats = await notificationManager.getWardMessageStats(wardId);
+      } else {
+        // If not super admin, return error since regular admins can only see their wards
+        if (!req.user!.isSuperAdmin) {
+          return res.status(403).json({ message: 'Access to all stats requires super admin privileges' });
+        }
+        
+        stats = await notificationManager.getMessageStats();
+      }
+      
+      res.json(stats);
+    } catch (err) {
+      console.error('Error fetching message statistics:', err);
+      res.status(500).json({ message: 'Failed to fetch message statistics' });
     }
   });
   
