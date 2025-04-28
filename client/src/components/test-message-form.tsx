@@ -34,7 +34,8 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+// import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { CustomRadio } from "@/components/custom-radio";
 import { useToast } from "@/hooks/use-toast";
 
 // Schema for test message form
@@ -238,47 +239,48 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                   <FormItem className="space-y-3">
                     <FormLabel>Message Type</FormLabel>
                     <FormControl>
-                      <RadioGroup
-                        onValueChange={(value: "custom" | "meal_reminder" | "day_of" | "weekly_summary") => {
-                          field.onChange(value);
-                          setIsCustomMessage(value === "custom");
-                        }}
-                        defaultValue={field.value}
-                        className="flex flex-col space-y-1"
-                      >
-                        <FormItem className="flex items-center space-x-3 space-y-0">
-                          <FormControl>
-                            <RadioGroupItem value="custom" />
-                          </FormControl>
-                          <FormLabel className="font-normal">
-                            Custom Message
-                          </FormLabel>
-                        </FormItem>
-                        <FormItem className="flex items-center space-x-3 space-y-0">
-                          <FormControl>
-                            <RadioGroupItem value="meal_reminder" />
-                          </FormControl>
-                          <FormLabel className="font-normal">
-                            Meal Reminder (Before Meal)
-                          </FormLabel>
-                        </FormItem>
-                        <FormItem className="flex items-center space-x-3 space-y-0">
-                          <FormControl>
-                            <RadioGroupItem value="day_of" />
-                          </FormControl>
-                          <FormLabel className="font-normal">
-                            Day-of Reminder
-                          </FormLabel>
-                        </FormItem>
-                        <FormItem className="flex items-center space-x-3 space-y-0">
-                          <FormControl>
-                            <RadioGroupItem value="weekly_summary" />
-                          </FormControl>
-                          <FormLabel className="font-normal">
-                            Weekly Summary
-                          </FormLabel>
-                        </FormItem>
-                      </RadioGroup>
+                      <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
+                        <CustomRadio
+                          name="messageType"
+                          value="custom"
+                          checked={field.value === "custom"}
+                          onChange={(value) => {
+                            field.onChange(value);
+                            setIsCustomMessage(value === "custom");
+                          }}
+                          label="Custom Message"
+                        />
+                        <CustomRadio
+                          name="messageType"
+                          value="meal_reminder"
+                          checked={field.value === "meal_reminder"}
+                          onChange={(value) => {
+                            field.onChange(value);
+                            setIsCustomMessage(value === "custom");
+                          }}
+                          label="Meal Reminder (Before Meal)"
+                        />
+                        <CustomRadio
+                          name="messageType"
+                          value="day_of"
+                          checked={field.value === "day_of"}
+                          onChange={(value) => {
+                            field.onChange(value);
+                            setIsCustomMessage(value === "custom");
+                          }}
+                          label="Day-of Reminder"
+                        />
+                        <CustomRadio
+                          name="messageType"
+                          value="weekly_summary"
+                          checked={field.value === "weekly_summary"}
+                          onChange={(value) => {
+                            field.onChange(value);
+                            setIsCustomMessage(value === "custom");
+                          }}
+                          label="Weekly Summary"
+                        />
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -314,31 +316,28 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                   <FormItem className="space-y-3">
                     <FormLabel>Scheduling</FormLabel>
                     <FormControl>
-                      <RadioGroup
-                        onValueChange={(value: "immediate" | "scheduled") => {
-                          field.onChange(value);
-                          setIsScheduled(value === "scheduled");
-                        }}
-                        defaultValue={field.value}
-                        className="flex flex-col space-y-1"
-                      >
-                        <FormItem className="flex items-center space-x-3 space-y-0">
-                          <FormControl>
-                            <RadioGroupItem value="immediate" />
-                          </FormControl>
-                          <FormLabel className="font-normal">
-                            Send Immediately
-                          </FormLabel>
-                        </FormItem>
-                        <FormItem className="flex items-center space-x-3 space-y-0">
-                          <FormControl>
-                            <RadioGroupItem value="scheduled" />
-                          </FormControl>
-                          <FormLabel className="font-normal">
-                            Schedule for Later
-                          </FormLabel>
-                        </FormItem>
-                      </RadioGroup>
+                      <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
+                        <CustomRadio
+                          name="schedulingOption"
+                          value="immediate"
+                          checked={field.value === "immediate"}
+                          onChange={(value) => {
+                            field.onChange(value);
+                            setIsScheduled(value === "scheduled");
+                          }}
+                          label="Send Immediately"
+                        />
+                        <CustomRadio
+                          name="schedulingOption"
+                          value="scheduled"
+                          checked={field.value === "scheduled"}
+                          onChange={(value) => {
+                            field.onChange(value);
+                            setIsScheduled(value === "scheduled");
+                          }}
+                          label="Schedule for Later"
+                        />
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
