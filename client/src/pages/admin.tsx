@@ -29,6 +29,7 @@ import { WardSelector } from "@/components/ward-selector";
 import { WardManagement } from "@/components/ward-management";
 import MissionaryList from "../components/missionary-list";
 import { MessageStatsComponent } from "@/components/message-stats";
+import { TestMessageForm } from "@/components/test-message-form";
 
 export default function Admin() {
   const [location, navigate] = useLocation();
@@ -572,14 +573,71 @@ export default function Admin() {
                   <CardDescription>View and manage upcoming meals</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {/* Message Statistics */}
-                  <div className="mb-8">
-                    <h3 className="text-lg font-medium mb-4">Message Statistics</h3>
-                    <MessageStatsComponent wardId={selectedWardId || undefined} />
+                  {/* Ward Selector */}
+                  <div className="mb-6">
+                    <div className="flex items-center mb-4">
+                      <Building className="mr-2 h-5 w-5 text-muted-foreground" />
+                      <h3 className="text-lg font-medium">Current Ward</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Select the ward to view and manage meals.
+                    </p>
+                    <WardSelector onWardChange={(ward) => setSelectedWardId(ward?.id || null)} />
                   </div>
                   
-                  {/* Additional meal management features would go here */}
-                  <p className="text-muted-foreground">Select a ward to manage meals in the Missionaries tab.</p>
+                  {/* Test Message Feature */}
+                  <div className="border rounded-lg p-4 mb-8 bg-gray-50">
+                    <h3 className="text-lg font-medium mb-4">Test Notification System</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Send test messages to verify your notification configuration.
+                      You can send immediate or scheduled test messages to any phone number.
+                    </p>
+                    <TestMessageForm wardId={selectedWardId} />
+                  </div>
+                  
+                  {/* Upcoming Meals (placeholder for now) */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-medium mb-4">Upcoming Meals</h3>
+                    {selectedWardId ? (
+                      <p className="text-sm text-muted-foreground">
+                        Upcoming meal management features will be implemented here.
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Please select a ward above to manage upcoming meals.
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          
+          {/* Statistics Tab */}
+          {activeTab === "statistics" && (
+            <div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Message Statistics</CardTitle>
+                  <CardDescription>Track notification performance and costs</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {/* Ward Selector */}
+                  <div className="mb-6">
+                    <div className="flex items-center mb-4">
+                      <Building className="mr-2 h-5 w-5 text-muted-foreground" />
+                      <h3 className="text-lg font-medium">Current Ward</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Select a ward to view statistics or leave empty to see all wards.
+                    </p>
+                    <WardSelector onWardChange={(ward) => setSelectedWardId(ward?.id || null)} />
+                  </div>
+                  
+                  {/* Message Statistics Component */}
+                  <div className="mb-8">
+                    <MessageStatsComponent wardId={selectedWardId || undefined} />
+                  </div>
                 </CardContent>
               </Card>
             </div>
