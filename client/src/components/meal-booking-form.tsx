@@ -33,12 +33,13 @@ const formSchema = z.object({
 
 type BookingFormProps = {
   selectedDate: Date;
-  missionaryType: string; // Changed to string to support missionary IDs
+  missionaryType: string; // This will be the missionary ID or type
+  wardId: number;
   onCancel: () => void;
   onSuccess: () => void;
 };
 
-export function MealBookingForm({ selectedDate, missionaryType, onCancel, onSuccess }: BookingFormProps) {
+export function MealBookingForm({ selectedDate, missionaryType, wardId, onCancel, onSuccess }: BookingFormProps) {
   const timeOptions = getTimeOptions();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -54,7 +55,7 @@ export function MealBookingForm({ selectedDate, missionaryType, onCancel, onSucc
   // Get the selected missionary
   const { data: missionary, isLoading: loadingMissionary } = useQuery<Missionary>({
     queryKey: [`/api/missionaries/${missionaryType}`],
-    enabled: !!missionaryType,
+    enabled: !!missionaryType && !isNaN(parseInt(missionaryType, 10)),
   });
   
   // Form setup
@@ -87,6 +88,7 @@ export function MealBookingForm({ selectedDate, missionaryType, onCancel, onSucc
         hostPhone: values.hostPhone,
         mealDescription: values.mealDescription || "",
         specialNotes: values.specialNotes || "",
+        wardId: wardId
       });
     },
     onSuccess: () => {

@@ -295,10 +295,11 @@ export default function WardPage() {
               />
               
               {/* Booking Form (shown when date is selected) */}
-              {selectedDate && (
+              {selectedDate && ward && (
                 <MealBookingForm
                   selectedDate={selectedDate}
                   missionaryType={missionaryType}
+                  wardId={ward.id}
                   onCancel={handleCancelBooking}
                   onSuccess={handleBookingSuccess}
                 />
