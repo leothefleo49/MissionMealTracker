@@ -793,30 +793,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Test message: using formatted phone number ${formattedPhoneNumber}`);
       
       // For debugging consent issues
-      console.log(`Creating test missionary with consent status: 'granted'`);
+      console.log(`Creating or finding test missionary for stats tracking`);
       
-      const mockMissionary = {
-        id: 999999, // Use a very unlikely ID to avoid collisions
-        name: "Test Missionary",
-        type: "elders",
-        phoneNumber: formattedPhoneNumber,
-        messengerAccount: messengerAccount || "",
-        preferredNotification: notificationMethod,
-        active: true,
-        notificationScheduleType: "before_meal",
-        hoursBefore: 3,
-        dayOfTime: "08:00",
-        weeklySummaryDay: "monday",
-        weeklySummaryTime: "08:00",
-        wardId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        // Add consent fields for testing - use 'granted' specifically to match exact checks
-        consentStatus: 'granted',
-        consentDate: new Date(),
-        consentVerificationToken: null,
-        consentVerificationSentAt: null
-      };
+      // First try to find an existing test missionary for this ward
+      let testMissionary = await storage.getMissionaryByName(wardId, "Test Missionary");
+      
+      // If no test missionary exists for this ward, create one
+      if (!testMissionary) {
+        try {
+          const insertTestMissionary = {
+            name: "Test Missionary",
+            type: "elders",
+            phoneNumber: formattedPhoneNumber,
+            messengerAccount: messengerAccount || "",
+            preferredNotification: notificationMethod,
+            active: true,
+            notificationScheduleType: "before_meal",
+            hoursBefore: 3,
+            dayOfTime: "08:00",
+            weeklySummaryDay: "monday",
+            weeklySummaryTime: "08:00",
+            wardId,
+            consentStatus: 'granted',
+            consentDate: new Date(),
+            consentVerificationToken: null,
+            consentVerificationSentAt: null,
+            dietaryRestrictions: ""
+          };
+          
+          testMissionary = await storage.createMissionary(insertTestMissionary);
+          console.log(`Created new test missionary with ID: ${testMissionary.id}`);
+        } catch (error) {
+          console.error("Failed to create test missionary:", error);
+          return res.status(500).json({ message: "Failed to create test missionary" });
+        }
+      } else {
+        console.log(`Using existing test missionary with ID: ${testMissionary.id}`);
+      }
+      
+      const mockMissionary = testMissionary;
       
       // Set up mock meal
       const mockMeal = mealDetails ? {

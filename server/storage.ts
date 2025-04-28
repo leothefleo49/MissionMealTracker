@@ -24,6 +24,7 @@ export interface IStorage {
   
   // Missionary methods
   getMissionary(id: number): Promise<Missionary | undefined>;
+  getMissionaryByName(wardId: number, name: string): Promise<Missionary | undefined>;
   getMissionariesByType(type: string, wardId: number): Promise<Missionary[]>;
   getMissionariesByWard(wardId: number): Promise<Missionary[]>;
   getAllMissionaries(): Promise<Missionary[]>;
@@ -238,6 +239,12 @@ export class MemStorage implements IStorage {
   // Missionary Methods
   async getMissionary(id: number): Promise<Missionary | undefined> {
     return this.missionaries.get(id);
+  }
+  
+  async getMissionaryByName(wardId: number, name: string): Promise<Missionary | undefined> {
+    return Array.from(this.missionaries.values()).find(
+      missionary => missionary.wardId === wardId && missionary.name === name
+    );
   }
 
   async getMissionariesByType(type: string, wardId: number): Promise<Missionary[]> {

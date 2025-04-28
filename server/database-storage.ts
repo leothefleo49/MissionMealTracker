@@ -114,6 +114,19 @@ export class DatabaseStorage implements IStorage {
     const [missionary] = await db.select().from(missionaries).where(eq(missionaries.id, id));
     return missionary || undefined;
   }
+  
+  async getMissionaryByName(wardId: number, name: string): Promise<Missionary | undefined> {
+    const [missionary] = await db
+      .select()
+      .from(missionaries)
+      .where(
+        and(
+          eq(missionaries.wardId, wardId),
+          eq(missionaries.name, name)
+        )
+      );
+    return missionary || undefined;
+  }
 
   async getMissionariesByType(type: string, wardId: number): Promise<Missionary[]> {
     return await db
