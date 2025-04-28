@@ -168,13 +168,13 @@ export default function Admin() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gray-50 overflow-x-hidden">
       {/* Header */}
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Admin Dashboard</h1>
             </div>
             <div>
               <Button onClick={handleLogout} variant="outline" size="sm">
@@ -249,7 +249,7 @@ export default function Admin() {
 
       {/* Main Content */}
       <main className="flex-grow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pb-10 overflow-x-hidden">
           
           {/* Missionary Management Tab */}
           {activeTab === "missionaries" && (

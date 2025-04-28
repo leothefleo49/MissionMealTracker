@@ -195,25 +195,25 @@ export function WardUsers({ wardId }: WardUsersProps) {
       </div>
       
       {wardUsers && wardUsers.length > 0 ? (
-        <div className="border rounded-md overflow-hidden">
+        <div className="border rounded-md overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Username</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead className="w-16 text-right">Actions</TableHead>
+                <TableHead className="whitespace-nowrap">Username</TableHead>
+                <TableHead className="whitespace-nowrap">Role</TableHead>
+                <TableHead className="w-16 text-right whitespace-nowrap">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {wardUsers.map((user) => (
                 <TableRow key={user.userId}>
-                  <TableCell className="font-medium">
+                  <TableCell className="font-medium whitespace-nowrap">
                     <div className="flex items-center">
-                      <User className="h-4 w-4 mr-2 text-gray-500" />
-                      {user.username}
+                      <User className="h-4 w-4 mr-2 text-gray-500 flex-shrink-0" />
+                      <span className="truncate max-w-[120px] sm:max-w-none">{user.username}</span>
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     {user.isSuperAdmin ? (
                       <Badge className="bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-100">
                         Super Admin
@@ -228,7 +228,7 @@ export function WardUsers({ wardId }: WardUsersProps) {
                       </Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right whitespace-nowrap">
                     <Button
                       variant="ghost"
                       size="icon"
