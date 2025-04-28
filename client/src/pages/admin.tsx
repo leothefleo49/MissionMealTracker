@@ -152,32 +152,36 @@ export default function Admin() {
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center">
-              <Settings className="h-8 w-8 text-primary" />
-              <h1 className="ml-2 text-xl font-bold text-gray-900">Missionary Calendar Admin</h1>
-              {user && (
-                <div className="ml-4 text-sm text-gray-500">
-                  Logged in as: <span className="font-medium">{user.username}</span>
-                </div>
-              )}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
+            <div className="flex items-center mb-3 sm:mb-0">
+              <Settings className="h-8 w-8 text-primary flex-shrink-0" />
+              <div className="ml-2">
+                <h1 className="text-xl font-bold text-gray-900 leading-tight">Admin Panel</h1>
+                {user && (
+                  <div className="text-xs sm:text-sm text-gray-500">
+                    Logged in as: <span className="font-medium">{user.username}</span>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex space-x-2">
               <Button 
                 variant="ghost" 
+                size="sm"
                 className="flex items-center"
                 onClick={() => setLocation('/')}
               >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Calendar
+                <ArrowLeft className="mr-1 h-4 w-4" />
+                <span className="sm:inline">Home</span>
               </Button>
               <Button 
                 variant="outline" 
+                size="sm"
                 className="flex items-center"
                 onClick={handleLogout}
               >
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
+                <LogOut className="mr-1 h-4 w-4" />
+                <span className="sm:inline">Logout</span>
               </Button>
             </div>
           </div>
@@ -196,18 +200,18 @@ export default function Admin() {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="mb-6">
-                  <TabsTrigger value="missionaries">
-                    <User className="mr-2 h-4 w-4" />
-                    Missionaries
+                <TabsList className="mb-6 flex w-full flex-wrap overflow-x-auto">
+                  <TabsTrigger value="missionaries" className="flex-1 min-w-[100px]">
+                    <User className="mr-1 sm:mr-2 h-4 w-4" />
+                    <span className="text-xs sm:text-sm">Missionaries</span>
                   </TabsTrigger>
-                  <TabsTrigger value="meals">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Meal Schedules
+                  <TabsTrigger value="meals" className="flex-1 min-w-[100px]">
+                    <Calendar className="mr-1 sm:mr-2 h-4 w-4" />
+                    <span className="text-xs sm:text-sm">Meals</span>
                   </TabsTrigger>
-                  <TabsTrigger value="wards">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Ward Management
+                  <TabsTrigger value="wards" className="flex-1 min-w-[100px]">
+                    <Settings className="mr-1 sm:mr-2 h-4 w-4" />
+                    <span className="text-xs sm:text-sm">Wards</span>
                   </TabsTrigger>
                 </TabsList>
                 

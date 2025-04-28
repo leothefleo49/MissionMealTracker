@@ -404,13 +404,7 @@ export default function WardPage() {
             <div className="flex items-center">
               <p className="text-sm text-gray-500">&copy; {new Date().getFullYear()} {ward.name} - Missionary Meal Calendar</p>
             </div>
-            <div className="mt-4 md:mt-0">
-              <div className="flex space-x-6">
-                <a href="#" className="text-gray-400 hover:text-gray-500">Help</a>
-                <a href="#" className="text-gray-400 hover:text-gray-500">Privacy</a>
-                <a href="#" className="text-gray-400 hover:text-gray-500">Terms</a>
-              </div>
-            </div>
+            {/* Footer links removed */}
           </div>
         </div>
       </footer>
