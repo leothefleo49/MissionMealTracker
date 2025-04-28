@@ -53,7 +53,7 @@ import { WardUsers } from "./ward-users";
 // Define the zod schema for new ward creation
 const createWardSchema = z.object({
   name: z.string().min(2, { message: "Ward name must be at least 2 characters" }),
-  accessCode: z.string().min(6, { message: "Access code must be at least 6 characters" }).optional(),
+  accessCode: z.string().min(6, { message: "Access code must be at least 6 characters" }).optional().or(z.literal('')),
   description: z.string().optional(),
   allowCombinedBookings: z.boolean().default(false),
   maxBookingsPerAddress: z.number().min(0).default(1),
