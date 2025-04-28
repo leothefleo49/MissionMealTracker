@@ -8,6 +8,13 @@ export const wards = pgTable("wards", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   accessCode: text("access_code").notNull().unique(),
+  description: text("description"),
+  allowCombinedBookings: boolean("allow_combined_bookings").default(false),
+  maxBookingsPerAddress: integer("max_bookings_per_address").default(1),
+  maxBookingsPerPhone: integer("max_bookings_per_phone").default(1),
+  maxBookingsPerPeriod: integer("max_bookings_per_period").default(0), // 0 means unlimited
+  bookingPeriodDays: integer("booking_period_days").default(30), // Default 30 days for tracking limits
+  active: boolean("active").default(true),
 });
 
 export const wardsRelations = relations(wards, ({ many }) => ({

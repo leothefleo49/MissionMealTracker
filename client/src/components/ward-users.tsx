@@ -1,40 +1,10 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/use-auth";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Ward, User } from "@shared/schema";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Plus, Trash, User, UserPlus } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -44,336 +14,264 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { WardSelector } from "./ward-selector";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Trash2 } from "lucide-react";
 
-// Define the schema for adding a user to a ward
-const addUserSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  isAdmin: z.boolean().default(false),
-});
+interface WardUsersProps {
+  wardId: number;
+}
 
-type AddUserFormValues = z.infer<typeof addUserSchema>;
+interface User {
+  id: number;
+  username: string;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+}
 
-export function WardUsers() {
-  const { user, selectedWard } = useAuth();
+interface WardUser {
+  userId: number;
+  wardId: number;
+  username: string;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+}
+
+export function WardUsers({ wardId }: WardUsersProps) {
   const { toast } = useToast();
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
-
-  // Fetch users for the selected ward
-  const { data: wardUsers, isLoading } = useQuery<User[], Error>({
-    queryKey: ["/api/admin/wards", selectedWard?.id, "users"],
+  const [username, setUsername] = useState("");
+  const [userToRemove, setUserToRemove] = useState<WardUser | null>(null);
+  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
+  
+  // Fetch ward users
+  const { data: wardUsers, isLoading } = useQuery<WardUser[]>({
+    queryKey: ["/api/admin/wards", wardId, "users"],
     queryFn: async () => {
-      if (!selectedWard) return [];
-      const res = await fetch(`/api/admin/wards/${selectedWard.id}/users`);
-      if (!res.ok) {
-        throw new Error("Failed to fetch ward users");
+      const response = await fetch(`/api/admin/wards/${wardId}/users`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch ward users');
       }
-      return res.json();
+      return response.json();
     },
-    enabled: !!selectedWard,
+    enabled: !!wardId,
   });
-
-  // Form for adding a new user
-  const addUserForm = useForm<AddUserFormValues>({
-    resolver: zodResolver(addUserSchema),
-    defaultValues: {
-      username: "",
-      password: "",
-      isAdmin: false,
-    },
-  });
-
-  // Create user mutation
-  const createUserMutation = useMutation({
-    mutationFn: async (data: AddUserFormValues) => {
-      if (!selectedWard) throw new Error("No ward selected");
-      
-      // First create the user
-      const createRes = await apiRequest("POST", "/api/admin/users", data);
-      if (!createRes.ok) {
-        const errorData = await createRes.json();
-        throw new Error(errorData.message || "Failed to create user");
-      }
-      const newUser = await createRes.json();
-      
-      // Then add the user to the ward
-      const addToWardRes = await apiRequest(
-        "POST",
-        `/api/admin/wards/${selectedWard.id}/users`,
-        { userId: newUser.id }
-      );
-      
-      if (!addToWardRes.ok) {
-        const errorData = await addToWardRes.json();
-        throw new Error(errorData.message || "Failed to add user to ward");
-      }
-      
-      return newUser;
+  
+  // Add user mutation
+  const addUserMutation = useMutation({
+    mutationFn: async (username: string) => {
+      const res = await apiRequest("POST", `/api/admin/wards/${wardId}/users`, { username });
+      return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/admin/wards", selectedWard?.id, "users"] 
-      });
-      setIsAddUserDialogOpen(false);
-      addUserForm.reset();
       toast({
         title: "User added",
-        description: "The user has been created and added to the ward.",
-        variant: "default",
+        description: "User has been successfully added to the ward.",
       });
+      setIsAddUserDialogOpen(false);
+      setUsername("");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/wards", wardId, "users"] });
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to add user",
-        description: error.message,
+        title: "Error",
+        description: error.message || "Failed to add user. User might not exist or is already added to this ward.",
         variant: "destructive",
       });
     },
   });
-
-  // Remove user from ward mutation
+  
+  // Remove user mutation
   const removeUserMutation = useMutation({
-    mutationFn: async ({ userId }: { userId: number }) => {
-      if (!selectedWard) throw new Error("No ward selected");
-      
-      const res = await apiRequest(
-        "DELETE",
-        `/api/admin/wards/${selectedWard.id}/users/${userId}`,
-        null
-      );
-      
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Failed to remove user from ward");
-      }
-      
-      return { userId };
+    mutationFn: async (userId: number) => {
+      const res = await apiRequest("DELETE", `/api/admin/wards/${wardId}/users/${userId}`);
+      return res.ok;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/admin/wards", selectedWard?.id, "users"] 
-      });
       toast({
         title: "User removed",
-        description: "The user has been removed from the ward.",
-        variant: "default",
+        description: "User has been successfully removed from the ward.",
       });
+      setIsRemoveDialogOpen(false);
+      setUserToRemove(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/wards", wardId, "users"] });
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to remove user",
-        description: error.message,
+        title: "Error",
+        description: error.message || "Failed to remove user. Please try again.",
         variant: "destructive",
       });
     },
   });
-
-  // Handler for add user form submission
-  function onAddUserSubmit(values: AddUserFormValues) {
-    createUserMutation.mutate(values);
-  }
-
-  // Handler for removing a user from a ward
-  function handleRemoveUser(userId: number) {
-    if (window.confirm("Are you sure you want to remove this user from the ward?")) {
-      removeUserMutation.mutate({ userId });
+  
+  // Handle add user submission
+  function handleAddUser() {
+    if (username.trim()) {
+      addUserMutation.mutate(username);
     }
   }
-
-  if (!user?.isAdmin) {
+  
+  // Handle user removal confirmation
+  function handleRemoveUser() {
+    if (userToRemove) {
+      removeUserMutation.mutate(userToRemove.userId);
+    }
+  }
+  
+  function openRemoveDialog(user: WardUser) {
+    setUserToRemove(user);
+    setIsRemoveDialogOpen(true);
+  }
+  
+  if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Ward Users</CardTitle>
-          <CardDescription>
-            You need admin privileges to manage ward users.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="py-2 text-sm text-gray-500">
+        Loading ward users...
+      </div>
     );
   }
-
+  
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-bold">Ward Users</h2>
-          <p className="text-muted-foreground">
-            Manage users who have access to the ward
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-sm font-medium">Ward Users</h3>
+        <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm">
+              <UserPlus className="h-4 w-4 mr-1" />
+              Add User
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add User to Ward</DialogTitle>
+              <DialogDescription>
+                Enter the username of the user you want to add to this ward. The user must already exist in the system.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor="username">
+                  Username
+                </label>
+                <Input
+                  id="username"
+                  placeholder="Enter username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button 
+                disabled={!username.trim() || addUserMutation.isPending} 
+                onClick={handleAddUser}
+              >
+                {addUserMutation.isPending ? "Adding..." : "Add User"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+      
+      {wardUsers && wardUsers.length > 0 ? (
+        <div className="border rounded-md overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Username</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead className="w-16 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {wardUsers.map((user) => (
+                <TableRow key={user.userId}>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center">
+                      <User className="h-4 w-4 mr-2 text-gray-500" />
+                      {user.username}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {user.isSuperAdmin ? (
+                      <Badge className="bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-100">
+                        Super Admin
+                      </Badge>
+                    ) : user.isAdmin ? (
+                      <Badge className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100">
+                        Admin
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">
+                        User
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => openRemoveDialog(user)}
+                    >
+                      <Trash className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <div className="text-center py-4 border rounded-md bg-slate-50">
+          <p className="text-sm text-gray-500">
+            No users have access to this ward yet.
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-          <WardSelector className="w-full sm:w-48" />
-          {selectedWard && (
-            <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="default">Add New User</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add User to Ward</DialogTitle>
-                  <DialogDescription>
-                    Create a new user and add them to {selectedWard.name}.
-                  </DialogDescription>
-                </DialogHeader>
-                <Form {...addUserForm}>
-                  <form onSubmit={addUserForm.handleSubmit(onAddUserSubmit)} className="space-y-4">
-                    <FormField
-                      control={addUserForm.control}
-                      name="username"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Username</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter username" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={addUserForm.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Password</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="password" 
-                              placeholder="Enter password" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={addUserForm.control}
-                      name="isAdmin"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center space-x-2">
-                          <FormControl>
-                            <input
-                              type="checkbox"
-                              checked={field.value}
-                              onChange={field.onChange}
-                              id="isAdmin"
-                              className="rounded text-primary border-input"
-                            />
-                          </FormControl>
-                          <div className="space-y-1">
-                            <FormLabel htmlFor="isAdmin">Admin</FormLabel>
-                            <FormDescription>
-                              Admin users can manage missionaries and view all meals
-                            </FormDescription>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                    <DialogFooter>
-                      <Button
-                        type="submit"
-                        disabled={createUserMutation.isPending}
-                      >
-                        {createUserMutation.isPending ? "Adding..." : "Add User"}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-          )}
-        </div>
-      </div>
-
-      {!selectedWard ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>No Ward Selected</CardTitle>
-            <CardDescription>
-              Please select a ward to manage its users.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      ) : isLoading ? (
-        <div>Loading users...</div>
-      ) : !wardUsers || wardUsers.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>No Users Found</CardTitle>
-            <CardDescription>
-              There are no users assigned to this ward. Add a new user to get started.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Users in {selectedWard.name}</CardTitle>
-            <CardDescription>
-              These users have access to manage this ward.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Username</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {wardUsers.map((wardUser) => (
-                  <TableRow key={wardUser.id}>
-                    <TableCell>{wardUser.username}</TableCell>
-                    <TableCell>
-                      {wardUser.isSuperAdmin ? (
-                        <Badge variant="default" className="bg-purple-500">Super Admin</Badge>
-                      ) : wardUser.isAdmin ? (
-                        <Badge variant="default">Admin</Badge>
-                      ) : (
-                        <Badge variant="outline">User</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {/* Don't allow removing super admin or yourself */}
-                      {!wardUser.isSuperAdmin && wardUser.id !== user?.id && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleRemoveUser(wardUser.id)}
-                                disabled={removeUserMutation.isPending}
-                              >
-                                <Trash2 className="h-4 w-4 text-red-500" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              Remove from ward
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
       )}
+      
+      {/* Remove User Dialog */}
+      <AlertDialog open={isRemoveDialogOpen} onOpenChange={setIsRemoveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove {userToRemove?.username} from this ward? 
+              They will no longer have access to this ward's data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setUserToRemove(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRemoveUser}
+              className="bg-red-500 text-white hover:bg-red-600"
+            >
+              {removeUserMutation.isPending ? "Removing..." : "Remove User"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

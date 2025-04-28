@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MessageStats } from "@shared/schema";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -66,14 +66,16 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
     },
   });
   
-  // Handle error state
-  if (error) {
-    toast({
-      title: "Error",
-      description: "Failed to load message statistics. Please try again.",
-      variant: "destructive",
-    });
-  }
+  // Use useEffect for error handling to avoid re-renders
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load message statistics. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [error, toast]);
   
   // Calculate success rate as a percentage
   const successRate = stats?.totalMessages 
