@@ -329,11 +329,11 @@ export function WardManagement() {
           </CardHeader>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {wards.map((ward) => (
             <Card key={ward.id} className={!ward.active ? "opacity-70" : ""}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-xl">
                   {ward.name}
                   {!ward.active && (
                     <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
@@ -341,23 +341,26 @@ export function WardManagement() {
                     </span>
                   )}
                 </CardTitle>
-                <CardDescription>{ward.description}</CardDescription>
+                {ward.description && (
+                  <CardDescription className="mt-1">{ward.description}</CardDescription>
+                )}
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div>
-                    <span className="font-semibold">Access URL:</span>
-                    <div className="text-sm mt-1 bg-gray-100 p-2 rounded break-all">
-                      {`${window.location.origin}/ward/${ward.accessCode}`}
+                    <p className="font-medium text-sm mb-1.5">Access URL:</p>
+                    <div className="bg-gray-50 p-2 rounded-md border border-gray-200 overflow-x-auto">
+                      <code className="text-xs sm:text-sm break-all select-all text-gray-800">
+                        {`${window.location.origin}/ward/${ward.accessCode}`}
+                      </code>
                     </div>
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between">
+              <CardFooter className="pt-2 grid grid-cols-2 gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full sm:w-auto"
                   onClick={() => handleRegenerateAccessCode(ward.id)}
                 >
                   Regenerate URL
@@ -365,7 +368,6 @@ export function WardManagement() {
                 <Button
                   variant="default"
                   size="sm"
-                  className="w-full sm:w-auto"
                   onClick={() => handleEditWard(ward)}
                 >
                   Edit Ward

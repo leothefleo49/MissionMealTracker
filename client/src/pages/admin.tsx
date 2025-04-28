@@ -635,7 +635,12 @@ export default function Admin() {
                   <div className="space-y-8">
                     {/* Display the Ward Management component for super admins only */}
                     {user?.isSuperAdmin && (
-                      <WardManagement />
+                      <div className="bg-white rounded-lg border shadow-sm">
+                        <div className="p-6">
+                          <h3 className="text-lg font-semibold mb-4">Ward Management</h3>
+                          <WardManagement />
+                        </div>
+                      </div>
                     )}
                     
                     {/* Display the Ward Users component for all admins */}
@@ -651,8 +656,10 @@ export default function Admin() {
                           </CardDescription>
                         </CardHeader>
                         <CardContent>
-                          <div className="bg-gray-100 p-3 rounded-md font-mono text-sm break-all">
-                            {`${window.location.origin}/ward/${selectedWard.accessCode}`}
+                          <div className="bg-gray-100 p-3 rounded-md font-mono text-sm break-all overflow-x-auto">
+                            <code className="text-xs sm:text-sm select-all">
+                              {`${window.location.origin}/ward/${selectedWard.accessCode}`}
+                            </code>
                           </div>
                           <p className="mt-4 text-sm text-muted-foreground">
                             Ward members will use this link to access the ward-specific calendar
@@ -669,6 +676,7 @@ export default function Admin() {
                                 description: "The ward link has been copied to your clipboard.",
                               });
                             }}
+                            className="w-full sm:w-auto"
                           >
                             Copy Ward Link
                           </Button>
