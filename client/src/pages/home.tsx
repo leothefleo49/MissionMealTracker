@@ -28,9 +28,6 @@ export default function Home() {
               </h1>
             </div>
             <div className="hidden md:flex space-x-2">
-              <Button variant="ghost" onClick={() => setLocation('/missionary-portal')}>
-                Missionary Portal
-              </Button>
               <Button 
                 variant="outline" 
                 onClick={() => setLocation('/auth')}
