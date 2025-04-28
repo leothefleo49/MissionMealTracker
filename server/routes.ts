@@ -129,8 +129,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = checkMealAvailabilitySchema.parse(req.body);
       const date = new Date(data.date);
+      const wardId = data.wardId || 1;  // Default to 1 if not provided
       
-      const isAvailable = await storage.checkMealAvailability(date, data.missionaryType);
+      const isAvailable = await storage.checkMealAvailability(date, data.missionaryType, wardId);
       res.json({ available: isAvailable });
     } catch (err) {
       handleZodError(err, res);
@@ -207,7 +208,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check meal availability for this date and missionary type
       const mealDate = new Date(mealData.date);
-      const isAvailable = await storage.checkMealAvailability(mealDate, missionary.type);
+      const wardId = mealData.wardId || 1;
+      const isAvailable = await storage.checkMealAvailability(mealDate, missionary.type, wardId);
       
       if (!isAvailable) {
         return res.status(409).json({ 

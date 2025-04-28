@@ -461,7 +461,7 @@ export default function Admin() {
                               )}
                             />
                             
-                            {form.watch("notificationScheduleType") === "before_meal" ? (
+                            {form.watch("notificationScheduleType") && form.watch("notificationScheduleType").toString() === "before_meal" ? (
                               <FormField
                                 control={form.control}
                                 name="hoursBefore"
@@ -487,7 +487,7 @@ export default function Admin() {
                               />
                             ) : null}
                             
-                            {form.watch("notificationScheduleType") === "day_of" ? (
+                            {form.watch("notificationScheduleType") && form.watch("notificationScheduleType").toString() === "day_of" ? (
                               <FormField
                                 control={form.control}
                                 name="dayOfTime"
@@ -506,7 +506,7 @@ export default function Admin() {
                               />
                             ) : null}
                             
-                            {form.watch("notificationScheduleType") === "weekly_summary" ? (
+                            {form.watch("notificationScheduleType") && form.watch("notificationScheduleType").toString() === "weekly_summary" ? (
                               <>
                                 <FormField
                                   control={form.control}
