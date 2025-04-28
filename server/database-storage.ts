@@ -140,9 +140,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMissionary(insertMissionary: InsertMissionary): Promise<Missionary> {
+    // Ensure consent fields have default values if not explicitly provided
+    const missionaryData = {
+      ...insertMissionary,
+      // Set explicit default for consent status if not provided
+      consentStatus: insertMissionary.consentStatus || 'pending',
+      // Make sure other consent fields are null if not provided
+      consentDate: insertMissionary.consentDate || null,
+      consentVerificationToken: insertMissionary.consentVerificationToken || null,
+      consentVerificationSentAt: insertMissionary.consentVerificationSentAt || null
+    };
+    
     const [missionary] = await db
       .insert(missionaries)
-      .values(insertMissionary)
+      .values(missionaryData)
       .returning();
     return missionary;
   }
