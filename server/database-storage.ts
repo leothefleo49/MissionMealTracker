@@ -251,27 +251,43 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions));
   }
 
-  async checkMealAvailability(date: Date, missionaryType: string, wardId: number): Promise<boolean> {
+  async checkMealAvailability(date: Date, missionaryTypeOrId: string, wardId: number): Promise<boolean> {
     const mealsOnDate = await this.getMealsByDate(date, wardId);
     
-    // Get missionaries of the requested type in this ward
-    const missionaries = await this.getMissionariesByType(missionaryType, wardId);
-    if (missionaries.length === 0) return false;
+    // Check if missionaryTypeOrId is a numeric ID
+    const missionaryId = parseInt(missionaryTypeOrId, 10);
     
-    // Check if any of these missionaries already has a meal on this date
-    for (const missionary of missionaries) {
+    if (!isNaN(missionaryId)) {
+      // This is a missionary ID, check if this specific missionary has a meal on this date
+      const missionary = await this.getMissionary(missionaryId);
+      if (!missionary || missionary.wardId !== wardId) return false;
+      
       const existingMeal = mealsOnDate.find(
-        meal => meal.missionaryId === missionary.id && !meal.cancelled
+        meal => meal.missionaryId === missionaryId && !meal.cancelled
       );
       
-      if (!existingMeal) {
-        // This missionary doesn't have a meal on this date, so it's available
-        return true;
+      // Return true if the missionary doesn't have a meal on this date
+      return !existingMeal;
+    } else {
+      // This is a missionary type, get missionaries of the requested type in this ward
+      const missionaries = await this.getMissionariesByType(missionaryTypeOrId, wardId);
+      if (missionaries.length === 0) return false;
+      
+      // Check if any of these missionaries already has a meal on this date
+      for (const missionary of missionaries) {
+        const existingMeal = mealsOnDate.find(
+          meal => meal.missionaryId === missionary.id && !meal.cancelled
+        );
+        
+        if (!existingMeal) {
+          // This missionary doesn't have a meal on this date, so it's available
+          return true;
+        }
       }
+      
+      // All missionaries of this type already have meals on this date
+      return false;
     }
-    
-    // All missionaries of this type already have meals on this date
-    return false;
   }
 
   async createMeal(insertMeal: InsertMeal): Promise<Meal> {

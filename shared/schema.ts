@@ -178,7 +178,7 @@ export type Meal = typeof meals.$inferSelect;
 // Schema for meal availability checking
 export const checkMealAvailabilitySchema = z.object({
   date: z.string(),
-  missionaryType: z.enum(["elders", "sisters"]),
+  missionaryType: z.string(), // Can be "elders", "sisters", or a missionary ID
   wardId: z.number(),
 });
 

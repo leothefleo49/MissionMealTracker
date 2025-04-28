@@ -221,14 +221,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Missionary not found' });
       }
       
-      // Check meal availability for this date and missionary type
+      // Check meal availability for this date and missionary
       const mealDate = new Date(mealData.date);
       const wardId = mealData.wardId || 1;
-      const isAvailable = await storage.checkMealAvailability(mealDate, missionary.type, wardId);
+      const isAvailable = await storage.checkMealAvailability(mealDate, mealData.missionaryId.toString(), wardId);
       
       if (!isAvailable) {
         return res.status(409).json({ 
-          message: `${missionary.type.charAt(0).toUpperCase() + missionary.type.slice(1)} are already booked for this date` 
+          message: `${missionary.name} is already booked for this date` 
         });
       }
       
