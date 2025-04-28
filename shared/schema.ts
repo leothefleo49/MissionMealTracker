@@ -120,6 +120,10 @@ export const insertMissionarySchema = createInsertSchema(missionaries).pick({
   weeklySummaryDay: true,
   weeklySummaryTime: true,
   useMultipleNotifications: true,
+  consentStatus: true,
+  consentDate: true,
+  consentVerificationToken: true,
+  consentVerificationSentAt: true,
 });
 
 export type InsertMissionary = z.infer<typeof insertMissionarySchema>;

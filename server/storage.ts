@@ -276,7 +276,12 @@ export class MemStorage implements IStorage {
       dayOfTime: insertMissionary.dayOfTime || '09:00',
       weeklySummaryDay: insertMissionary.weeklySummaryDay || 'sunday',
       weeklySummaryTime: insertMissionary.weeklySummaryTime || '18:00',
-      useMultipleNotifications: insertMissionary.useMultipleNotifications || false
+      useMultipleNotifications: insertMissionary.useMultipleNotifications || false,
+      // Consent management fields
+      consentStatus: 'pending' as const,
+      consentDate: null,
+      consentVerificationToken: null,
+      consentVerificationSentAt: null
     };
     this.missionaries.set(id, missionary);
     return missionary;
