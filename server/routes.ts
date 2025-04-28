@@ -807,7 +807,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         weeklySummaryTime: "08:00",
         wardId,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        // Add consent fields for testing
+        consentStatus: 'approved',
+        consentDate: new Date(),
+        consentVerificationToken: null,
+        consentVerificationSentAt: null
       };
       
       // Set up mock meal
