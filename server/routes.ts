@@ -12,13 +12,13 @@ import {
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
-import { setupAuth, createAdminUser } from "./auth";
+import { setupAuth, createSuperAdminUser } from "./auth";
 import { notificationManager } from "./notifications";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
   setupAuth(app);
-  await createAdminUser();
+  await createSuperAdminUser();
   
   // Middleware to check if user is admin
   const requireAdmin = (req: Request, res: Response, next: NextFunction) => {

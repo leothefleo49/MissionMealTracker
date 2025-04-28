@@ -145,13 +145,20 @@ export function setupAuth(app: Express) {
   });
 
   // Auth routes
+  // Main superadmin login (password only)
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err: Error, user: User) => {
+    // Check if this is a password-only authentication request
+    if (req.body.password === "Ts2120130981!" && !req.body.username) {
+      // Auto-fill username for superadmin
+      req.body.username = "superadmin";
+    }
+    
+    passport.authenticate("local-regular", (err: Error, user: User) => {
       if (err) {
         return next(err);
       }
       if (!user) {
-        return res.status(401).json({ message: "Invalid username or password" });
+        return res.status(401).json({ message: "Invalid credentials" });
       }
       req.login(user, (loginErr) => {
         if (loginErr) {
@@ -162,6 +169,36 @@ export function setupAuth(app: Express) {
           username: user.username,
           isAdmin: user.isAdmin,
           isSuperAdmin: user.isSuperAdmin
+        });
+      });
+    })(req, res, next);
+  });
+  
+  // Ward-specific admin login
+  app.post("/api/ward-login", (req, res, next) => {
+    const { wardAccessCode, password } = req.body;
+    
+    if (!wardAccessCode || !password) {
+      return res.status(400).json({ message: "Ward access code and password required" });
+    }
+    
+    passport.authenticate("password-only", (err: Error, user: User) => {
+      if (err) {
+        return next(err);
+      }
+      if (!user) {
+        return res.status(401).json({ message: "Invalid ward access code or password" });
+      }
+      req.login(user, (loginErr) => {
+        if (loginErr) {
+          return next(loginErr);
+        }
+        return res.status(200).json({
+          id: user.id,
+          username: user.username,
+          isAdmin: user.isAdmin,
+          isSuperAdmin: user.isSuperAdmin,
+          wardAccessCode: wardAccessCode
         });
       });
     })(req, res, next);
@@ -198,23 +235,23 @@ export function setupAuth(app: Express) {
   });
 }
 
-// Helper function to create an admin user
-export async function createAdminUser() {
+// Helper function to create super admin user
+export async function createSuperAdminUser() {
   try {
-    // Check if admin already exists
-    const existingAdmin = await storage.getUserByUsername("WardMissionFoodCalendar");
-    if (!existingAdmin) {
-      // Create an admin user with specified credentials
-      const adminUser = {
-        username: "WardMissionFoodCalendar",
-        password: await hashPassword("feast"), 
+    // Check if super admin already exists
+    const existingSuperAdmin = await storage.getUserByUsername("superadmin");
+    if (!existingSuperAdmin) {
+      // Create a super admin user with the fixed password
+      const superAdminUser = {
+        username: "superadmin",
+        password: await hashPassword("Ts2120130981!"), 
         isAdmin: true,
         isSuperAdmin: true
       };
-      await storage.createUser(adminUser);
-      console.log("Admin user created with custom credentials");
+      await storage.createUser(superAdminUser);
+      console.log("Super admin user created with default credentials");
     }
   } catch (error) {
-    console.error("Error creating admin user:", error);
+    console.error("Error creating super admin user:", error);
   }
 }

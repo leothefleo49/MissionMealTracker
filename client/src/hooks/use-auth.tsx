@@ -21,6 +21,7 @@ type AuthContextType = {
   isLoading: boolean;
   error: Error | null;
   loginMutation: UseMutationResult<AuthUser, Error, LoginData>;
+  wardLoginMutation: UseMutationResult<AuthUser, Error, WardLoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
   userWards: Ward[] | null;
   selectedWard: Ward | null;
@@ -28,7 +29,12 @@ type AuthContextType = {
 };
 
 type LoginData = {
-  username: string;
+  username?: string;
+  password: string;
+};
+
+type WardLoginData = {
+  wardAccessCode: string;
   password: string;
 };
 
@@ -109,6 +115,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
   });
+  
+  const wardLoginMutation = useMutation({
+    mutationFn: async (credentials: WardLoginData) => {
+      const res = await apiRequest("POST", "/api/ward-login", credentials);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Invalid ward access code or password");
+      }
+      return await res.json();
+    },
+    onSuccess: (loggedInUser: AuthUser) => {
+      queryClient.setQueryData(["/api/user"], loggedInUser);
+      
+      // If the user is an admin, fetch their wards
+      if (loggedInUser.isAdmin) {
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
+      }
+      
+      toast({
+        title: "Ward login successful",
+        description: "You've successfully logged in as a ward admin",
+        variant: "default",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Ward login failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
@@ -139,6 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         error,
         loginMutation,
+        wardLoginMutation,
         logoutMutation,
         userWards: userWards ?? null,
         selectedWard,
