@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Phone, User, ArrowLeft } from "lucide-react";
+import { Calendar, Phone, User, ArrowLeft, UserPlus } from "lucide-react";
 import { CalendarGrid } from "@/components/calendar-grid";
 import { MealBookingForm } from "@/components/meal-booking-form";
 import { MissionaryContactCard } from "@/components/missionary-contact-card";
