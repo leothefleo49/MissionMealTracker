@@ -80,19 +80,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get missionaries by type
-  app.get('/api/missionaries/:type', async (req, res) => {
+  app.get('/api/missionaries/:typeOrId', async (req, res) => {
     try {
-      const { type } = req.params;
+      const { typeOrId } = req.params;
       const wardId = parseInt(req.query.wardId as string, 10) || 1; // Default to ward 1 if not specified
       
-      if (type !== 'elders' && type !== 'sisters') {
+      // Check if this is a missionary ID (numeric) or a type (elders/sisters)
+      if (!isNaN(parseInt(typeOrId, 10))) {
+        // This is a missionary ID
+        const missionaryId = parseInt(typeOrId, 10);
+        const missionary = await storage.getMissionary(missionaryId);
+        
+        if (!missionary) {
+          return res.status(404).json({ message: 'Missionary not found' });
+        }
+        
+        return res.json(missionary);
+      } 
+      
+      // This is a missionary type
+      if (typeOrId !== 'elders' && typeOrId !== 'sisters') {
         return res.status(400).json({ message: 'Type must be either "elders" or "sisters"' });
       }
       
-      const missionaries = await storage.getMissionariesByType(type, wardId);
+      const missionaries = await storage.getMissionariesByType(typeOrId, wardId);
       res.json(missionaries);
     } catch (err) {
-      console.error('Error fetching missionaries by type:', err);
+      console.error('Error fetching missionaries:', err);
       res.status(500).json({ message: 'Failed to fetch missionaries' });
     }
   });
@@ -602,6 +616,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err) {
       console.error('Error accessing ward by code:', err);
       res.status(500).json({ message: 'Failed to access ward' });
+    }
+  });
+  
+  // Get all missionaries for a specific ward
+  app.get('/api/wards/:wardId/missionaries', async (req, res) => {
+    try {
+      const { wardId } = req.params;
+      const parsedWardId = parseInt(wardId, 10);
+      
+      if (isNaN(parsedWardId)) {
+        return res.status(400).json({ message: 'Invalid ward ID' });
+      }
+      
+      const ward = await storage.getWard(parsedWardId);
+      if (!ward) {
+        return res.status(404).json({ message: 'Ward not found' });
+      }
+      
+      if (!ward.active) {
+        return res.status(403).json({ message: 'This ward is no longer active' });
+      }
+      
+      const missionaries = await storage.getMissionariesByWard(parsedWardId);
+      res.json(missionaries);
+    } catch (err) {
+      console.error('Error fetching missionaries for ward:', err);
+      res.status(500).json({ message: 'Failed to fetch missionaries' });
     }
   });
   
