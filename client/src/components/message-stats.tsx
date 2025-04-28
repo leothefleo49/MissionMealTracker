@@ -227,11 +227,36 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
           </div>
           
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <div className="overflow-x-auto">
-              <TabsList className="grid grid-cols-3 w-full min-w-[300px]">
-                <TabsTrigger value="overview" className="text-xs sm:text-sm whitespace-nowrap">Overview</TabsTrigger>
-                <TabsTrigger value="wards" className="text-xs sm:text-sm whitespace-nowrap">By Ward</TabsTrigger>
-                <TabsTrigger value="missionaries" className="text-xs sm:text-sm whitespace-nowrap">By Missionary</TabsTrigger>
+            {/* For mobile devices, use a vertical list of buttons for better mobile UX */}
+            <div className="block sm:hidden mb-4">
+              <div className="flex flex-col space-y-2">
+                <button
+                  onClick={() => setActiveTab("overview")}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm ${activeTab === "overview" ? "bg-primary text-white" : "bg-gray-100"}`}
+                >
+                  Overview
+                </button>
+                <button
+                  onClick={() => setActiveTab("wards")}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm ${activeTab === "wards" ? "bg-primary text-white" : "bg-gray-100"}`}
+                >
+                  By Ward
+                </button>
+                <button
+                  onClick={() => setActiveTab("missionaries")}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm ${activeTab === "missionaries" ? "bg-primary text-white" : "bg-gray-100"}`}
+                >
+                  By Missionary
+                </button>
+              </div>
+            </div>
+            
+            {/* For desktop, use the normal TabsList */}
+            <div className="hidden sm:block">
+              <TabsList className="grid grid-cols-3 w-full">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="wards">By Ward</TabsTrigger>
+                <TabsTrigger value="missionaries">By Missionary</TabsTrigger>
               </TabsList>
             </div>
             

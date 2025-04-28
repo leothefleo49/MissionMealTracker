@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Calendar, User, Settings, LogOut, Building } from "lucide-react";
+import { ArrowLeft, Calendar, User, Settings, LogOut, Building, BarChart2 } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -208,6 +208,14 @@ export default function Admin() {
               <span className="text-sm truncate">Meals</span>
             </Button>
             <Button
+              variant={activeTab === "statistics" ? "default" : "ghost"}
+              className="flex items-center justify-start py-2"
+              onClick={() => setActiveTab("statistics")}
+            >
+              <BarChart2 className="mr-2 h-4 w-4 flex-shrink-0" />
+              <span className="text-sm truncate">Statistics</span>
+            </Button>
+            <Button
               variant={activeTab === "wards" ? "default" : "ghost"}
               className="flex items-center justify-start py-2"
               onClick={() => setActiveTab("wards")}
@@ -218,7 +226,7 @@ export default function Admin() {
           </div>
           
           {/* For regular mobile and larger screens - Horizontal buttons */}
-          <div className="hidden sm:grid grid-cols-3 gap-2 py-2">
+          <div className="hidden sm:grid grid-cols-4 gap-2 py-2">
             <Button
               variant={activeTab === "missionaries" ? "default" : "ghost"}
               className="flex items-center justify-center py-2"
@@ -234,6 +242,14 @@ export default function Admin() {
             >
               <Calendar className="mr-2 h-4 w-4" />
               <span className="text-sm">Meals</span>
+            </Button>
+            <Button
+              variant={activeTab === "statistics" ? "default" : "ghost"}
+              className="flex items-center justify-center py-2"
+              onClick={() => setActiveTab("statistics")}
+            >
+              <BarChart2 className="mr-2 h-4 w-4" />
+              <span className="text-sm">Statistics</span>
             </Button>
             <Button
               variant={activeTab === "wards" ? "default" : "ghost"}
