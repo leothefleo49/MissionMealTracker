@@ -200,18 +200,18 @@ export default function Admin() {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="mb-6 flex w-full flex-wrap overflow-x-auto">
-                  <TabsTrigger value="missionaries" className="flex-1 min-w-[100px]">
-                    <User className="mr-1 sm:mr-2 h-4 w-4" />
-                    <span className="text-xs sm:text-sm">Missionaries</span>
+                <TabsList className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-2 w-full">
+                  <TabsTrigger value="missionaries" className="flex items-center justify-center w-full">
+                    <User className="mr-2 h-4 w-4" />
+                    <span className="text-sm">Missionaries</span>
                   </TabsTrigger>
-                  <TabsTrigger value="meals" className="flex-1 min-w-[100px]">
-                    <Calendar className="mr-1 sm:mr-2 h-4 w-4" />
-                    <span className="text-xs sm:text-sm">Meals</span>
+                  <TabsTrigger value="meals" className="flex items-center justify-center w-full">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    <span className="text-sm">Meals</span>
                   </TabsTrigger>
-                  <TabsTrigger value="wards" className="flex-1 min-w-[100px]">
-                    <Settings className="mr-1 sm:mr-2 h-4 w-4" />
-                    <span className="text-xs sm:text-sm">Wards</span>
+                  <TabsTrigger value="wards" className="flex items-center justify-center w-full">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span className="text-sm">Wards</span>
                   </TabsTrigger>
                 </TabsList>
                 
