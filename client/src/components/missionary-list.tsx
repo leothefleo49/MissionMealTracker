@@ -7,6 +7,7 @@ import { Pencil, Trash2, Check, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { EditMissionaryDialog } from "./edit-missionary-dialog";
 
 interface Missionary {
   id: number;
@@ -21,6 +22,7 @@ interface Missionary {
   dayOfTime?: string;
   weeklySummaryDay?: string;
   weeklySummaryTime?: string;
+  dietaryRestrictions?: string;
   wardId: number;
 }
 
@@ -29,6 +31,8 @@ interface MissionaryListProps {
 }
 
 export default function MissionaryList({ wardId }: MissionaryListProps) {
+  const [editingMissionary, setEditingMissionary] = useState<Missionary | null>(null);
+  
   const { data: missionaries, isLoading, error } = useQuery({
     queryKey: ["/api/admin/missionaries/ward", wardId],
     queryFn: async () => {
@@ -128,9 +132,20 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
                         {missionary.notificationScheduleType === "before_meal" && missionary.hoursBefore && 
                           ` (${missionary.hoursBefore} hours before)`}
                       </div>
+                      
+                      {missionary.dietaryRestrictions && (
+                        <div className="text-xs text-amber-600 font-medium mt-1">
+                          Dietary: {missionary.dietaryRestrictions}
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="h-8 px-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 px-2"
+                        onClick={() => setEditingMissionary(missionary)}
+                      >
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </div>
@@ -151,5 +166,17 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
     }
   };
   
-  return renderMissionaryList();
+  return (
+    <>
+      {renderMissionaryList()}
+      
+      {editingMissionary && (
+        <EditMissionaryDialog
+          isOpen={!!editingMissionary}
+          onClose={() => setEditingMissionary(null)}
+          missionary={editingMissionary}
+        />
+      )}
+    </>
+  );
 }
