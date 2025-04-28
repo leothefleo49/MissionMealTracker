@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,14 +24,27 @@ export default function MissionaryPortal() {
   
   const wardId = ward?.id;
   
-  // Fetch missionaries data
+  // Fetch missionaries data for this ward
   const { data: missionaries } = useQuery<any[]>({
-    queryKey: ['/api/missionaries', wardId],
+    queryKey: ['/api/wards', wardId, 'missionaries'],
+    queryFn: () => fetch(`/api/wards/${wardId}/missionaries`).then(res => res.json()),
     enabled: !!wardId,
   });
   
-  // Get missionary ID based on type
-  const missionary = missionaries?.find(m => m.type === missionaryType);
+  // Set default selected missionary for compatibility with existing code
+  const [selectedMissionaryId, setSelectedMissionaryId] = useState<string>("");
+  
+  // Initialize the selection once missionaries are loaded
+  // Using useEffect instead of useState for initialization
+  useEffect(() => {
+    if (missionaries && missionaries.length > 0 && !selectedMissionaryId) {
+      const defaultMissionary = missionaries.find(m => m.type === missionaryType) || missionaries[0];
+      setSelectedMissionaryId(defaultMissionary.id.toString());
+    }
+  }, [missionaries, missionaryType, selectedMissionaryId]);
+  
+  // Get missionary ID based on selection
+  const missionary = missionaries?.find(m => m.id.toString() === selectedMissionaryId);
   const missionaryId = missionary?.id;
 
   return (
@@ -70,25 +83,34 @@ export default function MissionaryPortal() {
             </CardHeader>
             
             <CardContent>
-              {/* Missionary Type Selector */}
+              {/* Missionary Selector */}
               <div className="mb-6 flex justify-center">
-                <div className="grid grid-cols-2 gap-4 sm:flex sm:gap-2 max-w-xs w-full">
-                  <Button
-                    variant={missionaryType === "elders" ? "default" : "outline"}
-                    onClick={() => setMissionaryType("elders")}
-                    className="w-full"
-                  >
-                    <User className="mr-2 h-4 w-4" />
-                    Elders
-                  </Button>
-                  <Button
-                    variant={missionaryType === "sisters" ? "default" : "outline"}
-                    className={`w-full ${missionaryType === "sisters" ? "bg-amber-500 hover:bg-amber-600" : ""}`}
-                    onClick={() => setMissionaryType("sisters")}
-                  >
-                    <User className="mr-2 h-4 w-4" />
-                    Sisters
-                  </Button>
+                <div className="max-w-md w-full">
+                  <h3 className="text-sm font-medium mb-2 text-center">Select Missionary</h3>
+                  <div className="grid grid-cols-1 gap-4">
+                    {missionaries && missionaries.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-2">
+                        {missionaries.map((m) => (
+                          <Button
+                            key={m.id}
+                            variant={selectedMissionaryId === m.id.toString() ? "default" : "outline"}
+                            onClick={() => {
+                              setSelectedMissionaryId(m.id.toString());
+                              setMissionaryType(m.type); // Keep missionaryType in sync for compatibility
+                            }}
+                            className={`w-full ${m.type === "sisters" && selectedMissionaryId === m.id.toString() ? "bg-amber-500 hover:bg-amber-600" : ""}`}
+                          >
+                            <User className="mr-2 h-4 w-4" />
+                            {m.name}
+                          </Button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center text-sm text-gray-500">
+                        No missionaries found for this ward
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               
@@ -105,10 +127,16 @@ export default function MissionaryPortal() {
                 </TabsList>
                 
                 <TabsContent value="upcoming">
-                  <MissionaryUpcomingMeals 
-                    missionaryId={missionaryId} 
-                    missionaryType={missionaryType} 
-                  />
+                  {missionary ? (
+                    <MissionaryUpcomingMeals 
+                      missionaryId={missionaryId} 
+                      missionaryType={missionary.type}
+                    />
+                  ) : (
+                    <div className="text-center p-6">
+                      <p>No missionary selected or data unavailable.</p>
+                    </div>
+                  )}
                 </TabsContent>
                 
                 <TabsContent value="calendar">
@@ -120,11 +148,17 @@ export default function MissionaryPortal() {
                       </p>
                     </div>
                     
-                    <CalendarGrid
-                      missionaryType={missionaryType}
-                      onSelectDate={() => {}}
-                      selectedDate={null}
-                    />
+                    {missionary ? (
+                      <CalendarGrid
+                        missionaryType={missionary.id.toString()}
+                        onSelectDate={() => {}}
+                        selectedDate={null}
+                      />
+                    ) : (
+                      <div className="text-center p-6">
+                        <p>No missionary selected or data unavailable.</p>
+                      </div>
+                    )}
                     
                     <div className="mt-4 p-4 bg-blue-50 rounded-md border border-blue-100">
                       <p className="text-sm text-blue-700">
