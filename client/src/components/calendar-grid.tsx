@@ -22,8 +22,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export type MealStatus = {
-  eldersBooked: boolean;
-  sistersBooked: boolean;
+  bookedMissionaries: {
+    id: number;
+    name: string;
+    type: string;
+  }[];
 };
 
 type CalendarGridProps = {
@@ -88,19 +91,37 @@ export function CalendarGrid({
   
   useEffect(() => {
     if (meals) {
+      // Create a fresh map for each update
+      const newMealStatusMap = new Map<string, MealStatus>();
+      
       meals.forEach((meal: any) => {
         if (meal.cancelled) return;
         
         const mealDate = format(parseISO(meal.date), "yyyy-MM-dd");
-        const mealStatus = mealStatusMap.get(mealDate) || { eldersBooked: false, sistersBooked: false };
+        // Get existing status or create a new one with empty bookedMissionaries array
+        const mealStatus = newMealStatusMap.get(mealDate) || { bookedMissionaries: [] };
         
-        if (meal.missionary.type === "elders") {
-          mealStatus.eldersBooked = true;
-        } else if (meal.missionary.type === "sisters") {
-          mealStatus.sistersBooked = true;
+        // Add this missionary to the bookedMissionaries array if not already present
+        const missionaryExists = mealStatus.bookedMissionaries.some(
+          (m) => m.id === meal.missionary.id
+        );
+        
+        if (!missionaryExists) {
+          mealStatus.bookedMissionaries.push({
+            id: meal.missionary.id,
+            name: meal.missionary.name,
+            type: meal.missionary.type
+          });
         }
         
-        mealStatusMap.set(mealDate, mealStatus);
+        // Update the map
+        newMealStatusMap.set(mealDate, mealStatus);
+      });
+      
+      // Replace the old map with the new one
+      mealStatusMap.clear(); // Clear the existing map
+      newMealStatusMap.forEach((status, date) => {
+        mealStatusMap.set(date, status);
       });
     }
   }, [meals]);
@@ -162,27 +183,37 @@ export function CalendarGrid({
         ) : (
           days.map((day) => {
             const formattedDay = format(day, "yyyy-MM-dd");
-            const mealStatus = mealStatusMap.get(formattedDay) || { eldersBooked: false, sistersBooked: false };
+            const mealStatus = mealStatusMap.get(formattedDay) || { bookedMissionaries: [] };
             const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
             
-            // Determine calendar day class
+            // Get all booked missionary types on this day
+            const missionariesByType = new Map<string, {id: number, name: string}[]>();
+            mealStatus.bookedMissionaries.forEach(m => {
+              const missionaries = missionariesByType.get(m.type) || [];
+              missionaries.push({id: m.id, name: m.name});
+              missionariesByType.set(m.type, missionaries);
+            });
+            
+            // Determine calendar day class based on booked missionaries
             let dayClass = "";
-            if (mealStatus.eldersBooked && mealStatus.sistersBooked) {
+            const hasElders = !!missionariesByType.get("elders")?.length;
+            const hasSisters = !!missionariesByType.get("sisters")?.length;
+            
+            if (hasElders && hasSisters) {
               dayClass = "missionary-booked-both"; 
-            } else if (mealStatus.eldersBooked) {
+            } else if (hasElders) {
               dayClass = "missionary-booked-elders";
-            } else if (mealStatus.sistersBooked) {
+            } else if (hasSisters) {
               dayClass = "missionary-booked-sisters";
             }
             
             // Check if this day is available for the selected missionary
-            // When missionaryType is a numeric ID, the calendar doesn't block days based on type
+            // When missionaryType is a numeric ID, check if that specific missionary is already booked
             const isMissionaryId = !isNaN(parseInt(missionaryType, 10));
-            const isDayUnavailable = 
-              !isMissionaryId && (
-                (missionaryType === "elders" && mealStatus.eldersBooked) ||
-                (missionaryType === "sisters" && mealStatus.sistersBooked)
-              );
+            const isDayUnavailable = isMissionaryId 
+              ? mealStatus.bookedMissionaries.some(m => m.id.toString() === missionaryType)
+              : ((missionaryType === "elders" && hasElders) || 
+                 (missionaryType === "sisters" && hasSisters));
             
             // Check if the date is within the booking range
             const isOutsideBookingRange = !isWithinBookingRange(day);
