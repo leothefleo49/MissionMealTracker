@@ -275,24 +275,68 @@ export default function WardPage() {
                 </div>
               </div>
               
-              {/* Legend */}
+              {/* Legend - Dynamic based on missionary types available */}
               <div className="mb-4 flex flex-wrap gap-4 text-sm">
                 <div className="flex items-center">
                   <div className="w-4 h-4 mr-1 bg-white border border-gray-300 rounded"></div>
                   <span>Available</span>
                 </div>
-                <div className="flex items-center">
-                  <div className="w-4 h-4 mr-1 missionary-booked-elders rounded"></div>
-                  <span>Elders Booked</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-4 h-4 mr-1 missionary-booked-sisters rounded"></div>
-                  <span>Sisters Booked</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-4 h-4 mr-1 missionary-booked-both rounded"></div>
-                  <span>Both Booked (Different Locations)</span>
-                </div>
+                
+                {/* Dynamically show missionary legends based on what's available in the ward */}
+                {(() => {
+                  // Get unique missionary types and names for the legend
+                  if (!missionaries || missionaries.length === 0) return null;
+                  
+                  const missionaryTypes = new Map();
+                  missionaries.forEach((missionary: any) => {
+                    if (!missionaryTypes.has(missionary.type)) {
+                      missionaryTypes.set(missionary.type, {
+                        name: missionary.name,
+                        count: 1
+                      });
+                    } else {
+                      const typeInfo = missionaryTypes.get(missionary.type);
+                      typeInfo.count += 1;
+                    }
+                  });
+                  
+                  // Return legend items based on what's available
+                  const legendItems = [];
+                  
+                  // Add elder-type missionaries if any exist
+                  if (missionaryTypes.has('elders')) {
+                    const elderInfo = missionaryTypes.get('elders');
+                    legendItems.push(
+                      <div key="elders" className="flex items-center">
+                        <div className="w-4 h-4 mr-1 missionary-booked-elders rounded"></div>
+                        <span>{elderInfo.name} Booked</span>
+                      </div>
+                    );
+                  }
+                  
+                  // Add sister-type missionaries if any exist
+                  if (missionaryTypes.has('sisters')) {
+                    const sisterInfo = missionaryTypes.get('sisters');
+                    legendItems.push(
+                      <div key="sisters" className="flex items-center">
+                        <div className="w-4 h-4 mr-1 missionary-booked-sisters rounded"></div>
+                        <span>{sisterInfo.name} Booked</span>
+                      </div>
+                    );
+                  }
+                  
+                  // Only show "Both Booked" if both types exist
+                  if (missionaryTypes.has('elders') && missionaryTypes.has('sisters')) {
+                    legendItems.push(
+                      <div key="both" className="flex items-center">
+                        <div className="w-4 h-4 mr-1 missionary-booked-both rounded"></div>
+                        <span>Both Booked (Different Locations)</span>
+                      </div>
+                    );
+                  }
+                  
+                  return legendItems;
+                })()}
               </div>
               
               {/* Calendar */}
@@ -368,8 +412,23 @@ export default function WardPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Missionaries</SelectItem>
-                      <SelectItem value="elders">Elders Only</SelectItem>
-                      <SelectItem value="sisters">Sisters Only</SelectItem>
+                      {/* Dynamically create filter options based on available missionary types */}
+                      {missionaries && missionaries.length > 0 && 
+                        (() => {
+                          const missionaryTypes = new Map();
+                          missionaries.forEach((missionary: any) => {
+                            if (!missionaryTypes.has(missionary.type)) {
+                              missionaryTypes.set(missionary.type, missionary.name);
+                            }
+                          });
+                          
+                          return Array.from(missionaryTypes.entries()).map(([type, name]) => (
+                            <SelectItem key={type} value={type}>
+                              {name} Only
+                            </SelectItem>
+                          ));
+                        })()
+                      }
                     </SelectContent>
                   </Select>
                 </div>

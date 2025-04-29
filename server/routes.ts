@@ -37,14 +37,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
   
-  // Helpers for notifications (simulated for now)
+  // Helper for notifications
   const notifyMissionary = async (missionaryId: number, message: string) => {
     const missionary = await storage.getMissionary(missionaryId);
-    if (!missionary) return;
+    if (!missionary) return false;
     
-    // This would integrate with Twilio or Facebook Messenger API
-    console.log(`Notification to ${missionary.name} via ${missionary.preferredNotification}: ${message}`);
-    return true;
+    // If this is SMS and the missionary hasn't granted consent, don't send the message
+    if (missionary.preferredNotification === 'text' && missionary.consentStatus !== 'granted') {
+      console.log(`Cannot send SMS to ${missionary.name}: Consent status is ${missionary.consentStatus}`);
+      return false;
+    }
+    
+    // For messenger, we assume consent policies are handled by the platform
+    if (missionary.preferredNotification === 'messenger' && !missionary.messengerAccount) {
+      console.log(`Cannot send messenger notification to ${missionary.name}: No messenger account provided`);
+      return false;
+    }
+    
+    // Use the notification manager to send the message
+    try {
+      const service = notificationManager.getServiceForMissionary(missionary);
+      
+      // Custom notification message (not a standard message type, so we use a generic method)
+      return await notificationManager.sendCustomMessage(missionary, message, 'status_update');
+    } catch (error) {
+      console.error(`Failed to send notification to ${missionary.name}:`, error);
+      return false;
+    }
   };
 
   const notifyAdmin = async (message: string) => {
@@ -234,19 +253,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const meal = await storage.createMeal(mealData);
       
-      // Send notification
+      // Format notification message
       const formattedDate = mealDate.toLocaleDateString(undefined, { 
         weekday: 'long', 
         month: 'long', 
         day: 'numeric' 
       });
       
-      await notifyMissionary(
-        meal.missionaryId,
-        `New meal scheduled: ${formattedDate} at ${meal.startTime} with ${meal.hostName}. ` + 
+      const notificationMessage = `New meal scheduled: ${formattedDate} at ${meal.startTime} with ${meal.hostName}. ` + 
         (meal.mealDescription ? `Menu: ${meal.mealDescription}` : '') +
-        (meal.specialNotes ? ` Notes: ${meal.specialNotes}` : '')
-      );
+        (meal.specialNotes ? ` Notes: ${meal.specialNotes}` : '');
+      
+      // Check if the missionary has consent to receive messages
+      if (missionary.preferredNotification === 'text' && missionary.phoneNumber) {
+        if (missionary.consentStatus === 'granted') {
+          // If consent is granted, send the notification
+          await notifyMissionary(meal.missionaryId, notificationMessage);
+        } else if (missionary.consentStatus === 'pending') {
+          // If consent is pending but verification token hasn't been sent OR was sent more than 24 hours ago
+          // resend the verification request
+          const shouldResendVerification = !missionary.consentVerificationSentAt || 
+            (new Date().getTime() - new Date(missionary.consentVerificationSentAt).getTime() > 24 * 60 * 60 * 1000);
+            
+          if (shouldResendVerification) {
+            // Generate a verification code
+            const verificationCode = generateVerificationCode();
+            
+            // Update missionary with the verification token and timestamp
+            await storage.updateMissionary(missionary.id, {
+              consentVerificationToken: verificationCode,
+              consentVerificationSentAt: new Date(),
+            });
+            
+            // Prepare consent message
+            const consentMessage = 
+              `This is the Ward Missionary Meal Scheduler. To receive meal notifications, reply with YES ${verificationCode}. ` +
+              "Reply STOP at any time to opt out of messages. Msg & data rates may apply.";
+            
+            // Send the message using Twilio directly (bypassing consent checks since we're asking for consent)
+            if (notificationManager.smsService && notificationManager.smsService.twilioClient) {
+              await notificationManager.smsService.twilioClient.messages.create({
+                body: consentMessage,
+                from: notificationManager.smsService.twilioPhoneNumber,
+                to: missionary.phoneNumber
+              });
+              
+              console.log(`Consent verification sent to missionary ${missionary.id} (${missionary.name})`);
+            } else {
+              // Fallback for development without Twilio
+              console.log(`[SMS CONSENT REQUEST] Would send to ${missionary.phoneNumber}: ${consentMessage}`);
+            }
+          }
+        } else if (!missionary.consentStatus || missionary.consentStatus === 'denied') {
+          // If consent hasn't been requested or was denied, send a new verification request
+          // Generate a verification code
+          const verificationCode = generateVerificationCode();
+          
+          // Update missionary with the verification token and timestamp
+          await storage.updateMissionary(missionary.id, {
+            consentVerificationToken: verificationCode,
+            consentVerificationSentAt: new Date(),
+            consentStatus: 'pending'
+          });
+          
+          // Prepare consent message
+          const consentMessage = 
+            `This is the Ward Missionary Meal Scheduler. To receive meal notifications, reply with YES ${verificationCode}. ` +
+            "Reply STOP at any time to opt out of messages. Msg & data rates may apply.";
+          
+          // Send the message using Twilio directly (bypassing consent checks since we're asking for consent)
+          if (notificationManager.smsService && notificationManager.smsService.twilioClient) {
+            await notificationManager.smsService.twilioClient.messages.create({
+              body: consentMessage,
+              from: notificationManager.smsService.twilioPhoneNumber,
+              to: missionary.phoneNumber
+            });
+            
+            console.log(`Consent verification sent to missionary ${missionary.id} (${missionary.name})`);
+          } else {
+            // Fallback for development without Twilio
+            console.log(`[SMS CONSENT REQUEST] Would send to ${missionary.phoneNumber}: ${consentMessage}`);
+          }
+        }
+      } else if (missionary.preferredNotification === 'messenger' && missionary.messengerAccount) {
+        // For messenger, we don't need explicit consent (this would depend on the platform's policies)
+        await notifyMissionary(meal.missionaryId, notificationMessage);
+      }
       
       res.status(201).json(meal);
     } catch (err) {
@@ -370,6 +462,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const missionaryData = insertMissionarySchema.parse(req.body);
       const missionary = await storage.createMissionary(missionaryData);
+      
+      // Automatically send a consent request for new missionaries with phone numbers
+      if (missionary.phoneNumber && missionary.preferredNotification === 'text') {
+        try {
+          // Generate a verification code
+          const verificationCode = generateVerificationCode();
+          
+          // Update missionary with the verification token and timestamp
+          await storage.updateMissionary(missionary.id, {
+            consentVerificationToken: verificationCode,
+            consentVerificationSentAt: new Date(),
+          });
+          
+          // Fetch the updated missionary to get the verification token
+          const updatedMissionary = await storage.getMissionary(missionary.id);
+          if (updatedMissionary) {
+            // Prepare consent message
+            const consentMessage = 
+              `This is the Ward Missionary Meal Scheduler. To receive meal notifications, reply with YES ${verificationCode} (example: YES ${verificationCode}). ` +
+              "Reply STOP at any time to opt out of messages. Msg & data rates may apply.";
+            
+            // Send the message using Twilio directly (bypassing consent checks since we're asking for consent)
+            if (notificationManager.smsService && notificationManager.smsService.twilioClient) {
+              await notificationManager.smsService.twilioClient.messages.create({
+                body: consentMessage,
+                from: notificationManager.smsService.twilioPhoneNumber,
+                to: updatedMissionary.phoneNumber
+              });
+              
+              console.log(`Consent verification sent to new missionary ${missionary.id} (${missionary.name})`);
+            } else {
+              // Fallback for development without Twilio
+              console.log(`[SMS CONSENT REQUEST] Would send to ${updatedMissionary.phoneNumber}: ${consentMessage}`);
+            }
+          }
+        } catch (consentErr) {
+          console.error(`Error sending initial consent request to missionary ${missionary.id}:`, consentErr);
+          // We don't fail the creation even if consent request fails - just log the error
+        }
+      }
+      
       res.status(201).json(missionary);
     } catch (err) {
       handleZodError(err, res);
