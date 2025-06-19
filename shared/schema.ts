@@ -61,6 +61,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
   isAdmin: true,
   isSuperAdmin: true,
+  canUsePaidNotifications: true,
 });
 
 export const insertUserWardSchema = createInsertSchema(userWards).pick({
