@@ -136,26 +136,26 @@ export function CalendarGrid({
     return map;
   }, [meals]);
 
-  // Auto-select next available date when missionary type changes or when enabled
-  useEffect(() => {
-    if (autoSelectNextAvailable && !selectedDate && mealStatusMap.size > 0) {
-      const availableDates = days.filter(day => {
-        if (!isWithinBookingRange(day)) return false;
-        
-        const dayKey = format(day, 'yyyy-MM-dd');
-        const mealStatus = mealStatusMap.get(dayKey);
-        
-        if (!mealStatus) return true; // No meals booked, available
-        
-        const bookedTypes = mealStatus.bookedMissionaries.map(m => m.type);
-        return !bookedTypes.includes(missionaryType);
-      });
-      
-      if (availableDates.length > 0) {
-        onSelectDate(availableDates[0]);
-      }
-    }
-  }, [autoSelectNextAvailable, selectedDate, mealStatusMap, days, missionaryType, onSelectDate]);
+  // Auto-select disabled to prevent unwanted date jumping
+  // useEffect(() => {
+  //   if (autoSelectNextAvailable && !selectedDate && mealStatusMap.size > 0) {
+  //     const availableDates = days.filter(day => {
+  //       if (!isWithinBookingRange(day)) return false;
+  //       
+  //       const dayKey = format(day, 'yyyy-MM-dd');
+  //       const mealStatus = mealStatusMap.get(dayKey);
+  //       
+  //       if (!mealStatus) return true; // No meals booked, available
+  //       
+  //       const bookedTypes = mealStatus.bookedMissionaries.map(m => m.type);
+  //       return !bookedTypes.includes(missionaryType);
+  //     });
+  //     
+  //     if (availableDates.length > 0) {
+  //       onSelectDate(availableDates[0]);
+  //     }
+  //   }
+  // }, [autoSelectNextAvailable, selectedDate, mealStatusMap, days, missionaryType, onSelectDate]);
   
   return (
     <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden bg-white max-w-full calendar-container">
@@ -291,9 +291,7 @@ export function CalendarGrid({
             // Check if ALL missionary sets are completely booked
             // We need to check if every single missionary in the ward has a booking on this day
             const totalMissionaryCount = wardMissionaries?.length || 1;
-            const isCompletelyBooked = wardMissionaries?.every((missionary) => 
-              uniqueMissionaryIds.includes(missionary.id)
-            ) ?? false;
+            const isCompletelyBooked = totalMissionaryCount > 1 && wardMissionaries?.length === uniqueMissionaryIds.length;
             
             // Check if the date is in the past (but not today)
             const isPastDate = isBefore(day, startOfToday()) && !isToday(day);
@@ -322,9 +320,8 @@ export function CalendarGrid({
                 onClick={() => !isDisabled && onSelectDate(day)}
               >
                 <div className={cn(
-                  "rounded-full h-6 w-6 sm:h-8 sm:w-8 flex items-center justify-center relative z-10",
-                  isToday(day) && "bg-blue-50 text-primary font-bold",
-                  !isToday(day) && dayClass && "bg-white/80"
+                  "rounded-full h-6 w-6 sm:h-8 sm:w-8 flex items-center justify-center relative z-10 bg-white",
+                  isToday(day) && "bg-blue-50 text-primary font-bold"
                 )}>
                   <span className="text-xs sm:text-sm font-medium">
                     {format(day, "d")}
