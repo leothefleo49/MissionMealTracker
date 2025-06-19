@@ -246,6 +246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new meal
   app.post('/api/meals', async (req, res) => {
     try {
+      console.log('Received meal booking request:', req.body);
       const mealData = insertMealSchema.parse(req.body);
       
       // Verify the missionary exists

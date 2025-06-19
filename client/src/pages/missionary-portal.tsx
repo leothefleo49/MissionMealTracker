@@ -111,15 +111,42 @@ export default function MissionaryPortal() {
             </div>
             
             <div className="space-y-4">
-              <Button 
-                onClick={() => setLocation(`/missionary-register/${accessCode}`)}
-                className="w-full bg-blue-600 hover:bg-blue-700"
-              >
-                Sign In / Register
-              </Button>
+              <div className="space-y-3">
+                <input
+                  type="email"
+                  placeholder="Enter your @missionary.org email"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                  type="password"
+                  placeholder="Enter your password"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                
+                {authError && (
+                  <div className="text-red-600 text-sm text-center">{authError}</div>
+                )}
+                
+                <Button 
+                  onClick={handleAuthentication}
+                  disabled={authenticating || !authEmail || !authPassword}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                >
+                  {authenticating ? "Signing In..." : "Sign In"}
+                </Button>
+              </div>
               
-              <div className="text-center text-sm text-gray-500">
-                This will take you to the secure sign-in page where you can either log in with existing credentials or register as a new missionary.
+              <div className="text-center">
+                <button
+                  onClick={() => setLocation(`/missionary-register/${accessCode}`)}
+                  className="text-sm text-blue-600 hover:text-blue-700 underline"
+                >
+                  Don't have an account? Register here
+                </button>
               </div>
             </div>
           </CardContent>

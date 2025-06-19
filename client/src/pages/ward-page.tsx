@@ -223,7 +223,7 @@ export default function WardPage() {
               
               {/* Missionary Selection */}
               <div className="mb-6">
-                <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                <div className="flex flex-col lg:flex-row space-y-4 lg:space-y-0 lg:space-x-4">
                   <div className="flex-1">
                     <Label className="block text-sm font-medium text-gray-700 mb-1">
                       Select Missionaries
@@ -233,7 +233,7 @@ export default function WardPage() {
                         <span className="text-sm text-gray-500">Loading missionaries...</span>
                       </div>
                     ) : missionaries && missionaries.length > 0 ? (
-                      <div className="missionary-select-grid grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                      <div className="missionary-select-grid grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                         {missionaries.map((missionary: any, index: number) => {
                           const isSelected = missionaryType === missionary.id.toString();
                           const setNumber = (index % 5) + 1;
