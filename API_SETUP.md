@@ -5,11 +5,27 @@ This application uses **free notification services** (Gmail and WhatsApp) by def
 ## Gmail Email Notifications (Free)
 
 ### Step 1: Create Gmail App Password
-1. Go to your Google Account settings
-2. Enable 2-factor authentication if not already enabled
-3. Go to Security → 2-Step Verification → App passwords
-4. Generate an app password for "Mail"
-5. Copy the 16-character password
+1. Go to [myaccount.google.com](https://myaccount.google.com)
+2. Click on "Security" in the left sidebar
+3. Under "Signing in to Google", enable "2-Step Verification" if not already enabled
+4. After 2FA is enabled, you'll see "App passwords" appear in the same section
+5. Click "App passwords"
+6. Select "Mail" from the dropdown and "Other" for device
+7. Enter "Meal Scheduler" as the app name
+8. Click "Generate" - copy the 16-character password (no spaces)
+
+**Note**: If you don't see "App passwords", make sure 2-Step Verification is fully enabled and wait a few minutes for it to appear.
+
+### Alternative: If App Passwords Don't Appear
+Some Google accounts don't show the App Passwords option. In this case:
+1. Try using OAuth2 instead (more complex setup)
+2. Use a different Gmail account specifically for this app
+3. Or use only WhatsApp notifications (which don't require Gmail)
+
+### Important Security Note
+- **NEVER use your regular Gmail password** - this won't work and is less secure
+- App passwords look like: `abcd efgh ijkl mnop` (16 characters with spaces)
+- The app password is different from your login password
 
 ### Step 2: Configure Environment Variables
 Add these to your environment:
