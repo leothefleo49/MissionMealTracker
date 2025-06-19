@@ -170,33 +170,27 @@
 /* Missionary set background colors */
 .missionary-set-1 {
   background-color: var(--missionary-1-color);
-  color: white;
 }
 
 .missionary-set-2 {
   background-color: var(--missionary-2-color);
-  color: white;
 }
 
 .missionary-set-3 {
   background-color: var(--missionary-3-color);
-  color: white;
 }
 
 .missionary-set-4 {
   background-color: var(--missionary-4-color);
-  color: white;
 }
 
 .missionary-set-5 {
   background-color: var(--missionary-5-color);
-  color: white;
 }
 
 /* Fractional missionary booking - will be handled dynamically via inline styles */
 .fractional-missionary-booking {
   position: relative;
-  color: white;
 }
 
 /* Mobile-specific styles */

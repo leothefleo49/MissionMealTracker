@@ -265,7 +265,7 @@ export function CalendarGrid({
                 const backgroundImage = `linear-gradient(to right, ${sections.join(', ')})`;
                 return { 
                   className: "fractional-missionary-booking", 
-                  style: { backgroundImage, color: 'white' }
+                  style: { backgroundImage }
                 };
               }
               
@@ -289,9 +289,11 @@ export function CalendarGrid({
             const isOutsideBookingRange = !isWithinBookingRange(day);
             
             // Check if ALL missionary sets are completely booked
+            // We need to check if every single missionary in the ward has a booking on this day
             const totalMissionaryCount = wardMissionaries?.length || 1;
-            const uniqueBookedMissionaryCount = uniqueMissionaryIds.length;
-            const isCompletelyBooked = uniqueBookedMissionaryCount >= totalMissionaryCount;
+            const isCompletelyBooked = wardMissionaries?.every((missionary) => 
+              uniqueMissionaryIds.includes(missionary.id)
+            ) ?? false;
             
             // Check if the date is in the past (but not today)
             const isPastDate = isBefore(day, startOfToday()) && !isToday(day);
@@ -320,8 +322,9 @@ export function CalendarGrid({
                 onClick={() => !isDisabled && onSelectDate(day)}
               >
                 <div className={cn(
-                  "rounded-full h-6 w-6 sm:h-8 sm:w-8 flex items-center justify-center",
-                  isToday(day) && "bg-blue-50 text-primary font-bold"
+                  "rounded-full h-6 w-6 sm:h-8 sm:w-8 flex items-center justify-center relative z-10",
+                  isToday(day) && "bg-blue-50 text-primary font-bold",
+                  !isToday(day) && dayClass && "bg-white/80"
                 )}>
                   <span className="text-xs sm:text-sm font-medium">
                     {format(day, "d")}
