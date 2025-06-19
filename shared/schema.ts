@@ -148,6 +148,7 @@ export const insertMissionarySchema = createInsertSchema(missionaries).pick({
   weeklySummaryDay: true,
   weeklySummaryTime: true,
   useMultipleNotifications: true,
+  password: true,
   consentStatus: true,
   consentDate: true,
   consentVerificationToken: true,

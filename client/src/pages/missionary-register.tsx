@@ -83,12 +83,11 @@ export default function MissionaryRegister() {
 
   const verifyMutation = useMutation({
     mutationFn: async (data: VerificationForm) => {
-      if (!missionaryData) throw new Error("No registration data found");
+      if (!missionaryData?.missionaryId) throw new Error("No missionary ID found");
       
       return apiRequest("POST", "/api/missionaries/verify", {
-        emailAddress: missionaryData.emailAddress,
+        missionaryId: missionaryData.missionaryId,
         verificationCode: data.verificationCode,
-        password: missionaryData.password,
       });
     },
     onSuccess: () => {
