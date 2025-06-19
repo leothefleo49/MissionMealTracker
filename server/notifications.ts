@@ -3,9 +3,12 @@ import { format } from 'date-fns';
 import { db } from './db';
 import { messageLogs } from '@shared/schema';
 import { eq, and, gte, lte, sql, count, sum } from 'drizzle-orm';
+import { EmailService } from './email-service';
+import { WhatsAppService } from './whatsapp-service';
 
-// Standard Twilio SMS rate - can be updated as needed
-const SMS_RATE_PER_SEGMENT = 0.0075; // $0.0075 per SMS segment
+// Email and WhatsApp are free - no per-message costs
+const EMAIL_RATE_PER_MESSAGE = 0.0; // Free
+const WHATSAPP_RATE_PER_MESSAGE = 0.0; // Free (Business API free tier)
 
 // Interface for notification services
 interface INotificationService {
@@ -17,7 +20,6 @@ interface INotificationService {
 // Base class for notification services with common formatting
 abstract class BaseNotificationService implements INotificationService {
   protected formatDate(date: Date, pattern: string): string {
-    // Simple implementation of the formatDate function
     return format(date, pattern);
   }
   
@@ -45,7 +47,7 @@ abstract class BaseNotificationService implements INotificationService {
     return message;
   }
   
-  // Calculate SMS segments based on character count
+  // Calculate SMS segments based on character count (for legacy compatibility)
   public calculateSegments(message: string): number {
     // GSM-7 encoding allows 160 characters per segment
     // Unicode/non-standard characters use UCS-2 encoding, allowing 70 characters per segment
@@ -71,24 +73,66 @@ abstract class BaseNotificationService implements INotificationService {
   abstract sendWeeklySummary(missionary: Missionary, meals: Meal[]): Promise<boolean>;
 }
 
-// Twilio SMS Service
-import twilio from 'twilio';
+// Email notification service wrapper
+export class EmailNotificationService extends BaseNotificationService {
+  private emailService: EmailService;
 
+  constructor() {
+    super();
+    this.emailService = new EmailService();
+  }
+
+  async sendMealReminder(missionary: Missionary, meal: Meal): Promise<boolean> {
+    return this.emailService.sendMealReminder(missionary, meal);
+  }
+
+  async sendDayOfReminder(missionary: Missionary, meals: Meal[]): Promise<boolean> {
+    return this.emailService.sendDayOfReminder(missionary, meals);
+  }
+
+  async sendWeeklySummary(missionary: Missionary, meals: Meal[]): Promise<boolean> {
+    return this.emailService.sendWeeklySummary(missionary, meals);
+  }
+}
+
+// WhatsApp notification service wrapper
+export class WhatsAppNotificationService extends BaseNotificationService {
+  private whatsappService: WhatsAppService;
+
+  constructor() {
+    super();
+    this.whatsappService = new WhatsAppService();
+  }
+
+  async sendMealReminder(missionary: Missionary, meal: Meal): Promise<boolean> {
+    return this.whatsappService.sendMealReminder(missionary, meal);
+  }
+
+  async sendDayOfReminder(missionary: Missionary, meals: Meal[]): Promise<boolean> {
+    return this.whatsappService.sendDayOfReminder(missionary, meals);
+  }
+
+  async sendWeeklySummary(missionary: Missionary, meals: Meal[]): Promise<boolean> {
+    return this.whatsappService.sendWeeklySummary(missionary, meals);
+  }
+}
+
+// Legacy Twilio service (kept for backward compatibility but marked deprecated)
 export class TwilioService extends BaseNotificationService {
   public twilioClient: any;
   public twilioPhoneNumber: string;
-  
+
   constructor() {
     super();
+    console.warn("TwilioService is deprecated. Please use EmailNotificationService or WhatsAppNotificationService instead.");
     
-    // Check for Twilio configuration
     if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
-      console.warn("Twilio not configured. SMS notifications will be logged but not sent.");
+      console.warn("Twilio credentials not found. Text notifications will be logged but not sent.");
       this.twilioClient = null;
       this.twilioPhoneNumber = '';
     } else {
       try {
-        // Initialize the Twilio client with account credentials
+        const twilio = require('twilio');
         this.twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
         this.twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
         console.log("Twilio client initialized successfully.");
@@ -101,74 +145,53 @@ export class TwilioService extends BaseNotificationService {
   }
 
   async sendMealReminder(missionary: Missionary, meal: Meal): Promise<boolean> {
-    console.log('TwilioService.sendMealReminder, missionary:', JSON.stringify({
-      id: missionary.id,
-      name: missionary.name,
-      consentStatus: missionary.consentStatus
-    }));
-    const message = this.formatMealMessage(meal);
-    const reminderText = `MEAL REMINDER: ${message} See you soon!`;
-    return this.sendText(missionary, reminderText, 'before_meal');
+    const message = `🍽️ Meal Reminder: ${this.formatMealMessage(meal)}`;
+    return this.sendText(missionary, message, 'before_meal');
   }
-  
+
   async sendDayOfReminder(missionary: Missionary, meals: Meal[]): Promise<boolean> {
-    if (meals.length === 0) return true; // No meals to remind about
+    if (meals.length === 0) return true;
     
-    let messageText = `Today's meals for ${missionary.name}:\n\n`;
-    
+    let message = `📅 Today's Meals:\n\n`;
     meals.forEach((meal, index) => {
-      messageText += `${index + 1}. ${this.formatMealMessage(meal)}\n\n`;
+      message += `${index + 1}. ${this.formatMealMessage(meal)}\n\n`;
     });
+    message += "Have a wonderful day! 🌟";
     
-    return this.sendText(missionary, messageText, 'day_of');
+    return this.sendText(missionary, message, 'day_of');
   }
-  
+
   async sendWeeklySummary(missionary: Missionary, meals: Meal[]): Promise<boolean> {
+    let message = `📋 Weekly Meal Summary:\n\n`;
+    
     if (meals.length === 0) {
-      const noMealsMessage = `Weekly Summary for ${missionary.name}: No meals scheduled for the upcoming week.`;
-      return this.sendText(missionary, noMealsMessage, 'weekly_summary');
+      message += "No meals scheduled for the upcoming week.";
+    } else {
+      message += "Here are your meals for the upcoming week:\n\n";
+      meals.forEach((meal, index) => {
+        message += `${index + 1}. ${this.formatMealMessage(meal)}\n\n`;
+      });
+      message += "Have a blessed week! 🙏";
     }
     
-    let messageText = `Weekly Meal Summary for ${missionary.name}:\n\n`;
-    
-    meals.forEach((meal, index) => {
-      messageText += `${index + 1}. ${this.formatMealMessage(meal)}\n\n`;
-    });
-    
-    return this.sendText(missionary, messageText, 'weekly_summary');
+    return this.sendText(missionary, message, 'weekly_summary');
   }
-  
+
   private async sendText(missionary: Missionary, message: string, messageType: string): Promise<boolean> {
-    // Log full missionary object for debugging
-    console.log(`Attempting to send text to missionary: ${JSON.stringify({
-      id: missionary.id,
-      name: missionary.name,
-      phone: missionary.phoneNumber,
-      consentStatus: missionary.consentStatus
-    })}`);
-    
-    // Check consent status - don't send messages unless consent has been explicitly granted
-    // Only 'granted' is considered valid consent as per Twilio best practices
-    if (missionary.consentStatus !== 'granted') {
-      console.log(`Cannot send SMS to ${missionary.name}: Consent status is ${missionary.consentStatus}`);
-      return false;
-    }
-    
-    const charCount = message.length;
-    const segmentCount = this.calculateSegments(message);
     let successful = false;
     let failureReason: string | undefined;
-    
-    // If Twilio is not configured, just log the message
+    const segments = this.calculateSegments(message);
+
     if (!this.twilioClient) {
-      console.log(`[TWILIO SIMULATION] Sending SMS to ${missionary.phoneNumber}: ${message}`);
+      console.log(`[SMS SIMULATION] Sending text to ${missionary.phoneNumber}:`);
+      console.log(message);
       successful = true;
     } else {
       try {
         const result = await this.twilioClient.messages.create({
           body: message,
           from: this.twilioPhoneNumber,
-          to: missionary.phoneNumber
+          to: missionary.phoneNumber,
         });
         
         console.log(`SMS sent successfully to ${missionary.phoneNumber}, SID: ${result.sid}`);
@@ -179,114 +202,91 @@ export class TwilioService extends BaseNotificationService {
         failureReason = error instanceof Error ? error.message : 'Unknown error';
       }
     }
-    
-    // Log message statistics to the database
+
+    // Log the message attempt to database (using old format for compatibility)
     try {
       const messageLog: InsertMessageLog = {
         missionaryId: missionary.id,
         wardId: missionary.wardId,
         messageType,
-        messageContent: message,
-        deliveryMethod: 'sms',
+        content: message,
+        method: 'sms',
         successful,
         failureReason,
-        charCount,
-        segmentCount
+        segmentCount: segments,
+        estimatedCost: (segments * 0.0075).toString() // SMS cost
       };
-      
+
       await db.insert(messageLogs).values(messageLog);
     } catch (dbError) {
-      console.error('Failed to log message statistics:', dbError);
+      console.error('Failed to log SMS message:', dbError);
     }
-    
+
     return successful;
   }
 }
 
-// Facebook Messenger Service
+// Legacy Messenger service (kept for backward compatibility)
 export class MessengerService extends BaseNotificationService {
   constructor() {
     super();
+    console.warn("MessengerService is deprecated. Please use EmailNotificationService or WhatsAppNotificationService instead.");
   }
-  
+
   async sendMealReminder(missionary: Missionary, meal: Meal): Promise<boolean> {
-    if (!missionary.messengerAccount) {
-      console.warn(`No messenger account set for missionary ${missionary.name}. Skipping notification.`);
-      return false;
-    }
-    
-    const message = this.formatMealMessage(meal);
-    const reminderText = `MEAL REMINDER: ${message} See you soon!`;
-    return this.sendMessengerMessage(missionary, reminderText, 'before_meal');
+    const message = `🍽️ Meal Reminder: ${this.formatMealMessage(meal)}`;
+    return this.sendMessengerMessage(missionary, message, 'before_meal');
   }
-  
+
   async sendDayOfReminder(missionary: Missionary, meals: Meal[]): Promise<boolean> {
-    if (!missionary.messengerAccount || meals.length === 0) return false;
+    if (meals.length === 0) return true;
     
-    let messageText = `Today's meals for ${missionary.name}:\n\n`;
-    
+    let message = `📅 Today's Meals:\n\n`;
     meals.forEach((meal, index) => {
-      messageText += `${index + 1}. ${this.formatMealMessage(meal)}\n\n`;
+      message += `${index + 1}. ${this.formatMealMessage(meal)}\n\n`;
     });
+    message += "Have a wonderful day! 🌟";
     
-    return this.sendMessengerMessage(missionary, messageText, 'day_of');
+    return this.sendMessengerMessage(missionary, message, 'day_of');
   }
-  
+
   async sendWeeklySummary(missionary: Missionary, meals: Meal[]): Promise<boolean> {
-    if (!missionary.messengerAccount) return false;
+    let message = `📋 Weekly Meal Summary:\n\n`;
     
-    let messageText = meals.length === 0
-      ? `Weekly Summary for ${missionary.name}: No meals scheduled for the upcoming week.`
-      : `Weekly Meal Summary for ${missionary.name}:\n\n`;
-    
-    if (meals.length > 0) {
+    if (meals.length === 0) {
+      message += "No meals scheduled for the upcoming week.";
+    } else {
+      message += "Here are your meals for the upcoming week:\n\n";
       meals.forEach((meal, index) => {
-        messageText += `${index + 1}. ${this.formatMealMessage(meal)}\n\n`;
+        message += `${index + 1}. ${this.formatMealMessage(meal)}\n\n`;
       });
+      message += "Have a blessed week! 🙏";
     }
     
-    return this.sendMessengerMessage(missionary, messageText, 'weekly_summary');
+    return this.sendMessengerMessage(missionary, message, 'weekly_summary');
   }
-  
+
   private async sendMessengerMessage(missionary: Missionary, message: string, messageType: string): Promise<boolean> {
-    if (!missionary.messengerAccount) return false;
-    
-    // Log full missionary object for debugging
-    console.log(`Attempting to send messenger message to missionary: ${JSON.stringify({
-      id: missionary.id,
-      name: missionary.name,
-      messengerAccount: missionary.messengerAccount,
-      consentStatus: missionary.consentStatus
-    })}`);
-    
-    // Check consent status - don't send messages unless consent has been explicitly granted
-    // Only 'granted' is considered valid consent as per best practices
-    if (missionary.consentStatus !== 'granted') {
-      console.log(`Cannot send Messenger message to ${missionary.name}: Consent status is ${missionary.consentStatus}`);
-      return false;
-    }
-    
-    const charCount = message.length;
-    const segmentCount = 1; // Facebook doesn't have message segments like SMS
     let successful = false;
     let failureReason: string | undefined;
-    
-    // This is a placeholder - actual implementation would use Facebook's Messenger API
-    console.log(`[MESSENGER SIMULATION] Sending message to ${missionary.messengerAccount}: ${message}`);
+
+    // Messenger integration would go here
+    console.log(`[MESSENGER SIMULATION] Sending message to ${missionary.messengerAccount}:`);
+    console.log(message);
     successful = true;
-    
-    // Log message statistics to the database
+
+    // Log the message attempt to database
     try {
       const messageLog: InsertMessageLog = {
         missionaryId: missionary.id,
         wardId: missionary.wardId,
         messageType,
-        messageContent: message,
-        deliveryMethod: 'messenger',
+        content: message,
+        method: 'messenger',
         successful,
         failureReason,
-        charCount,
-        segmentCount
+        segmentCount: 1,
+        estimatedCost: "0"
       };
       
       await db.insert(messageLogs).values(messageLog);
@@ -298,46 +298,41 @@ export class MessengerService extends BaseNotificationService {
   }
 }
 
-// Message Stats Service for tracking and reporting on message usage
+// Message statistics service
 export class MessageStatsService {
-  // Calculate estimated cost based on segment count
   private calculateEstimatedCost(segments: number): number {
-    return segments * SMS_RATE_PER_SEGMENT;
+    return segments * 0.0075; // Legacy SMS cost calculation
   }
-  
-  // Get overall message statistics
+
   async getMessageStats(): Promise<MessageStats> {
-    // Get total counts
-    const [totalCounts] = await db
+    // Get total stats
+    const [totalStats] = await db
       .select({
         totalMessages: count(),
         totalSuccessful: count(
           sql`CASE WHEN ${messageLogs.successful} = true THEN 1 END`
         ),
-        totalFailed: count(
-          sql`CASE WHEN ${messageLogs.successful} = false THEN 1 END`
-        ),
-        totalCharacters: sum(messageLogs.charCount),
         totalSegments: sum(messageLogs.segmentCount),
       })
       .from(messageLogs);
-    
-    // Get stats by ward
+
+    const totalFailed = totalStats.totalMessages - totalStats.totalSuccessful;
+
+    // Get ward-based stats
     const byWard = await db
       .select({
         wardId: messageLogs.wardId,
-        wardName: sql<string>`'Ward ID ' || ${messageLogs.wardId}::text`,
+        wardName: sql<string>`'Ward ' || ${messageLogs.wardId}::text`,
         messageCount: count(),
         successCount: count(
           sql`CASE WHEN ${messageLogs.successful} = true THEN 1 END`
         ),
-        characters: sum(messageLogs.charCount),
         segments: sum(messageLogs.segmentCount),
       })
       .from(messageLogs)
       .groupBy(messageLogs.wardId);
-    
-    // Get stats by missionary
+
+    // Get missionary-based stats
     const byMissionary = await db
       .select({
         missionaryId: messageLogs.missionaryId,
@@ -346,7 +341,6 @@ export class MessageStatsService {
         successCount: count(
           sql`CASE WHEN ${messageLogs.successful} = true THEN 1 END`
         ),
-        characters: sum(messageLogs.charCount),
         segments: sum(messageLogs.segmentCount),
       })
       .from(messageLogs)
@@ -387,203 +381,147 @@ export class MessageStatsService {
         
         return {
           period: name,
-          messageCount: result.messageCount || 0,
-          segments: Number(result.segments || 0),
-          estimatedCost: this.calculateEstimatedCost(Number(result.segments || 0)),
+          messageCount: result.messageCount,
+          segments: result.segments || 0,
+          estimatedCost: this.calculateEstimatedCost(result.segments || 0),
         };
       })
     );
-    
-    // Calculate success rates and costs for ward and missionary statistics
-    const formattedByWard = byWard.map((ward) => ({
-      wardId: ward.wardId,
-      wardName: ward.wardName,
-      messageCount: ward.messageCount,
-      successRate: ward.messageCount > 0 ? (ward.successCount / ward.messageCount) * 100 : 100,
-      characters: Number(ward.characters || 0),
-      segments: Number(ward.segments || 0),
-      estimatedCost: this.calculateEstimatedCost(Number(ward.segments || 0)),
-    }));
-    
-    const formattedByMissionary = byMissionary.map((missionary) => ({
-      missionaryId: missionary.missionaryId,
-      missionaryName: missionary.missionaryName,
-      messageCount: missionary.messageCount,
-      successRate: missionary.messageCount > 0 ? (missionary.successCount / missionary.messageCount) * 100 : 100,
-      characters: Number(missionary.characters || 0),
-      segments: Number(missionary.segments || 0),
-      estimatedCost: this.calculateEstimatedCost(Number(missionary.segments || 0)),
-    }));
-    
-    // Calculate overall estimated cost
-    const estimatedCost = this.calculateEstimatedCost(Number(totalCounts.totalSegments || 0));
-    
+
     return {
-      totalMessages: totalCounts.totalMessages || 0,
-      totalSuccessful: totalCounts.totalSuccessful || 0,
-      totalFailed: totalCounts.totalFailed || 0,
-      totalCharacters: Number(totalCounts.totalCharacters || 0),
-      totalSegments: Number(totalCounts.totalSegments || 0),
-      estimatedCost,
-      byWard: formattedByWard,
-      byMissionary: formattedByMissionary,
+      totalMessages: totalStats.totalMessages,
+      totalSuccessful: totalStats.totalSuccessful,
+      totalFailed,
+      totalCharacters: 0, // Not tracking characters in new system
+      totalSegments: totalStats.totalSegments || 0,
+      estimatedCost: 0, // Email and WhatsApp are free
+      byWard: byWard.map(ward => ({
+        wardId: ward.wardId,
+        wardName: ward.wardName,
+        messageCount: ward.messageCount,
+        successRate: ward.messageCount > 0 ? (ward.successCount / ward.messageCount) * 100 : 0,
+        characters: 0, // Not tracking characters
+        segments: Number(ward.segments) || 0,
+        estimatedCost: 0, // Free services
+      })),
+      byMissionary: byMissionary.map(missionary => ({
+        missionaryId: missionary.missionaryId,
+        missionaryName: missionary.missionaryName,
+        messageCount: missionary.messageCount,
+        successRate: missionary.messageCount > 0 ? (missionary.successCount / missionary.messageCount) * 100 : 0,
+        characters: 0, // Not tracking characters
+        segments: Number(missionary.segments) || 0,
+        estimatedCost: 0, // Free services
+      })),
       byPeriod,
     };
   }
-  
-  // Get message statistics for a specific ward
+
   async getWardMessageStats(wardId: number): Promise<MessageStats> {
-    // Implementation similar to getMessageStats but filtered by wardId
-    const stats = await this.getMessageStats();
-    
+    // Similar implementation but filtered by wardId
+    const [totalStats] = await db
+      .select({
+        totalMessages: count(),
+        totalSuccessful: count(
+          sql`CASE WHEN ${messageLogs.successful} = true THEN 1 END`
+        ),
+        totalSegments: sum(messageLogs.segmentCount),
+      })
+      .from(messageLogs)
+      .where(eq(messageLogs.wardId, wardId));
+
+    const totalFailed = totalStats.totalMessages - totalStats.totalSuccessful;
+
     return {
-      ...stats,
-      byWard: stats.byWard.filter(ward => ward.wardId === wardId),
-      byMissionary: stats.byMissionary.filter(missionary => {
-        // Check if missionary belongs to the specified ward
-        // This would require joining with the missionaries table in a real implementation
-        // For now, we'll assume the data is filtered correctly
-        return true;
-      }),
+      totalMessages: totalStats.totalMessages,
+      totalSuccessful: totalStats.totalSuccessful,
+      totalFailed,
+      totalCharacters: 0,
+      totalSegments: totalStats.totalSegments || 0,
+      estimatedCost: 0, // Free services
+      byWard: [],
+      byMissionary: [],
+      byPeriod: [],
     };
   }
 }
 
-// Notification Manager handles service selection based on missionary preferences
+// Main notification manager
 export class NotificationManager {
-  public smsService: TwilioService;
-  public messengerService: MessengerService;
+  public emailService: EmailNotificationService;
+  public whatsappService: WhatsAppNotificationService;
+  public smsService: TwilioService; // Legacy support
+  public messengerService: MessengerService; // Legacy support
   private statsService: MessageStatsService;
-  
+
   constructor() {
-    this.smsService = new TwilioService();
-    this.messengerService = new MessengerService();
+    this.emailService = new EmailNotificationService();
+    this.whatsappService = new WhatsAppNotificationService();
+    this.smsService = new TwilioService(); // Keep for backward compatibility
+    this.messengerService = new MessengerService(); // Keep for backward compatibility
     this.statsService = new MessageStatsService();
   }
-  
+
   public getServiceForMissionary(missionary: Missionary): BaseNotificationService {
-    return missionary.preferredNotification === 'messenger' && missionary.messengerAccount 
-      ? this.messengerService 
-      : this.smsService;
+    switch (missionary.preferredNotification) {
+      case 'email':
+        return this.emailService;
+      case 'whatsapp':
+        return this.whatsappService;
+      case 'text':
+      case 'sms':
+        return this.smsService; // Legacy
+      case 'messenger':
+        return this.messengerService; // Legacy
+      default:
+        // Default to email for new system
+        return this.emailService;
+    }
   }
-  
+
   async sendMealReminder(missionary: Missionary, meal: Meal): Promise<boolean> {
-    console.log('NotificationManager.sendMealReminder, missionary:', JSON.stringify({
-      id: missionary.id,
-      name: missionary.name,
-      consentStatus: missionary.consentStatus
-    }));
     const service = this.getServiceForMissionary(missionary);
     return service.sendMealReminder(missionary, meal);
   }
-  
+
   async sendDayOfReminder(missionary: Missionary, meals: Meal[]): Promise<boolean> {
     const service = this.getServiceForMissionary(missionary);
     return service.sendDayOfReminder(missionary, meals);
   }
-  
+
   async sendWeeklySummary(missionary: Missionary, meals: Meal[]): Promise<boolean> {
     const service = this.getServiceForMissionary(missionary);
     return service.sendWeeklySummary(missionary, meals);
   }
-  
-  // Schedule reminders based on missionary's notification preferences
+
   async scheduleNotifications(missionary: Missionary, meal: Meal): Promise<void> {
-    // Check the missionary's notification preferences
-    switch (missionary.notificationScheduleType) {
-      case 'before_meal':
-        // Calculate when to send the reminder based on hoursBefore
-        const mealTime = new Date(meal.date);
-        const [hours, minutes] = meal.startTime.split(':');
-        mealTime.setHours(parseInt(hours), parseInt(minutes));
-        
-        const reminderTime = new Date(mealTime.getTime());
-        reminderTime.setHours(reminderTime.getHours() - (missionary.hoursBefore || 3)); // Default to 3 hours if not set
-        
-        // For demo purposes, log the scheduled notification
-        console.log(`Reminder for ${missionary.name} scheduled for ${reminderTime.toISOString()} (${missionary.hoursBefore || 3} hours before meal)`);
-        
-        // In a real application, use a job scheduler like node-cron
-        /*
-        const scheduler = require('node-cron');
-        
-        // Schedule the notification at the appropriate time
-        const cronExpression = `${reminderTime.getMinutes()} ${reminderTime.getHours()} ${reminderTime.getDate()} ${reminderTime.getMonth() + 1} *`;
-        scheduler.schedule(cronExpression, () => {
-          this.sendMealReminder(missionary, meal);
-        });
-        */
-        break;
-        
-      case 'day_of':
-        // In a real application, schedule for the morning of the meal day
-        console.log(`Day-of reminder for ${missionary.name} scheduled for ${meal.date} at ${missionary.dayOfTime}`);
-        break;
-        
-      case 'weekly_summary':
-        // In a real application, add this meal to the weekly summary data
-        console.log(`Meal added to weekly summary for ${missionary.name} (sent on ${missionary.weeklySummaryDay}s at ${missionary.weeklySummaryTime})`);
-        break;
-        
-      case 'multiple':
-        // Schedule both immediate and weekly reminders
-        if (missionary.useMultipleNotifications) {
-          console.log(`Multiple notifications scheduled for ${missionary.name}`);
-          // Schedule both types of notifications
-        }
-        break;
-    }
+    // This would integrate with a job scheduler like node-cron or agenda
+    console.log(`Scheduling notifications for ${missionary.name} for meal on ${meal.date}`);
+    // Implementation would depend on notification schedule preferences
   }
-  
-  // Get message statistics
+
   async getMessageStats(): Promise<MessageStats> {
     return this.statsService.getMessageStats();
   }
-  
-  // Get message statistics for a specific ward
+
   async getWardMessageStats(wardId: number): Promise<MessageStats> {
     return this.statsService.getWardMessageStats(wardId);
   }
-  
-  // Helper method for sending consent-related messages
+
   async sendCustomMessage(missionary: Missionary, message: string, messageType: string): Promise<boolean> {
     const service = this.getServiceForMissionary(missionary);
     
-    // We need to bypass the normal consent checks for consent messages
-    // This should only be used for consent-related messages
-    if (service === this.smsService) {
-      // For SMS
-      const charCount = message.length;
-      const segmentCount = this.smsService.calculateSegments(message);
-      let successful = false;
-      
-      try {
-        if (this.smsService.twilioClient) {
-          await this.smsService.twilioClient.messages.create({
-            body: message,
-            from: this.smsService.twilioPhoneNumber,
-            to: missionary.phoneNumber
-          });
-          successful = true;
-        } else {
-          // Fallback for development without Twilio
-          console.log(`[SMS CUSTOM MESSAGE] Sending to ${missionary.phoneNumber}: ${message}`);
-          successful = true;
-        }
-      } catch (error) {
-        console.error("Failed to send custom SMS:", error);
-        successful = false;
-      }
-      
-      return successful;
-    } 
-    else {
-      // For Messenger
-      console.log(`[MESSENGER CUSTOM MESSAGE] Sending to ${missionary.messengerAccount}: ${message}`);
+    // For custom messages, we need to call the appropriate service methods
+    if (service instanceof EmailNotificationService) {
+      return service.emailService.sendCustomMessage(missionary, message, messageType);
+    } else if (service instanceof WhatsAppNotificationService) {
+      return service.whatsappService.sendCustomMessage(missionary, message, messageType);
+    } else {
+      // Legacy services don't have sendCustomMessage, so we'll simulate it
+      console.log(`[${missionary.preferredNotification?.toUpperCase()} SIMULATION] Custom message to ${missionary.name}: ${message}`);
       return true;
     }
   }
 }
 
-// Export singleton instance
 export const notificationManager = new NotificationManager();

@@ -16,8 +16,10 @@ interface Missionary {
   name: string;
   type: "elders" | "sisters";
   phoneNumber: string;
+  emailAddress?: string;
+  whatsappNumber?: string;
   messengerAccount?: string;
-  preferredNotification: "text" | "messenger";
+  preferredNotification: "email" | "whatsapp" | "text" | "messenger";
   active: boolean;
   notificationScheduleType: string;
   hoursBefore?: number;
