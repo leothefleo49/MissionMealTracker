@@ -1,0 +1,27 @@
+things that need to be fixed right now:
+
+Missionary portal when opened from home page assumes you are new and need to register, which means missionaries already with accounts can’t sign up here.
+
+No verification email was sent and it also let me type in any 6 digit number and said registration  complete even if I didn’t type in the actual code.
+
+Calendar view only shows one month in the calendar view dropdown option. It should show the current month plus then have a dropdown for the month after and one for the month after that.
+
+Booking a meal is still failing.
+
+Old UI app page home is still here in the code somewhere interfering. I like this new one better, remove the old file that is overlapping functionality.
+
+Remove missionary portal button from ward calendar links.
+
+When a missionary signs up, it should allow them to pick their group or choose to make a new one. Right now it assumes one login is a group of missionaries, but missionaries have their own phones and emails so their notifications can be separate but combined to one missionary group(called companionships) to be less likely they will miss it.
+
+Missionaries should be able to set up their notification settings, dietary settings, and preferences themselves without admins having to do it.
+
+Missionaries should be able to switch companionships if they change wards or go on exchanges. If they select exchanges and set the amount of days they will be at a different dinner starting at the current day, it will automatically put them back into their home ward once exchanges are over so they don’t miss meals.
+
+The add missionary area in admin dashboard can be completely removed.
+
+There is no current way for a super admin to set the ward admin password so there is no ward admin password
+
+Ward Users in admin mode doesn’t make a lot of sense because we don’t have a system for any usernames and if we did it would only be for admins.
+
+There should be a system implemented that sends out a warning and reminder message to ward admins’ emails when the missionaries aren’t getting fed enough according to the standards set in settings for that ward so that they can bring it up in meetings or send out a message.

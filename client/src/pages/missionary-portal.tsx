@@ -107,61 +107,20 @@ export default function MissionaryPortal() {
           <CardContent className="p-6">
             <div className="text-center mb-6">
               <h1 className="text-2xl font-bold text-gray-900 mb-2">Missionary Portal Access</h1>
-              <p className="text-gray-600">Enter your credentials to access the portal</p>
+              <p className="text-gray-600">Sign in or register to access your meal schedule</p>
             </div>
             
-            <form onSubmit={(e) => { e.preventDefault(); handleAuthentication(); }} className="space-y-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                  Email Address
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  value={authEmail}
-                  onChange={(e) => setAuthEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="your.email@missionary.org"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  value={authPassword}
-                  onChange={(e) => setAuthPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter your password"
-                  required
-                />
-              </div>
-              
-              {authError && (
-                <div className="text-red-600 text-sm text-center">{authError}</div>
-              )}
-              
+            <div className="space-y-4">
               <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={authenticating || !authEmail || !authPassword}
-              >
-                {authenticating ? "Authenticating..." : "Access Portal"}
-              </Button>
-            </form>
-            
-            <div className="mt-4 text-center">
-              <Button 
-                variant="outline" 
                 onClick={() => setLocation(`/missionary-register/${accessCode}`)}
-                className="text-sm"
+                className="w-full bg-blue-600 hover:bg-blue-700"
               >
-                New missionary? Register here
+                Sign In / Register
               </Button>
+              
+              <div className="text-center text-sm text-gray-500">
+                This will take you to the secure sign-in page where you can either log in with existing credentials or register as a new missionary.
+              </div>
             </div>
           </CardContent>
         </Card>
