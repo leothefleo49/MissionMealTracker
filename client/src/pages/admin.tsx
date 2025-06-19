@@ -311,15 +311,25 @@ export default function Admin() {
                     </CardContent>
                   </Card>
 
-                  {/* Add Missionary Form */}
+                  {/* Missionary Registration Notice */}
                   <Card>
                     <CardHeader>
-                      <CardTitle>Add Missionary</CardTitle>
-                      <CardDescription>Create a new missionary record</CardDescription>
+                      <CardTitle>Missionary Registration</CardTitle>
+                      <CardDescription>How missionaries join the system</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                      <div className="text-sm text-gray-600 space-y-2">
+                        <p>Missionaries must register themselves using the missionary portal with their @missionary.org email address.</p>
+                        <p>Share the ward access code with missionaries so they can:</p>
+                        <ul className="list-disc list-inside ml-4 space-y-1">
+                          <li>Register with their missionary email</li>
+                          <li>Verify their email address</li>
+                          <li>Set up their meal preferences</li>
+                          <li>Access their meal schedule</li>
+                        </ul>
+                      </div>
+                    </CardContent>
+                  </Card>
                           <FormField
                             control={form.control}
                             name="name"

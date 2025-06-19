@@ -32,7 +32,7 @@ export class EmailVerificationService {
   }
 
   generateVerificationCode(): string {
-    return Math.floor(1000 + Math.random() * 9000).toString();
+    return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
   async sendVerificationCode(email: string, missionaryId: number): Promise<boolean> {

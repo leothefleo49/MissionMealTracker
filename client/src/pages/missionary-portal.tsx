@@ -160,20 +160,21 @@ export default function MissionaryPortal() {
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center">
-              <Bell className="h-8 w-8 text-primary flex-shrink-0" />
-              <h1 className="ml-2 text-xl font-bold text-gray-900 truncate">
+          <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:justify-between sm:items-center">
+            <div className="flex items-center min-w-0">
+              <Bell className="h-6 w-6 sm:h-8 sm:w-8 text-primary flex-shrink-0" />
+              <h1 className="ml-2 text-lg sm:text-xl font-bold text-gray-900 truncate">
                 Missionary Portal
               </h1>
             </div>
             <Button 
               variant="ghost" 
-              className="flex items-center"
+              size="sm"
+              className="flex items-center self-start sm:self-center"
               onClick={() => setLocation(`/ward/${accessCode}`)}
             >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Ward
+              <ArrowLeft className="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" />
+              <span className="text-sm sm:text-base">Back to Ward</span>
             </Button>
           </div>
         </div>
@@ -224,13 +225,15 @@ export default function MissionaryPortal() {
               
               <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="mb-6 w-full grid grid-cols-2">
-                  <TabsTrigger value="upcoming">
-                    <Bell className="mr-2 h-4 w-4" />
-                    Upcoming Meals
+                  <TabsTrigger value="upcoming" className="flex items-center justify-center text-xs sm:text-sm">
+                    <Bell className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden xs:inline">Upcoming Meals</span>
+                    <span className="xs:hidden">Meals</span>
                   </TabsTrigger>
-                  <TabsTrigger value="calendar">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Calendar View
+                  <TabsTrigger value="calendar" className="flex items-center justify-center text-xs sm:text-sm">
+                    <Calendar className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden xs:inline">Calendar View</span>
+                    <span className="xs:hidden">Calendar</span>
                   </TabsTrigger>
                 </TabsList>
                 

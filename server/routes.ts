@@ -247,7 +247,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/meals', async (req, res) => {
     try {
       console.log('Received meal booking request:', req.body);
-      const mealData = insertMealSchema.parse(req.body);
+      // Convert date string to Date object before validation
+      const requestData = {
+        ...req.body,
+        date: new Date(req.body.date)
+      };
+      const mealData = insertMealSchema.parse(requestData);
       
       // Verify the missionary exists
       const missionary = await storage.getMissionary(mealData.missionaryId);
