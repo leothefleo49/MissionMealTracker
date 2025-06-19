@@ -207,38 +207,33 @@ export function CalendarGrid({
             const mealStatus = mealStatusMap.get(formattedDay) || { bookedMissionaries: [] };
             const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
             
-            // Get all booked missionary types on this day
+            // Get all booked missionary types and unique missionaries on this day
             const missionariesByType = new Map<string, {id: number, name: string}[]>();
+            const uniqueMissionaries = new Map<number, {id: number, name: string, type: string}>();
+            
             mealStatus.bookedMissionaries.forEach((m: any) => {
               const missionaries = missionariesByType.get(m.type) || [];
               missionaries.push({id: m.id, name: m.name});
               missionariesByType.set(m.type, missionaries);
+              uniqueMissionaries.set(m.id, {id: m.id, name: m.name, type: m.type});
             });
             
-            // Determine calendar day class based on booked missionaries - support for up to 5 sets
+            // Determine calendar day class based on booked missionaries
             let dayClass = "";
-            const bookedMissionaryIds = mealStatus.bookedMissionaries.map((m: any) => m.id);
+            const uniqueMissionaryIds = Array.from(uniqueMissionaries.keys());
             
-            if (bookedMissionaryIds.length === 1) {
-              // Single missionary set - determine which set number (1-5) based on ID
-              const setNumber = ((bookedMissionaryIds[0] - 1) % 5) + 1;
+            if (uniqueMissionaryIds.length === 1) {
+              // Single missionary/companionship - use set color based on ID
+              const setNumber = ((uniqueMissionaryIds[0] - 1) % 5) + 1;
               dayClass = `missionary-set-${setNumber}`;
-            } else if (bookedMissionaryIds.length > 1) {
-              // Multiple missionary sets booked
+            } else if (uniqueMissionaryIds.length > 1) {
+              // Multiple missionaries/companionships booked - show split colors
               dayClass = "missionary-booked-multiple";
             }
             
-            // Legacy support for elders/sisters
+            // Legacy support for elders/sisters type filtering
             const hasElders = !!missionariesByType.get("elders")?.length;
             const hasSisters = !!missionariesByType.get("sisters")?.length;
-            
-            if (hasElders && hasSisters) {
-              dayClass = "missionary-booked-both"; 
-            } else if (hasElders) {
-              dayClass = "missionary-booked-elders";
-            } else if (hasSisters) {
-              dayClass = "missionary-booked-sisters";
-            }
             
             // Check if this day is available for the selected missionary
             // When missionaryType is a numeric ID, check if that specific missionary is already booked

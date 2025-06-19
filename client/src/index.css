@@ -22,6 +22,49 @@
               rgba(245, 158, 11, 0.1) 100%);
     border: 1px dashed #94a3b8;
   }
+
+  /* Missionary set colors (up to 5 sets) */
+  .missionary-set-1 {
+    background-color: rgba(59, 130, 246, 0.15);
+    border: 1px solid #3b82f6;
+  }
+  
+  .missionary-set-2 {
+    background-color: rgba(245, 158, 11, 0.15);
+    border: 1px solid #f59e0b;
+  }
+  
+  .missionary-set-3 {
+    background-color: rgba(34, 197, 94, 0.15);
+    border: 1px solid #22c55e;
+  }
+  
+  .missionary-set-4 {
+    background-color: rgba(168, 85, 247, 0.15);
+    border: 1px solid #a855f7;
+  }
+  
+  .missionary-set-5 {
+    background-color: rgba(239, 68, 68, 0.15);
+    border: 1px solid #ef4444;
+  }
+  
+  /* Multiple bookings split colors */
+  .missionary-booked-multiple {
+    background: linear-gradient(90deg, 
+      rgba(59, 130, 246, 0.15) 0%, 
+      rgba(59, 130, 246, 0.15) 20%,
+      rgba(245, 158, 11, 0.15) 20%,
+      rgba(245, 158, 11, 0.15) 40%,
+      rgba(34, 197, 94, 0.15) 40%,
+      rgba(34, 197, 94, 0.15) 60%,
+      rgba(168, 85, 247, 0.15) 60%,
+      rgba(168, 85, 247, 0.15) 80%,
+      rgba(239, 68, 68, 0.15) 80%,
+      rgba(239, 68, 68, 0.15) 100%
+    );
+    border: 1px dashed #94a3b8;
+  }
   
   .calendar-day {
     aspect-ratio: 1;

@@ -60,7 +60,7 @@ export default function HomePage() {
   };
 
   const handleMissionaryPortal = () => {
-    setLocation("/missionary-register");
+    setLocation("/missionary-portal");
   };
 
   return (

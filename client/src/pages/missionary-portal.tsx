@@ -20,7 +20,55 @@ export default function MissionaryPortal() {
   const [authPassword, setAuthPassword] = useState("");
   const [authenticating, setAuthenticating] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [wardCodeInput, setWardCodeInput] = useState("");
   const isMobile = useIsMobile();
+  
+  // Show access code prompt if no access code provided
+  if (!accessCode) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6">
+            <div className="text-center mb-6">
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Missionary Portal</h1>
+              <p className="text-gray-600">Enter your ward access code to continue</p>
+            </div>
+            
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="Enter ward access code"
+                value={wardCodeInput}
+                onChange={(e) => setWardCodeInput(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              
+              <Button 
+                onClick={() => {
+                  if (wardCodeInput.trim()) {
+                    setLocation(`/missionary-portal/${wardCodeInput.trim()}`);
+                  }
+                }}
+                disabled={!wardCodeInput.trim()}
+                className="w-full bg-blue-600 hover:bg-blue-700"
+              >
+                Continue
+              </Button>
+              
+              <div className="text-center">
+                <button
+                  onClick={() => setLocation("/")}
+                  className="text-sm text-blue-600 hover:text-blue-700 underline"
+                >
+                  Back to Home
+                </button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   
   // Fetch ward data
   const { data: ward } = useQuery<any>({

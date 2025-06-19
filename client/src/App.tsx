@@ -20,6 +20,7 @@ function Router() {
       <Route path="/" component={HomePage} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/missionary-register" component={MissionaryRegister} />
+      <Route path="/missionary-portal" component={MissionaryPortal} />
       <ProtectedRoute path="/admin" component={Admin} />
       <Route path="/ward/:accessCode" component={WardPage} />
       <Route path="/missionary-portal/:accessCode" component={MissionaryPortal} />
