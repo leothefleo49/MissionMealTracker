@@ -109,6 +109,9 @@ export const missionaries = pgTable("missionaries", {
   weeklySummaryTime: text("weekly_summary_time").default("18:00"), // Time to send weekly summary
   useMultipleNotifications: boolean("use_multiple_notifications").default(false), // True if using multiple notification types
   
+  // Authentication fields
+  password: text("password"), // For missionary portal access
+  
   // Consent management (mainly for WhatsApp and SMS)
   consentStatus: text("consent_status").default("granted").notNull(), // 'pending', 'granted', 'denied' - email doesn't need explicit consent
   consentDate: timestamp("consent_date"), // When consent was granted or denied

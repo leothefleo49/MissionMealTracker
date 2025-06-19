@@ -35,6 +35,8 @@ type CalendarGridProps = {
   missionaryType: string;
   startMonth?: Date;
   maxMonths?: number;
+  wardId?: number;
+  autoSelectNextAvailable?: boolean;
 };
 
 export function CalendarGrid({ 
@@ -42,11 +44,15 @@ export function CalendarGrid({
   selectedDate, 
   missionaryType,
   startMonth = startOfToday(),
-  maxMonths = 6
+  maxMonths = 6,
+  wardId,
+  autoSelectNextAvailable = false
 }: CalendarGridProps) {
   const today = startOfToday();
   const [currentMonth, setCurrentMonth] = useState(format(startMonth, "MMM-yyyy"));
   const firstDayCurrentMonth = parse(currentMonth, "MMM-yyyy", new Date());
+
+
   
   const days = eachDayOfInterval({
     start: startOfWeek(firstDayCurrentMonth, { weekStartsOn: 0 }),
