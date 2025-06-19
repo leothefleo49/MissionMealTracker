@@ -309,7 +309,7 @@ export function CalendarGrid({
               <div
                 key={day.toString()}
                 className={cn(
-                  "calendar-day p-0.5 sm:p-1 aspect-square flex flex-col items-center justify-center min-h-8 sm:min-h-12",
+                  "calendar-day p-0.5 sm:p-1 flex flex-col items-center justify-center min-h-10 sm:min-h-12 w-full",
                   !isDisabled && "hover:bg-gray-50 cursor-pointer",
                   isDisabled && "disabled opacity-30 pointer-events-none",
                   isDimmed && !isSelected && "opacity-60",

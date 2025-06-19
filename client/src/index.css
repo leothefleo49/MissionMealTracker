@@ -196,21 +196,44 @@
 /* Mobile-specific styles */
 @media (max-width: 640px) {
   .calendar-day {
-    @apply p-0;
+    @apply p-0.5;
+    min-height: 2.5rem;
+    width: 100%;
   }
   
   .calendar-day .rounded-full {
-    @apply h-8 w-8 text-sm;
+    @apply h-6 w-6 text-xs;
   }
   
   /* Prevent horizontal scrolling on mobile */
   .calendar-grid {
     @apply overflow-x-hidden;
+    width: 100%;
+    max-width: 100%;
   }
   
-  /* Ensure calendar fits screen width */
+  /* Ensure calendar fits screen width perfectly */
   .calendar-container {
-    @apply max-w-full overflow-hidden;
+    @apply max-w-full overflow-hidden mx-auto;
+    width: calc(100vw - 2rem);
+    max-width: calc(100vw - 2rem);
+  }
+  
+  /* Mobile calendar header adjustments */
+  .calendar-container .flex.justify-between {
+    @apply px-2 py-2;
+  }
+  
+  /* Day headers more compact */
+  .calendar-container .grid.grid-cols-7.text-center {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+  }
+  
+  .calendar-container .grid.grid-cols-7.text-center > div {
+    @apply text-xs;
+    padding-left: 0.125rem;
+    padding-right: 0.125rem;
   }
   
   /* Improve ward access form on thin phones */
@@ -234,6 +257,28 @@
   /* Responsive tabs */
   .tab-list {
     @apply text-xs px-2;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 375px) {
+  .calendar-container {
+    width: calc(100vw - 1rem);
+    max-width: calc(100vw - 1rem);
+  }
+  
+  .calendar-day {
+    min-height: 2rem;
+  }
+  
+  .calendar-day .rounded-full {
+    @apply h-5 w-5 text-xs;
+  }
+  
+  .calendar-container .grid.grid-cols-7.text-center > div {
+    font-size: 0.75rem;
+    padding-left: 0;
+    padding-right: 0;
   }
 }
 
