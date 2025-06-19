@@ -19,7 +19,14 @@ export default function MissionaryPortal() {
   
   // Fetch ward data
   const { data: ward } = useQuery<any>({
-    queryKey: ['/api/wards/by-code', accessCode],
+    queryKey: ['/api/wards', accessCode],
+    queryFn: () => fetch(`/api/wards/${accessCode}`).then(res => {
+      if (!res.ok) {
+        throw new Error("Invalid ward access code");
+      }
+      return res.json();
+    }),
+    retry: false
   });
   
   const wardId = ward?.id;
