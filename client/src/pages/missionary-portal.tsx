@@ -23,6 +23,19 @@ export default function MissionaryPortal() {
   const [wardCodeInput, setWardCodeInput] = useState("");
   const isMobile = useIsMobile();
   
+  // Fetch ward data - always call the hook but conditionally enable it
+  const { data: ward } = useQuery<any>({
+    queryKey: ['/api/wards', accessCode],
+    queryFn: () => fetch(`/api/wards/${accessCode}`).then(res => {
+      if (!res.ok) {
+        throw new Error("Invalid ward access code");
+      }
+      return res.json();
+    }),
+    retry: false,
+    enabled: !!accessCode // Only run the query if we have an access code
+  });
+  
   // Show access code prompt if no access code provided
   if (!accessCode) {
     return (
@@ -69,18 +82,6 @@ export default function MissionaryPortal() {
       </div>
     );
   }
-  
-  // Fetch ward data
-  const { data: ward } = useQuery<any>({
-    queryKey: ['/api/wards', accessCode],
-    queryFn: () => fetch(`/api/wards/${accessCode}`).then(res => {
-      if (!res.ok) {
-        throw new Error("Invalid ward access code");
-      }
-      return res.json();
-    }),
-    retry: false
-  });
   
   const handleAuthentication = async () => {
     setAuthenticating(true);
