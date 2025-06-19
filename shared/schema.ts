@@ -38,6 +38,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   isAdmin: boolean("is_admin").default(false).notNull(),
   isSuperAdmin: boolean("is_super_admin").default(false).notNull(),
+  canUsePaidNotifications: boolean("can_use_paid_notifications").default(false).notNull(),
 });
 
 export const userWards = pgTable("user_wards", {

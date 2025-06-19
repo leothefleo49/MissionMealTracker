@@ -228,7 +228,7 @@ export class EmailService {
         missionaryId: missionary.id,
         wardId: missionary.wardId,
         messageType,
-        content: textContent,
+        content: textContent, // Correct column name
         method: 'email',
         successful,
         segmentCount: 1, // Email is always 1 "segment"
