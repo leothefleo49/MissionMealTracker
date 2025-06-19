@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Building, Users, Calendar, Settings, LogOut } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import WardSelector from "@/components/ward-selector";
+import { WardSelector } from "@/components/ward-selector";
 import MissionaryList from "@/components/missionary-list";
-import WardManagement from "@/components/ward-management";
-import MessageStatsComponent from "@/components/message-stats";
-import TestMessageForm from "@/components/test-message-form";
+import { WardManagement } from "@/components/ward-management";
+import { MessageStatsComponent } from "@/components/message-stats";
+import { TestMessageForm } from "@/components/test-message-form";
 
 export default function Admin() {
   const { user, logoutMutation } = useAuth();

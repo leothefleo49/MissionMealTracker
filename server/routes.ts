@@ -572,56 +572,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin-only routes for managing missionaries
-  app.post('/api/admin/missionaries', requireAdmin, async (req, res) => {
-    try {
-      const missionaryData = insertMissionarySchema.parse(req.body);
-      const missionary = await storage.createMissionary(missionaryData);
-      
-      // Automatically send a consent request for new missionaries with phone numbers
-      if (missionary.phoneNumber && missionary.preferredNotification === 'text') {
-        try {
-          // Generate a verification code
-          const verificationCode = generateVerificationCode();
-          
-          // Update missionary with the verification token and timestamp
-          await storage.updateMissionary(missionary.id, {
-            consentVerificationToken: verificationCode,
-            consentVerificationSentAt: new Date(),
-          });
-          
-          // Fetch the updated missionary to get the verification token
-          const updatedMissionary = await storage.getMissionary(missionary.id);
-          if (updatedMissionary) {
-            // Prepare consent message
-            const consentMessage = 
-              `This is the Ward Missionary Meal Scheduler. To receive meal notifications, reply with YES ${verificationCode} (example: YES ${verificationCode}). ` +
-              "Reply STOP at any time to opt out of messages. Msg & data rates may apply.";
-            
-            // Send the message using Twilio directly (bypassing consent checks since we're asking for consent)
-            if (notificationManager.smsService && notificationManager.smsService.twilioClient) {
-              await notificationManager.smsService.twilioClient.messages.create({
-                body: consentMessage,
-                from: notificationManager.smsService.twilioPhoneNumber,
-                to: updatedMissionary.phoneNumber
-              });
-              
-              console.log(`Consent verification sent to new missionary ${missionary.id} (${missionary.name})`);
-            } else {
-              // Fallback for development without Twilio
-              console.log(`[SMS CONSENT REQUEST] Would send to ${updatedMissionary.phoneNumber}: ${consentMessage}`);
-            }
-          }
-        } catch (consentErr) {
-          console.error(`Error sending initial consent request to missionary ${missionary.id}:`, consentErr);
-          // We don't fail the creation even if consent request fails - just log the error
-        }
-      }
-      
-      res.status(201).json(missionary);
-    } catch (err) {
-      handleZodError(err, res);
-    }
-  });
+  // Note: Missionaries must self-register through the portal
 
   app.patch('/api/admin/missionaries/:id', requireAdmin, async (req, res) => {
     try {
