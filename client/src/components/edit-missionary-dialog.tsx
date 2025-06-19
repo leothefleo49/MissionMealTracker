@@ -34,17 +34,26 @@ const missionaryFormSchema = z.object({
   name: z.string().min(2, { message: "Missionary name is required" }),
   type: z.enum(["elders", "sisters"]),
   phoneNumber: z.string().min(10, { message: "Please enter a valid phone number" }),
-  emailAddress: z.string().email().optional().or(z.literal("")),
+  personalPhone: z.string().optional(),
+  emailAddress: z.string().refine((email) => {
+    if (!email) return true; // Optional field
+    return email.endsWith('@missionary.org');
+  }, { message: "Email must end with @missionary.org" }).optional().or(z.literal("")),
   whatsappNumber: z.string().optional(),
   messengerAccount: z.string().optional(),
   preferredNotification: z.enum(["email", "whatsapp", "text", "messenger"]),
   active: z.boolean().default(true),
+  foodAllergies: z.string().optional(),
+  petAllergies: z.string().optional(),
+  allergySeverity: z.enum(["mild", "moderate", "severe", "life-threatening"]).optional(),
+  favoriteMeals: z.string().optional(),
+  dietaryRestrictions: z.string().optional(),
+  transferDate: z.date().optional(),
   notificationScheduleType: z.enum(["before_meal", "day_of", "weekly_summary", "multiple"]),
   hoursBefore: z.number().min(1).max(48).optional(),
   dayOfTime: z.string().optional(),
   weeklySummaryDay: z.enum(["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]).optional(),
   weeklySummaryTime: z.string().optional(),
-  dietaryRestrictions: z.string().optional(),
   wardId: z.number(),
 });
 
@@ -53,17 +62,24 @@ interface Missionary {
   name: string;
   type: "elders" | "sisters";
   phoneNumber: string;
+  personalPhone?: string;
   emailAddress?: string;
+  emailVerified?: boolean;
   whatsappNumber?: string;
   messengerAccount?: string;
   preferredNotification: "email" | "whatsapp" | "text" | "messenger";
   active: boolean;
+  foodAllergies?: string;
+  petAllergies?: string;
+  allergySeverity?: "mild" | "moderate" | "severe" | "life-threatening";
+  favoriteMeals?: string;
+  dietaryRestrictions?: string;
+  transferDate?: Date | null;
   notificationScheduleType: string;
   hoursBefore?: number;
   dayOfTime?: string;
   weeklySummaryDay?: string;
   weeklySummaryTime?: string;
-  dietaryRestrictions?: string;
   wardId: number;
   // Consent management fields
   consentStatus: "pending" | "granted" | "denied";
@@ -89,17 +105,23 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
       name: missionary.name,
       type: missionary.type,
       phoneNumber: missionary.phoneNumber,
+      personalPhone: missionary.personalPhone || "",
       emailAddress: missionary.emailAddress || "",
       whatsappNumber: missionary.whatsappNumber || "",
       messengerAccount: missionary.messengerAccount || "",
       preferredNotification: missionary.preferredNotification,
       active: missionary.active,
-      notificationScheduleType: missionary.notificationScheduleType as any, // Type casting for compatibility
+      foodAllergies: missionary.foodAllergies || "",
+      petAllergies: missionary.petAllergies || "",
+      allergySeverity: missionary.allergySeverity || "mild",
+      favoriteMeals: missionary.favoriteMeals || "",
+      dietaryRestrictions: missionary.dietaryRestrictions || "",
+      transferDate: missionary.transferDate ? new Date(missionary.transferDate) : undefined,
+      notificationScheduleType: missionary.notificationScheduleType as any,
       hoursBefore: missionary.hoursBefore || 3,
       dayOfTime: missionary.dayOfTime || "08:00",
-      weeklySummaryDay: missionary.weeklySummaryDay as any || "sunday", // Type casting for compatibility
+      weeklySummaryDay: missionary.weeklySummaryDay as any || "sunday",
       weeklySummaryTime: missionary.weeklySummaryTime || "08:00",
-      dietaryRestrictions: missionary.dietaryRestrictions || "",
       wardId: missionary.wardId,
     },
   });
@@ -245,20 +267,194 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
               />
             </div>
             
+            {/* Contact Information */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="phoneNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mission Phone Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+1234567890" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="personalPhone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Personal Phone Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+1234567890" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      For emergency contact purposes
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="emailAddress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email Address</FormLabel>
+                    <FormControl>
+                      <Input placeholder="missionary@missionary.org" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Must end with @missionary.org
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="whatsappNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>WhatsApp Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+1234567890" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Can be same as mission phone
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Dietary Information */}
+            <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+              <h4 className="font-semibold text-gray-900">Dietary Information</h4>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="foodAllergies"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Food Allergies</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Peanuts, shellfish, dairy, etc."
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="petAllergies"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Pet Allergies</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Cats, dogs, etc."
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="allergySeverity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Allergy Severity</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select severity level" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="mild">Mild - Minor discomfort</SelectItem>
+                        <SelectItem value="moderate">Moderate - Noticeable symptoms</SelectItem>
+                        <SelectItem value="severe">Severe - Significant reaction</SelectItem>
+                        <SelectItem value="life-threatening">Life-threatening - Anaphylaxis risk</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="favoriteMeals"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Favorite Meals</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Pizza, tacos, lasagna, etc."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Help meal providers know what you enjoy
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="dietaryRestrictions"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Other Dietary Restrictions</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Vegetarian, gluten-free, kosher, etc."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Transfer Date */}
             <FormField
               control={form.control}
-              name="dietaryRestrictions"
+              name="transferDate"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Dietary Restrictions/Allergies</FormLabel>
+                  <FormLabel>Transfer Date</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      placeholder="Example: Gluten-free, allergic to peanuts, dairy-free, etc."
-                      {...field}
+                    <Input 
+                      type="date"
+                      value={field.value ? field.value.toISOString().split('T')[0] : ''}
+                      onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : undefined)}
                     />
                   </FormControl>
                   <FormDescription>
-                    List any food allergies or dietary restrictions that meal providers should be aware of.
+                    Set to receive automatic reminders to update information
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -273,19 +469,35 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                   <FormLabel>Preferred Notification Method</FormLabel>
                   <FormControl>
                     <RadioGroup
-                      onValueChange={(value: "text" | "messenger") => {
+                      onValueChange={(value: "email" | "whatsapp" | "text" | "messenger") => {
                         field.onChange(value);
                         setIsMessenger(value === "messenger");
                       }}
                       defaultValue={field.value}
-                      className="flex flex-col space-y-1"
+                      className="grid grid-cols-2 gap-4"
                     >
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="email" />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          Email (Free)
+                        </FormLabel>
+                      </FormItem>
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="whatsapp" />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          WhatsApp (Free)
+                        </FormLabel>
+                      </FormItem>
                       <FormItem className="flex items-center space-x-3 space-y-0">
                         <FormControl>
                           <RadioGroupItem value="text" />
                         </FormControl>
                         <FormLabel className="font-normal">
-                          Text Message
+                          Text Message (Legacy)
                         </FormLabel>
                       </FormItem>
                       <FormItem className="flex items-center space-x-3 space-y-0">
@@ -293,7 +505,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                           <RadioGroupItem value="messenger" />
                         </FormControl>
                         <FormLabel className="font-normal">
-                          Facebook Messenger
+                          Facebook Messenger (Legacy)
                         </FormLabel>
                       </FormItem>
                     </RadioGroup>

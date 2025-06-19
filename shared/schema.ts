@@ -79,12 +79,26 @@ export const missionaries = pgTable("missionaries", {
   name: text("name").notNull(),
   type: text("type").notNull(), // 'elders' or 'sisters'
   phoneNumber: text("phone_number").notNull(),
-  emailAddress: text("email_address"), // Email address for notifications
+  personalPhone: text("personal_phone"), // Personal contact phone
+  emailAddress: text("email_address"), // Must end with @missionary.org
+  emailVerified: boolean("email_verified").default(false).notNull(),
+  emailVerificationCode: text("email_verification_code"), // 4-digit code
+  emailVerificationSentAt: timestamp("email_verification_sent_at"),
   whatsappNumber: text("whatsapp_number"), // WhatsApp number (can be same as phone)
   messengerAccount: text("messenger_account"),
   preferredNotification: text("preferred_notification").default("email").notNull(), // 'email', 'whatsapp', 'text', 'messenger'
   active: boolean("active").default(true).notNull(),
-  dietaryRestrictions: text("dietary_restrictions"), // Food allergies or dietary restrictions
+  
+  // Enhanced dietary and preference information
+  foodAllergies: text("food_allergies"), // Specific food allergies
+  petAllergies: text("pet_allergies"), // Pet allergies
+  allergySeverity: text("allergy_severity").default("mild"), // 'mild', 'moderate', 'severe', 'life-threatening'
+  favoriteMeals: text("favorite_meals"), // Favorite meals/foods
+  dietaryRestrictions: text("dietary_restrictions"), // Other dietary restrictions
+  
+  // Transfer management
+  transferDate: timestamp("transfer_date"), // Scheduled transfer date
+  transferNotificationSent: boolean("transfer_notification_sent").default(false),
   
   // Notification settings
   notificationScheduleType: text("notification_schedule_type").default("before_meal").notNull(), // 'before_meal', 'day_of', 'weekly_summary', 'multiple'
@@ -112,12 +126,18 @@ export const insertMissionarySchema = createInsertSchema(missionaries).pick({
   name: true,
   type: true,
   phoneNumber: true,
+  personalPhone: true,
   emailAddress: true,
   whatsappNumber: true,
   messengerAccount: true,
   preferredNotification: true,
   active: true,
+  foodAllergies: true,
+  petAllergies: true,
+  allergySeverity: true,
+  favoriteMeals: true,
   dietaryRestrictions: true,
+  transferDate: true,
   notificationScheduleType: true,
   hoursBefore: true,
   dayOfTime: true,
