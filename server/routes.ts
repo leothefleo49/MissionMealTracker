@@ -357,7 +357,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(201).json(meal);
     } catch (err) {
-      handleZodError(err, res);
+      console.error('Meal booking error:', err);
+      if (err instanceof ZodError) {
+        return res.status(400).json({ 
+          message: 'Validation error', 
+          errors: err.errors 
+        });
+      }
+      res.status(500).json({ message: 'Failed to create meal' });
     }
   });
 
