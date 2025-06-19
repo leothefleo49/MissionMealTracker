@@ -7,20 +7,22 @@ import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
 import NotFound from "@/pages/not-found";
-import Home from "@/pages/home";
+import HomePage from "@/pages/home-page";
 import Admin from "@/pages/admin";
 import MissionaryPortal from "@/pages/missionary-portal";
+import MissionaryRegister from "@/pages/missionary-register";
 import AuthPage from "@/pages/auth-page";
 import WardPage from "@/pages/ward-page";
 
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/" component={HomePage} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/missionary-register" component={MissionaryRegister} />
       <ProtectedRoute path="/admin" component={Admin} />
       <Route path="/ward/:accessCode" component={WardPage} />
-      <Route path="/ward/:accessCode/missionary-portal" component={MissionaryPortal} />
+      <Route path="/missionary-portal/:accessCode" component={MissionaryPortal} />
       <Route component={NotFound} />
     </Switch>
   );
