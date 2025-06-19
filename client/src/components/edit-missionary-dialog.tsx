@@ -53,8 +53,10 @@ interface Missionary {
   name: string;
   type: "elders" | "sisters";
   phoneNumber: string;
+  emailAddress?: string;
+  whatsappNumber?: string;
   messengerAccount?: string;
-  preferredNotification: "text" | "messenger";
+  preferredNotification: "email" | "whatsapp" | "text" | "messenger";
   active: boolean;
   notificationScheduleType: string;
   hoursBefore?: number;
@@ -87,6 +89,8 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
       name: missionary.name,
       type: missionary.type,
       phoneNumber: missionary.phoneNumber,
+      emailAddress: missionary.emailAddress || "",
+      whatsappNumber: missionary.whatsappNumber || "",
       messengerAccount: missionary.messengerAccount || "",
       preferredNotification: missionary.preferredNotification,
       active: missionary.active,
