@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Phone, User, ArrowLeft, UserPlus } from "lucide-react";
+import { Calendar, Phone, User, ArrowLeft, UserPlus, ChevronDown, BarChart3 } from "lucide-react";
 import { CalendarGrid } from "@/components/calendar-grid";
 import { MealBookingForm } from "@/components/meal-booking-form";
 import { MissionaryContactCard } from "@/components/missionary-contact-card";
@@ -222,21 +222,69 @@ export default function WardPage() {
       <main className="flex-grow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Tabs defaultValue="calendar" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="tab-list mb-8 border-b border-gray-200 w-full justify-start overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-              <TabsTrigger value="calendar" className="px-1 py-3 sm:py-4 text-sm sm:text-base whitespace-nowrap">
-                <Calendar className="w-4 h-4 mr-1 inline md:hidden" />
+            {/* Mobile dropdown navigation */}
+            <div className="mb-8 sm:hidden">
+              <Select value={activeTab} onValueChange={setActiveTab}>
+                <SelectTrigger className="w-full">
+                  <div className="flex items-center w-full">
+                    {activeTab === "calendar" && <Calendar className="w-4 h-4 mr-2" />}
+                    {activeTab === "contact" && <Phone className="w-4 h-4 mr-2" />}
+                    {activeTab === "upcoming" && <User className="w-4 h-4 mr-2" />}
+                    {activeTab === "statistics" && <BarChart3 className="w-4 h-4 mr-2" />}
+                    <span className="flex-grow">
+                      {activeTab === "calendar" && "Schedule a Meal"}
+                      {activeTab === "contact" && "Contact Missionaries"}
+                      {activeTab === "upcoming" && "My Meals"}
+                      {activeTab === "statistics" && "Meal Statistics"}
+                    </span>
+                    <ChevronDown className="w-4 h-4 ml-2" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="calendar">
+                    <div className="flex items-center">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      Schedule a Meal
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="contact">
+                    <div className="flex items-center">
+                      <Phone className="w-4 h-4 mr-2" />
+                      Contact Missionaries
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="upcoming">
+                    <div className="flex items-center">
+                      <User className="w-4 h-4 mr-2" />
+                      My Meals
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="statistics">
+                    <div className="flex items-center">
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      Meal Statistics
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Desktop tab navigation */}
+            <TabsList className="tab-list mb-8 border-b border-gray-200 w-full justify-start overflow-x-auto hidden sm:flex" style={{ scrollbarWidth: 'none' }}>
+              <TabsTrigger value="calendar" className="px-3 py-3 sm:py-4 text-sm sm:text-base whitespace-nowrap">
+                <Calendar className="w-4 h-4 mr-2" />
                 Schedule a Meal
               </TabsTrigger>
-              <TabsTrigger value="contact" className="px-1 py-3 sm:py-4 text-sm sm:text-base whitespace-nowrap">
-                <Phone className="w-4 h-4 mr-1 inline md:hidden" />
+              <TabsTrigger value="contact" className="px-3 py-3 sm:py-4 text-sm sm:text-base whitespace-nowrap">
+                <Phone className="w-4 h-4 mr-2" />
                 Contact Missionaries
               </TabsTrigger>
-              <TabsTrigger value="upcoming" className="px-1 py-3 sm:py-4 text-sm sm:text-base whitespace-nowrap">
-                <User className="w-4 h-4 mr-1 inline md:hidden" />
+              <TabsTrigger value="upcoming" className="px-3 py-3 sm:py-4 text-sm sm:text-base whitespace-nowrap">
+                <User className="w-4 h-4 mr-2" />
                 My Meals
               </TabsTrigger>
-              <TabsTrigger value="statistics" className="px-1 py-3 sm:py-4 text-sm sm:text-base whitespace-nowrap">
-                <Calendar className="w-4 h-4 mr-1 inline md:hidden" />
+              <TabsTrigger value="statistics" className="px-3 py-3 sm:py-4 text-sm sm:text-base whitespace-nowrap">
+                <BarChart3 className="w-4 h-4 mr-2" />
                 Meal Statistics
               </TabsTrigger>
             </TabsList>
