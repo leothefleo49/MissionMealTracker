@@ -12,7 +12,7 @@ import {
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
-import { setupAuth, createSuperAdminUser, comparePasswords } from "./auth";
+import { setupAuth, createSuperAdminUser, comparePasswords, hashPassword } from "./auth";
 import { notificationManager } from "./notifications";
 import { EmailVerificationService } from "./email-verification";
 import { TransferManagementService } from "./transfer-management";
@@ -777,6 +777,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Missionary portal authentication error:', error);
       res.status(500).json({ message: 'Authentication failed' });
+    }
+  });
+
+  // Missionary registration for portal access
+  app.post('/api/missionaries/register', async (req, res) => {
+    try {
+      const { name, type, emailAddress, wardAccessCode, password } = req.body;
+      
+      if (!name || !type || !emailAddress || !wardAccessCode || !password) {
+        return res.status(400).json({ message: 'All fields are required' });
+      }
+      
+      if (!emailAddress.endsWith('@missionary.org')) {
+        return res.status(400).json({ message: 'Email must be a @missionary.org address' });
+      }
+      
+      // Get ward by access code
+      const ward = await storage.getWardByAccessCode(wardAccessCode);
+      if (!ward) {
+        return res.status(404).json({ message: 'Invalid ward access code' });
+      }
+      
+      // Check if missionary with this email already exists
+      const existingMissionary = await storage.getMissionaryByEmail(emailAddress);
+      if (existingMissionary) {
+        // If missionary exists but has no password, update with password
+        if (!existingMissionary.password) {
+          const hashedPassword = await hashPassword(password);
+          const updatedMissionary = await storage.updateMissionary(existingMissionary.id, {
+            password: hashedPassword
+          });
+          
+          // Send verification email
+          const success = await emailVerificationService.sendVerificationCode(
+            emailAddress,
+            existingMissionary.id
+          );
+          
+          if (success) {
+            res.json({ 
+              message: 'Registration successful. Verification email sent.',
+              missionaryId: existingMissionary.id 
+            });
+          } else {
+            res.status(500).json({ message: 'Failed to send verification email' });
+          }
+        } else {
+          return res.status(409).json({ message: 'Missionary already registered with this email' });
+        }
+      } else {
+        // Create new missionary
+        const hashedPassword = await hashPassword(password);
+        const missionary = await storage.createMissionary({
+          name,
+          type,
+          emailAddress,
+          wardId: ward.id,
+          phoneNumber: '', // Will be updated later
+          password: hashedPassword,
+          active: true,
+          preferredNotification: 'email'
+        });
+        
+        // Send verification email
+        const success = await emailVerificationService.sendVerificationCode(
+          emailAddress,
+          missionary.id
+        );
+        
+        if (success) {
+          res.json({ 
+            message: 'Registration successful. Verification email sent.',
+            missionaryId: missionary.id 
+          });
+        } else {
+          res.status(500).json({ message: 'Failed to send verification email' });
+        }
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({ message: 'Registration failed' });
+    }
+  });
+
+  // Verify missionary email
+  app.post('/api/missionaries/verify', async (req, res) => {
+    try {
+      const { missionaryId, verificationCode } = req.body;
+      
+      if (!missionaryId || !verificationCode) {
+        return res.status(400).json({ message: 'Missionary ID and verification code are required' });
+      }
+      
+      const success = await emailVerificationService.verifyCode(missionaryId, verificationCode);
+      
+      if (success) {
+        res.json({ message: 'Email verified successfully' });
+      } else {
+        res.status(400).json({ message: 'Invalid or expired verification code' });
+      }
+    } catch (error) {
+      console.error('Verification error:', error);
+      res.status(500).json({ message: 'Verification failed' });
     }
   });
 

@@ -31,12 +31,13 @@ const verificationSchema = z.object({
 
 type RegisterForm = z.infer<typeof registerSchema>;
 type VerificationForm = z.infer<typeof verificationSchema>;
+type MissionaryData = RegisterForm & { missionaryId?: number };
 
 export default function MissionaryRegister() {
   const [, setLocation] = useLocation();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [step, setStep] = useState<"register" | "verify" | "complete">("register");
-  const [missionaryData, setMissionaryData] = useState<RegisterForm | null>(null);
+  const [missionaryData, setMissionaryData] = useState<MissionaryData | null>(null);
   const { toast } = useToast();
 
   const registerForm = useForm<RegisterForm>({
@@ -59,22 +60,12 @@ export default function MissionaryRegister() {
 
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterForm) => {
-      // First validate ward access code
-      const wardResponse = await fetch(`/api/wards/${data.wardAccessCode}`);
-      if (!wardResponse.ok) {
-        throw new Error("Invalid ward access code");
-      }
-      
-      const ward = await wardResponse.json();
-      
       // Register missionary with email verification
-      return apiRequest("POST", "/api/missionaries/register", {
-        ...data,
-        wardId: ward.id,
-      });
+      const response = await apiRequest("POST", "/api/missionaries/register", data);
+      return await response.json();
     },
     onSuccess: (response) => {
-      setMissionaryData(registerForm.getValues());
+      setMissionaryData({ ...registerForm.getValues(), missionaryId: response.missionaryId });
       setStep("verify");
       toast({
         title: "Verification Email Sent",
