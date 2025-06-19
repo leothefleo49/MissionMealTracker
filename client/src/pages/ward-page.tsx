@@ -48,7 +48,10 @@ export default function WardPage() {
   const { data: missionaries, isLoading: loadingMissionaries } = useQuery<any[]>({
     queryKey: ['/api/wards', ward?.id, 'missionaries'],
     queryFn: () => fetch(`/api/wards/${ward?.id}/missionaries`).then(res => res.json()),
-    enabled: !!ward?.id
+    enabled: !!ward?.id,
+    staleTime: 1000,
+    refetchInterval: 1000,
+    refetchOnWindowFocus: true
   });
 
   // Set default missionary when missionaries data changes
@@ -69,7 +72,10 @@ export default function WardPage() {
     queryFn: () => fetch(
       `/api/meals?wardId=${ward?.id}&startDate=${startOfDay.toISOString()}&endDate=${sixMonthsLater.toISOString()}`
     ).then(res => res.json()),
-    enabled: !!ward?.id
+    enabled: !!ward?.id,
+    staleTime: 1000,
+    refetchInterval: 1000,
+    refetchOnWindowFocus: true
   });
   
   // If invalid ward access code, show error
@@ -93,6 +99,21 @@ export default function WardPage() {
     setMissionaryType(value);
     setSelectedDate(null); // Reset selected date when changing missionary
   };
+
+  // Check if selected missionary is already booked for selected date
+  const isMissionaryBookedForDate = (missionaryId: string, date: Date | null): boolean => {
+    if (!date || !meals || !missionaryId) return false;
+    
+    const dateString = date.toISOString().split('T')[0];
+    return meals.some((meal: any) => 
+      meal.missionaryId.toString() === missionaryId && 
+      meal.date.split('T')[0] === dateString &&
+      !meal.cancelled
+    );
+  };
+
+  const selectedMissionaryBookedForDate = selectedDate && missionaryType ? 
+    isMissionaryBookedForDate(missionaryType, selectedDate) : false;
   
   // Handle form cancellation
   const handleCancelBooking = () => {

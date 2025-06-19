@@ -89,11 +89,11 @@ export function CalendarGrid({
     queryFn: () => fetch(
       `/api/meals?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
     ).then(res => res.json()),
-    staleTime: 30 * 60 * 1000, // Consider data fresh for 30 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchInterval: false,
-    gcTime: 60 * 60 * 1000 // Keep cache for 1 hour
+    staleTime: 1000, // Consider data fresh for 1 second
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchInterval: 1000, // Refetch every second
+    gcTime: 5 * 60 * 1000 // Keep cache for 5 minutes
   });
   
   // Create a map of dates to meal status
@@ -149,48 +149,48 @@ export function CalendarGrid({
   
   return (
     <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden bg-white">
-      <div className="flex justify-between items-center bg-gray-50 px-4 py-3 border-b border-gray-200">
+      <div className="flex justify-between items-center bg-gray-50 px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-200">
         <Button
           variant="ghost"
-          size="icon"
+          size="sm"
           onClick={previousMonth}
           disabled={isPrevMonthDisabled}
           className={cn(
-            "p-1 rounded-full hover:bg-gray-200 focus:outline-none",
+            "p-1 sm:p-2 rounded-full hover:bg-gray-200 focus:outline-none min-w-8 h-8 sm:min-w-10 sm:h-10",
             isPrevMonthDisabled && "opacity-50 cursor-not-allowed"
           )}
         >
-          <ChevronLeft className="h-5 w-5" />
+          <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
           <span className="sr-only">Previous month</span>
         </Button>
         
-        <h3 className="text-base font-medium text-gray-900">
-          {format(firstDayCurrentMonth, "MMMM yyyy")}
+        <h3 className="text-sm sm:text-base font-medium text-gray-900 truncate px-2">
+          {format(firstDayCurrentMonth, "MMM yyyy")}
         </h3>
         
         <Button
           variant="ghost"
-          size="icon"
+          size="sm"
           onClick={nextMonth}
           disabled={isNextMonthDisabled}
           className={cn(
-            "p-1 rounded-full hover:bg-gray-200 focus:outline-none",
+            "p-1 sm:p-2 rounded-full hover:bg-gray-200 focus:outline-none min-w-8 h-8 sm:min-w-10 sm:h-10",
             isNextMonthDisabled && "opacity-50 cursor-not-allowed"
           )}
         >
-          <ChevronRight className="h-5 w-5" />
+          <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
           <span className="sr-only">Next month</span>
         </Button>
       </div>
       
-      <div className="grid grid-cols-7 text-center py-2 border-b border-gray-200">
-        <div className="text-xs font-medium text-gray-500">Sun</div>
-        <div className="text-xs font-medium text-gray-500">Mon</div>
-        <div className="text-xs font-medium text-gray-500">Tue</div>
-        <div className="text-xs font-medium text-gray-500">Wed</div>
-        <div className="text-xs font-medium text-gray-500">Thu</div>
-        <div className="text-xs font-medium text-gray-500">Fri</div>
-        <div className="text-xs font-medium text-gray-500">Sat</div>
+      <div className="grid grid-cols-7 text-center py-1 sm:py-2 border-b border-gray-200">
+        <div className="text-xs font-medium text-gray-500 px-1">S</div>
+        <div className="text-xs font-medium text-gray-500 px-1">M</div>
+        <div className="text-xs font-medium text-gray-500 px-1">T</div>
+        <div className="text-xs font-medium text-gray-500 px-1">W</div>
+        <div className="text-xs font-medium text-gray-500 px-1">T</div>
+        <div className="text-xs font-medium text-gray-500 px-1">F</div>
+        <div className="text-xs font-medium text-gray-500 px-1">S</div>
       </div>
       
       <div className="grid grid-cols-7 text-center">
@@ -240,13 +240,12 @@ export function CalendarGrid({
             const isMissionaryId = !isNaN(parseInt(missionaryType, 10));
             const isDayUnavailable = isMissionaryId 
               ? mealStatus.bookedMissionaries.some((m: any) => m.id.toString() === missionaryType)
-              : ((missionaryType === "elders" && hasElders) || 
-                 (missionaryType === "sisters" && hasSisters));
+              : false; // Don't disable for legacy type filtering
             
             // Check if the date is within the booking range
             const isOutsideBookingRange = !isWithinBookingRange(day);
             
-            // Determine if the day is disabled
+            // Determine if the day is disabled (only disable if outside range, not in current month, or specific missionary already booked)
             const isDisabled = 
               !isSameMonth(day, firstDayCurrentMonth) || 
               isOutsideBookingRange || 
@@ -256,7 +255,7 @@ export function CalendarGrid({
               <div
                 key={day.toString()}
                 className={cn(
-                  "calendar-day p-1",
+                  "calendar-day p-0.5 sm:p-1 aspect-square flex flex-col items-center justify-center min-h-8 sm:min-h-12",
                   !isDisabled && "hover:bg-gray-50 cursor-pointer",
                   isDisabled && "disabled opacity-30 pointer-events-none",
                   dayClass,
@@ -265,13 +264,19 @@ export function CalendarGrid({
                 onClick={() => !isDisabled && onSelectDate(day)}
               >
                 <div className={cn(
-                  "rounded-full h-10 w-10 flex items-center justify-center mx-auto",
+                  "rounded-full h-6 w-6 sm:h-8 sm:w-8 flex items-center justify-center",
                   isToday(day) && "bg-blue-50 text-primary font-bold"
                 )}>
-                  <span className="text-sm">
+                  <span className="text-xs sm:text-sm font-medium">
                     {format(day, "d")}
                   </span>
                 </div>
+                {/* Show booking indicator dots for very small screens */}
+                {uniqueMissionaryIds.length > 0 && (
+                  <div className="flex justify-center mt-0.5 sm:hidden">
+                    <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                  </div>
+                )}
               </div>
             );
           })
