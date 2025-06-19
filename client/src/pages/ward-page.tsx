@@ -181,6 +181,15 @@ export default function WardPage() {
                 {isMobile ? "Portal" : "Missionary Portal"}
               </Button>
               <Button 
+                variant="outline" 
+                size={isMobile ? "sm" : "default"}
+                onClick={() => setLocation('/auth')}
+                className="flex items-center text-blue-600 border-blue-200 hover:bg-blue-50"
+              >
+                <User className="h-4 w-4 mr-1" />
+                {isMobile ? "Login" : "Admin Login"}
+              </Button>
+              <Button 
                 variant="ghost" 
                 size={isMobile ? "sm" : "default"}
                 onClick={() => setLocation('/')}
@@ -320,6 +329,8 @@ export default function WardPage() {
                 onSelectDate={handleSelectDate}
                 selectedDate={selectedDate}
                 missionaryType={missionaryType}
+                wardId={ward?.id}
+                autoSelectNextAvailable={true}
               />
               
               {/* Booking Form (shown when date is selected) */}

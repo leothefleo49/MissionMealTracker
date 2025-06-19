@@ -51,8 +51,6 @@ export function CalendarGrid({
   const today = startOfToday();
   const [currentMonth, setCurrentMonth] = useState(format(startMonth, "MMM-yyyy"));
   const firstDayCurrentMonth = parse(currentMonth, "MMM-yyyy", new Date());
-
-
   
   const days = eachDayOfInterval({
     start: startOfWeek(firstDayCurrentMonth, { weekStartsOn: 0 }),
@@ -127,6 +125,27 @@ export function CalendarGrid({
     
     return map;
   }, [meals]);
+
+  // Auto-select next available date when missionary type changes or when enabled
+  useEffect(() => {
+    if (autoSelectNextAvailable && !selectedDate && mealStatusMap.size > 0) {
+      const availableDates = days.filter(day => {
+        if (!isWithinBookingRange(day)) return false;
+        
+        const dayKey = format(day, 'yyyy-MM-dd');
+        const mealStatus = mealStatusMap.get(dayKey);
+        
+        if (!mealStatus) return true; // No meals booked, available
+        
+        const bookedTypes = mealStatus.bookedMissionaries.map(m => m.type);
+        return !bookedTypes.includes(missionaryType);
+      });
+      
+      if (availableDates.length > 0) {
+        onSelectDate(availableDates[0]);
+      }
+    }
+  }, [autoSelectNextAvailable, selectedDate, mealStatusMap, days, missionaryType, onSelectDate]);
   
   return (
     <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden bg-white">
