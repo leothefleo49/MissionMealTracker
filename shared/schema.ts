@@ -209,19 +209,22 @@ export const checkMealAvailabilitySchema = z.object({
 
 export type CheckMealAvailability = z.infer<typeof checkMealAvailabilitySchema>;
 
-// Message Logs table - for tracking email/WhatsApp/SMS/Messenger notifications
+// Message Logs table - for tracking email/WhatsApp notifications
 export const messageLogs = pgTable("message_logs", {
   id: serial("id").primaryKey(),
   missionaryId: integer("missionary_id").notNull().references(() => missionaries.id),
   wardId: integer("ward_id").notNull().references(() => wards.id),
   sentAt: timestamp("sent_at").notNull().defaultNow(),
   messageType: text("message_type").notNull(), // 'before_meal', 'day_of', 'weekly_summary'
-  content: text("content").notNull(), // Message content
-  method: text("method").notNull(), // 'email', 'whatsapp', 'sms', 'messenger'
+  messageContent: text("message_content").notNull(), // Legacy column name
+  deliveryMethod: text("delivery_method").notNull(), // Legacy column name - 'email', 'whatsapp'
   successful: boolean("successful").notNull(),
   failureReason: text("failure_reason"),
-  segmentCount: integer("segment_count").notNull().default(1), // For SMS that are split into multiple messages
-  estimatedCost: text("estimated_cost").notNull().default("0"), // Cost in dollars as string
+  charCount: integer("char_count").notNull().default(0), // Legacy column
+  segmentCount: integer("segment_count").notNull().default(1),
+  content: text("content").notNull(), // New column name
+  method: text("method").notNull(), // New column name - 'email', 'whatsapp'
+  estimatedCost: text("estimated_cost").notNull().default("0"),
 });
 
 export const messageLogsRelations = relations(messageLogs, ({ one }) => ({
@@ -233,11 +236,14 @@ export const insertMessageLogSchema = createInsertSchema(messageLogs).pick({
   missionaryId: true,
   wardId: true,
   messageType: true,
-  content: true,
-  method: true,
+  messageContent: true,
+  deliveryMethod: true,
   successful: true,
   failureReason: true,
+  charCount: true,
   segmentCount: true,
+  content: true,
+  method: true,
   estimatedCost: true,
 });
 

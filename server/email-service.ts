@@ -228,11 +228,14 @@ export class EmailService {
         missionaryId: missionary.id,
         wardId: missionary.wardId,
         messageType,
-        content: textContent, // Correct column name
+        messageContent: textContent,
+        deliveryMethod: 'email',
+        content: textContent,
         method: 'email',
         successful,
-        segmentCount: 1, // Email is always 1 "segment"
-        estimatedCost: "0", // Email is free
+        charCount: textContent.length,
+        segmentCount: 1,
+        estimatedCost: "0",
         failureReason
       };
 
