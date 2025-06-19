@@ -157,7 +157,7 @@ export function CalendarGrid({
   }, [autoSelectNextAvailable, selectedDate, mealStatusMap, days, missionaryType, onSelectDate]);
   
   return (
-    <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden bg-white max-w-full">
+    <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden bg-white max-w-full calendar-container">
       <div className="flex justify-between items-center bg-gray-50 px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-200">
         <Button
           variant="ghost"
@@ -202,7 +202,7 @@ export function CalendarGrid({
         <div className="text-xs font-medium text-gray-500 px-1">S</div>
       </div>
       
-      <div className="grid grid-cols-7 text-center">
+      <div className="grid grid-cols-7 text-center calendar-grid">
         {isLoading ? (
           // Loading skeleton
           Array.from({ length: 35 }).map((_, idx) => (
@@ -287,6 +287,17 @@ export function CalendarGrid({
             // Check if the date is within the booking range
             const isOutsideBookingRange = !isWithinBookingRange(day);
             
+            // Check if ALL missionary sets are completely booked
+            const totalMissionaryCount = wardMissionaries?.length || 1;
+            const uniqueBookedMissionaryCount = uniqueMissionaryIds.length;
+            const isCompletelyBooked = uniqueBookedMissionaryCount >= totalMissionaryCount;
+            
+            // Check if the date is in the past (but not today)
+            const isPastDate = isBefore(day, startOfToday()) && !isToday(day);
+            
+            // Determine if the day should be dimmed (past dates or completely booked)
+            const isDimmed = isPastDate || isCompletelyBooked;
+            
             // Determine if the day is disabled (only disable if outside range, not in current month, or specific missionary already booked)
             const isDisabled = 
               !isSameMonth(day, firstDayCurrentMonth) || 
@@ -300,9 +311,11 @@ export function CalendarGrid({
                   "calendar-day p-0.5 sm:p-1 aspect-square flex flex-col items-center justify-center min-h-8 sm:min-h-12",
                   !isDisabled && "hover:bg-gray-50 cursor-pointer",
                   isDisabled && "disabled opacity-30 pointer-events-none",
+                  isDimmed && !isSelected && "opacity-60",
                   dayClass,
                   isSelected && "border-2 border-primary"
                 )}
+                style={dayStyle}
                 onClick={() => !isDisabled && onSelectDate(day)}
               >
                 <div className={cn(
