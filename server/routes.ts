@@ -14,12 +14,18 @@ import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { setupAuth, createSuperAdminUser } from "./auth";
 import { notificationManager } from "./notifications";
+import { EmailVerificationService } from "./email-verification";
+import { TransferManagementService } from "./transfer-management";
 import { randomBytes } from "crypto";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
   setupAuth(app);
   await createSuperAdminUser();
+
+  // Initialize services
+  const emailVerificationService = new EmailVerificationService();
+  const transferService = new TransferManagementService();
   
   // Middleware to check if user is admin
   const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
@@ -609,6 +615,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!existingMissionary) {
         return res.status(404).json({ message: 'Missionary not found' });
       }
+
+      // If email address is being updated, mark as unverified
+      if (req.body.emailAddress && req.body.emailAddress !== existingMissionary.emailAddress) {
+        req.body.emailVerified = false;
+        req.body.emailVerificationCode = null;
+        req.body.emailVerificationSentAt = null;
+      }
       
       const updatedMissionary = await storage.updateMissionary(missionaryId, req.body);
       
@@ -620,6 +633,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err) {
       console.error('Error updating missionary:', err);
       res.status(500).json({ message: 'Failed to update missionary' });
+    }
+  });
+
+  // Email verification routes
+  app.post('/api/admin/missionaries/:id/send-verification', requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const missionaryId = parseInt(id, 10);
+      
+      if (isNaN(missionaryId)) {
+        return res.status(400).json({ message: 'Invalid missionary ID' });
+      }
+      
+      const missionary = await storage.getMissionary(missionaryId);
+      if (!missionary) {
+        return res.status(404).json({ message: 'Missionary not found' });
+      }
+
+      if (!missionary.emailAddress) {
+        return res.status(400).json({ message: 'No email address on file' });
+      }
+
+      if (!missionary.emailAddress.endsWith('@missionary.org')) {
+        return res.status(400).json({ message: 'Email must end with @missionary.org' });
+      }
+      
+      const success = await emailVerificationService.sendVerificationCode(
+        missionary.emailAddress,
+        missionaryId
+      );
+      
+      if (success) {
+        res.json({ message: 'Verification code sent successfully' });
+      } else {
+        res.status(500).json({ message: 'Failed to send verification code' });
+      }
+    } catch (err: any) {
+      console.error('Error sending verification code:', err);
+      res.status(400).json({ message: err.message || 'Failed to send verification code' });
+    }
+  });
+
+  app.post('/api/admin/missionaries/:id/verify-email', requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { code } = req.body;
+      const missionaryId = parseInt(id, 10);
+      
+      if (isNaN(missionaryId)) {
+        return res.status(400).json({ message: 'Invalid missionary ID' });
+      }
+
+      if (!code || code.length !== 4) {
+        return res.status(400).json({ message: 'Invalid verification code' });
+      }
+      
+      const success = await emailVerificationService.verifyCode(missionaryId, code);
+      
+      if (success) {
+        res.json({ message: 'Email verified successfully' });
+      } else {
+        res.status(400).json({ message: 'Invalid or expired verification code' });
+      }
+    } catch (err: any) {
+      console.error('Error verifying email:', err);
+      res.status(400).json({ message: err.message || 'Verification failed' });
     }
   });
 
