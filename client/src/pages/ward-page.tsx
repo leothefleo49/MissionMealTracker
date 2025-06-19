@@ -225,19 +225,19 @@ export default function WardPage() {
             {/* Mobile dropdown navigation */}
             <div className="mb-8 sm:hidden">
               <Select value={activeTab} onValueChange={setActiveTab}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full p-3 bg-white border border-gray-200 rounded-md [&>svg]:hidden">
                   <div className="flex items-center w-full">
-                    {activeTab === "calendar" && <Calendar className="w-4 h-4 mr-2" />}
-                    {activeTab === "contact" && <Phone className="w-4 h-4 mr-2" />}
-                    {activeTab === "upcoming" && <User className="w-4 h-4 mr-2" />}
-                    {activeTab === "statistics" && <BarChart3 className="w-4 h-4 mr-2" />}
-                    <span className="flex-grow">
+                    {activeTab === "calendar" && <Calendar className="w-4 h-4 mr-2 text-black" />}
+                    {activeTab === "contact" && <Phone className="w-4 h-4 mr-2 text-black" />}
+                    {activeTab === "upcoming" && <User className="w-4 h-4 mr-2 text-black" />}
+                    {activeTab === "statistics" && <BarChart3 className="w-4 h-4 mr-2 text-black" />}
+                    <span className="flex-grow text-black">
                       {activeTab === "calendar" && "Schedule a Meal"}
                       {activeTab === "contact" && "Contact Missionaries"}
                       {activeTab === "upcoming" && "My Meals"}
                       {activeTab === "statistics" && "Meal Statistics"}
                     </span>
-                    <ChevronDown className="w-4 h-4 ml-2" />
+                    <ChevronDown className="w-4 h-4 ml-2 text-black" />
                   </div>
                 </SelectTrigger>
                 <SelectContent>
