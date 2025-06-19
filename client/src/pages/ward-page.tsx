@@ -177,13 +177,13 @@ export default function WardPage() {
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center">
-              <Calendar className="h-8 w-8 text-primary flex-shrink-0" />
-              <div className="ml-2">
-                <h1 className="text-xl font-bold text-gray-900 truncate">
-                  {ward.name} - Missionary Meal Calendar
+        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-2 sm:py-4">
+          <div className="flex justify-between items-center gap-1">
+            <div className="flex items-center min-w-0 flex-grow">
+              <Calendar className="h-6 w-6 sm:h-8 sm:w-8 text-primary flex-shrink-0" />
+              <div className="ml-1 sm:ml-2 min-w-0 flex-grow">
+                <h1 className="text-sm sm:text-xl font-bold text-gray-900 truncate">
+                  {isMobile ? ward.name : `${ward.name} - Missionary Meal Calendar`}
                 </h1>
                 {!isMobile && (
                   <p className="text-sm text-gray-500">
@@ -192,24 +192,26 @@ export default function WardPage() {
                 )}
               </div>
             </div>
-            <div className="flex space-x-2">
+            <div className="flex space-x-1 sm:space-x-2 flex-shrink-0">
               <Button 
                 variant="outline" 
-                size={isMobile ? "sm" : "default"}
+                size="sm"
                 onClick={() => setLocation('/auth')}
-                className="flex items-center text-blue-600 border-blue-200 hover:bg-blue-50"
+                className="flex items-center text-blue-600 border-blue-200 hover:bg-blue-50 px-2 py-1"
               >
-                <User className="h-4 w-4 mr-1" />
-                {isMobile ? "Login" : "Admin Login"}
+                <User className="h-3 w-3 sm:h-4 sm:w-4" />
+                {isMobile && <span className="ml-1 text-xs">Login</span>}
+                {!isMobile && <span className="ml-1">Admin Login</span>}
               </Button>
               <Button 
                 variant="ghost" 
-                size={isMobile ? "sm" : "default"}
+                size="sm"
                 onClick={() => setLocation('/')}
-                className="flex items-center"
+                className="flex items-center px-2 py-1"
               >
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                {isMobile ? "Home" : "Back to Home"}
+                <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+                {isMobile && <span className="ml-1 text-xs">Home</span>}
+                {!isMobile && <span className="ml-1">Back to Home</span>}
               </Button>
             </div>
           </div>

@@ -159,22 +159,22 @@ export function CalendarGrid({
   
   return (
     <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden bg-white max-w-full calendar-container">
-      <div className="flex justify-between items-center bg-gray-50 px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-200">
+      <div className="flex justify-between items-center bg-gray-50 px-1 sm:px-4 py-1 sm:py-3 border-b border-gray-200">
         <Button
           variant="ghost"
           size="sm"
           onClick={previousMonth}
           disabled={isPrevMonthDisabled}
           className={cn(
-            "p-1 sm:p-2 rounded-full hover:bg-gray-200 focus:outline-none min-w-8 h-8 sm:min-w-10 sm:h-10",
+            "p-0.5 sm:p-2 rounded-full hover:bg-gray-200 focus:outline-none w-6 h-6 sm:w-10 sm:h-10 flex-shrink-0",
             isPrevMonthDisabled && "opacity-50 cursor-not-allowed"
           )}
         >
-          <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+          <ChevronLeft className="h-3 w-3 sm:h-5 sm:w-5" />
           <span className="sr-only">Previous month</span>
         </Button>
         
-        <h3 className="text-sm sm:text-base font-medium text-gray-900 truncate px-2">
+        <h3 className="text-xs sm:text-base font-medium text-gray-900 truncate px-1 flex-grow text-center min-w-0">
           {format(firstDayCurrentMonth, "MMM yyyy")}
         </h3>
         
@@ -184,11 +184,11 @@ export function CalendarGrid({
           onClick={nextMonth}
           disabled={isNextMonthDisabled}
           className={cn(
-            "p-1 sm:p-2 rounded-full hover:bg-gray-200 focus:outline-none min-w-8 h-8 sm:min-w-10 sm:h-10",
+            "p-0.5 sm:p-2 rounded-full hover:bg-gray-200 focus:outline-none w-6 h-6 sm:w-10 sm:h-10 flex-shrink-0",
             isNextMonthDisabled && "opacity-50 cursor-not-allowed"
           )}
         >
-          <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+          <ChevronRight className="h-3 w-3 sm:h-5 sm:w-5" />
           <span className="sr-only">Next month</span>
         </Button>
       </div>

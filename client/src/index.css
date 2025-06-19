@@ -280,6 +280,36 @@
     padding-left: 0;
     padding-right: 0;
   }
+  
+  /* Optimize header elements for very thin screens */
+  header .flex.justify-between {
+    gap: 0.25rem;
+  }
+  
+  /* Make buttons even smaller on very thin screens */
+  header button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.6875rem;
+  }
+  
+  /* Make icons smaller in header buttons */
+  header button svg {
+    height: 0.75rem;
+    width: 0.75rem;
+  }
+  
+  /* Reduce header padding further */
+  header > div {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  
+  /* Make title even smaller */
+  header h1 {
+    font-size: 0.75rem;
+  }
 }
 
 /* Tablet-specific styles */
