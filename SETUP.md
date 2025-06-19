@@ -1,6 +1,6 @@
-# Missionary Meal Scheduler - Setup Guide
+# Missionary Meal Scheduler - Complete Setup Guide
 
-This application uses **completely free** notification services (Gmail email and WhatsApp Business API) instead of paid SMS services, making it cost-free to operate.
+This application uses **completely free** notification services (Gmail email and WhatsApp Business API) instead of paid SMS services, making it cost-free to operate. Features include enhanced dietary management, email verification, transfer notifications, and comprehensive missionary information tracking.
 
 ## 🔧 Developer Setup
 
@@ -91,18 +91,30 @@ When adding new missionaries to the system:
 1. **Required Information**:
    - Name
    - Type (Elders/Sisters)
-   - Phone number
+   - Mission phone number
+   - Email address (must end with @missionary.org)
 
-2. **Notification Preferences**:
-   - **Email** (Recommended): Enter missionary's email address
-   - **WhatsApp**: Enter WhatsApp phone number (usually same as regular phone)
-   - **SMS**: Legacy option (requires paid Twilio account)
+2. **Optional Enhanced Information**:
+   - Personal phone number (for emergency contact)
+   - WhatsApp number (can be same as mission phone)
+   - Food allergies (specific allergens)
+   - Pet allergies (cats, dogs, etc.)
+   - Allergy severity (mild, moderate, severe, life-threatening)
+   - Favorite meals (helps meal providers)
+   - Other dietary restrictions (vegetarian, kosher, etc.)
+   - Transfer date (for automatic update reminders)
 
-3. **Best Practices**:
-   - Always ask missionaries for their preferred notification method
-   - Email addresses are most reliable and completely free
-   - WhatsApp provides excellent engagement but requires setup
-   - Test notifications before scheduling meals
+3. **Email Verification Process**:
+   - System requires @missionary.org email addresses
+   - 4-digit verification code sent to email
+   - Must verify before receiving email notifications
+   - Codes expire in 10 minutes for security
+
+4. **Transfer Management**:
+   - Set transfer dates to receive automatic reminders
+   - Super admins notified on transfer day
+   - Reminders include current contact information
+   - Helps ensure information stays current
 
 #### 2. Notification Methods Comparison
 
