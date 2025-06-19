@@ -1672,6 +1672,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Meal statistics API endpoint
+  app.get('/api/meal-stats/:wardId', async (req, res) => {
+    try {
+      const { wardId } = req.params;
+      const parsedWardId = parseInt(wardId, 10);
+      
+      if (isNaN(parsedWardId)) {
+        return res.status(400).json({ message: 'Invalid ward ID' });
+      }
+      
+      const startDateParam = req.query.startDate as string;
+      const endDateParam = req.query.endDate as string;
+      
+      if (!startDateParam || !endDateParam) {
+        return res.status(400).json({ message: 'startDate and endDate are required' });
+      }
+      
+      const startDate = new Date(startDateParam);
+      const endDate = new Date(endDateParam);
+      
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return res.status(400).json({ message: 'Invalid date format' });
+      }
+      
+      // Get all meals for the ward in the date range
+      const meals = await storage.getMealsByDateRange(startDate, endDate, parsedWardId);
+      const activeMeals = meals.filter(meal => !meal.cancelled);
+      
+      // Get all missionaries for the ward
+      const missionaries = await storage.getMissionariesByWard(parsedWardId);
+      const missionaryMap = new Map(missionaries.map(m => [m.id, m]));
+      
+      // Calculate statistics
+      const totalMeals = activeMeals.length;
+      const timeRangeInWeeks = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)));
+      const timeRangeInMonths = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / (30 * 24 * 60 * 60 * 1000)));
+      
+      const averageMealsPerWeek = totalMeals / timeRangeInWeeks;
+      const averageMealsPerMonth = totalMeals / timeRangeInMonths;
+      
+      // Missionary statistics
+      const missionaryMealCounts = new Map<number, { count: number, lastMeal: Date | null }>();
+      
+      activeMeals.forEach(meal => {
+        const current = missionaryMealCounts.get(meal.missionaryId) || { count: 0, lastMeal: null };
+        current.count++;
+        const mealDate = new Date(meal.date);
+        if (!current.lastMeal || mealDate > current.lastMeal) {
+          current.lastMeal = mealDate;
+        }
+        missionaryMealCounts.set(meal.missionaryId, current);
+      });
+      
+      const missionaryStats = missionaries.map(missionary => ({
+        id: missionary.id,
+        name: missionary.name,
+        type: missionary.type,
+        mealCount: missionaryMealCounts.get(missionary.id)?.count || 0,
+        lastMeal: missionaryMealCounts.get(missionary.id)?.lastMeal?.toISOString() || null
+      })).sort((a, b) => b.mealCount - a.mealCount);
+      
+      // Monthly breakdown
+      const monthlyBreakdown = new Map<string, number>();
+      activeMeals.forEach(meal => {
+        const mealDate = new Date(meal.date);
+        const monthKey = mealDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+        monthlyBreakdown.set(monthKey, (monthlyBreakdown.get(monthKey) || 0) + 1);
+      });
+      
+      const monthlyBreakdownArray = Array.from(monthlyBreakdown.entries()).map(([month, mealCount]) => ({
+        month,
+        mealCount
+      })).sort((a, b) => new Date(a.month + ' 1').getTime() - new Date(b.month + ' 1').getTime());
+      
+      const stats = {
+        totalMeals,
+        averageMealsPerWeek: Math.round(averageMealsPerWeek * 10) / 10,
+        averageMealsPerMonth: Math.round(averageMealsPerMonth * 10) / 10,
+        missionaryStats,
+        monthlyBreakdown: monthlyBreakdownArray
+      };
+      
+      res.json(stats);
+    } catch (err) {
+      console.error('Error fetching meal statistics:', err);
+      res.status(500).json({ message: 'Failed to fetch meal statistics' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

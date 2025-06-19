@@ -6,6 +6,7 @@ import { CalendarGrid } from "@/components/calendar-grid";
 import { MealBookingForm } from "@/components/meal-booking-form";
 import { MissionaryContactCard } from "@/components/missionary-contact-card";
 import { UpcomingMealItem } from "@/components/upcoming-meal-item";
+import { MealStatistics } from "@/components/meal-statistics";
 import { Label } from "@/components/ui/label";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -210,6 +211,10 @@ export default function WardPage() {
               <TabsTrigger value="upcoming" className="px-1 py-3 sm:py-4 text-sm sm:text-base whitespace-nowrap">
                 <User className="w-4 h-4 mr-1 inline md:hidden" />
                 My Meals
+              </TabsTrigger>
+              <TabsTrigger value="statistics" className="px-1 py-3 sm:py-4 text-sm sm:text-base whitespace-nowrap">
+                <Calendar className="w-4 h-4 mr-1 inline md:hidden" />
+                Meal Statistics
               </TabsTrigger>
             </TabsList>
             
@@ -461,6 +466,17 @@ export default function WardPage() {
                   </div>
                 )}
               </div>
+            </TabsContent>
+            
+            <TabsContent value="statistics">
+              <div className="mb-6">
+                <h2 className="text-lg font-medium text-gray-900 mb-2">Meal Statistics & Trends</h2>
+                <p className="text-sm text-gray-600">
+                  View comprehensive meal data, missionary frequency, and trends for your ward.
+                </p>
+              </div>
+              
+              {ward?.id && <MealStatistics wardId={ward.id} />}
             </TabsContent>
           </Tabs>
         </div>
