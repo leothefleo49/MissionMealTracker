@@ -131,6 +131,9 @@ export default function MissionaryPortal() {
     queryKey: ['/api/wards', wardId, 'missionaries'],
     queryFn: () => fetch(`/api/wards/${wardId}/missionaries`).then(res => res.json()),
     enabled: !!wardId && isAuthenticated,
+    staleTime: 1000,
+    refetchInterval: 1000,
+    refetchOnWindowFocus: true
   });
   
   // Set default selected missionary for compatibility with existing code

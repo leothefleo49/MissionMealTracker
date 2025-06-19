@@ -36,7 +36,9 @@ export function MealStatistics({ wardId }: MealStatisticsProps) {
   const { data: stats, isLoading } = useQuery<MealStats>({
     queryKey: ['/api/meal-stats', wardId, timeRange],
     queryFn: () => fetch(`/api/meal-stats/${wardId}?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`).then(res => res.json()),
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 1000, // 1 second
+    refetchInterval: 1000, // Refetch every second
+    refetchOnWindowFocus: true
   });
 
   if (isLoading) {
