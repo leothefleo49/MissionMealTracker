@@ -153,7 +153,7 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
       <CardHeader>
         <CardTitle>Test Message</CardTitle>
         <CardDescription>
-          Send a test message to verify Gmail or WhatsApp notification functionality
+          Send a test email notification to verify Gmail functionality
         </CardDescription>
       </CardHeader>
       <CardContent>
