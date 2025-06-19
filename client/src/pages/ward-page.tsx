@@ -217,7 +217,7 @@ export default function WardPage() {
               <div className="mb-6">
                 <h2 className="text-lg font-medium text-gray-900 mb-2">Schedule a Missionary Meal</h2>
                 <p className="text-sm text-gray-600">
-                  Select a date to schedule a meal for the missionaries. You can schedule meals up to 6 months in advance.
+                  Select a date to schedule a meal for the missionaries. You can schedule meals up to 3 months in advance.
                 </p>
               </div>
               
@@ -234,22 +234,35 @@ export default function WardPage() {
                       </div>
                     ) : missionaries && missionaries.length > 0 ? (
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                        {missionaries.map((missionary: any) => (
-                          <Button
-                            key={missionary.id}
-                            type="button"
-                            variant={missionaryType === missionary.id.toString() ? "default" : "outline"}
-                            className={`py-2 flex justify-center items-center ${
-                              missionaryType === missionary.id.toString() 
-                                ? missionary.type === "sisters" ? "bg-amber-500 text-white" : "bg-primary text-white" 
-                                : "border border-gray-300"
-                            }`}
-                            onClick={() => handleMissionaryTypeChange(missionary.id.toString())}
-                          >
-                            <User className="h-4 w-4 mr-2" />
-                            <span>{missionary.name}</span>
-                          </Button>
-                        ))}
+                        {missionaries.map((missionary: any, index: number) => {
+                          const isSelected = missionaryType === missionary.id.toString();
+                          const setNumber = (index % 5) + 1;
+                          const setColors = {
+                            1: { bg: "bg-blue-500", border: "border-blue-500", text: "text-blue-700" },
+                            2: { bg: "bg-amber-500", border: "border-amber-500", text: "text-amber-700" },
+                            3: { bg: "bg-green-500", border: "border-green-500", text: "text-green-700" },
+                            4: { bg: "bg-pink-500", border: "border-pink-500", text: "text-pink-700" },
+                            5: { bg: "bg-purple-500", border: "border-purple-500", text: "text-purple-700" }
+                          };
+                          const colors = setColors[setNumber as keyof typeof setColors];
+                          
+                          return (
+                            <Button
+                              key={missionary.id}
+                              type="button"
+                              variant={isSelected ? "default" : "outline"}
+                              className={`py-2 flex justify-center items-center text-sm ${
+                                isSelected 
+                                  ? `${colors.bg} text-white hover:${colors.bg}/90` 
+                                  : `border ${colors.border} ${colors.text} hover:bg-gray-50`
+                              }`}
+                              onClick={() => handleMissionaryTypeChange(missionary.id.toString())}
+                            >
+                              <User className="h-4 w-4 mr-1" />
+                              <span className="truncate">{missionary.name}</span>
+                            </Button>
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="h-10 flex items-center">
@@ -275,68 +288,31 @@ export default function WardPage() {
                 </div>
               </div>
               
-              {/* Legend - Dynamic based on missionary types available */}
+              {/* Legend - Dynamic based on missionaries available */}
               <div className="mb-4 flex flex-wrap gap-4 text-sm">
                 <div className="flex items-center">
                   <div className="w-4 h-4 mr-1 bg-white border border-gray-300 rounded"></div>
                   <span>Available</span>
                 </div>
                 
-                {/* Dynamically show missionary legends based on what's available in the ward */}
-                {(() => {
-                  // Get unique missionary types and names for the legend
-                  if (!missionaries || missionaries.length === 0) return null;
+                {missionaries && missionaries.length > 0 && missionaries.map((missionary: any, index: number) => {
+                  const setNumber = (index % 5) + 1;
+                  const setColors = {
+                    1: { bg: "bg-blue-100", border: "border-blue-500", text: "text-blue-700" },
+                    2: { bg: "bg-amber-100", border: "border-amber-500", text: "text-amber-700" },
+                    3: { bg: "bg-green-100", border: "border-green-500", text: "text-green-700" },
+                    4: { bg: "bg-pink-100", border: "border-pink-500", text: "text-pink-700" },
+                    5: { bg: "bg-purple-100", border: "border-purple-500", text: "text-purple-700" }
+                  };
+                  const colors = setColors[setNumber as keyof typeof setColors];
                   
-                  const missionaryTypes = new Map();
-                  missionaries.forEach((missionary: any) => {
-                    if (!missionaryTypes.has(missionary.type)) {
-                      missionaryTypes.set(missionary.type, {
-                        name: missionary.name,
-                        count: 1
-                      });
-                    } else {
-                      const typeInfo = missionaryTypes.get(missionary.type);
-                      typeInfo.count += 1;
-                    }
-                  });
-                  
-                  // Return legend items based on what's available
-                  const legendItems = [];
-                  
-                  // Add elder-type missionaries if any exist
-                  if (missionaryTypes.has('elders')) {
-                    const elderInfo = missionaryTypes.get('elders');
-                    legendItems.push(
-                      <div key="elders" className="flex items-center">
-                        <div className="w-4 h-4 mr-1 missionary-booked-elders rounded"></div>
-                        <span>{elderInfo.name} Booked</span>
-                      </div>
-                    );
-                  }
-                  
-                  // Add sister-type missionaries if any exist
-                  if (missionaryTypes.has('sisters')) {
-                    const sisterInfo = missionaryTypes.get('sisters');
-                    legendItems.push(
-                      <div key="sisters" className="flex items-center">
-                        <div className="w-4 h-4 mr-1 missionary-booked-sisters rounded"></div>
-                        <span>{sisterInfo.name} Booked</span>
-                      </div>
-                    );
-                  }
-                  
-                  // Only show "Both Booked" if both types exist
-                  if (missionaryTypes.has('elders') && missionaryTypes.has('sisters')) {
-                    legendItems.push(
-                      <div key="both" className="flex items-center">
-                        <div className="w-4 h-4 mr-1 missionary-booked-both rounded"></div>
-                        <span>Both Booked (Different Locations)</span>
-                      </div>
-                    );
-                  }
-                  
-                  return legendItems;
-                })()}
+                  return (
+                    <div key={missionary.id} className="flex items-center">
+                      <div className={`w-4 h-4 mr-1 ${colors.bg} border ${colors.border} rounded`}></div>
+                      <span className={colors.text}>{missionary.name}</span>
+                    </div>
+                  );
+                })}
               </div>
               
               {/* Calendar */}

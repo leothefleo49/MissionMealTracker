@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   add, 
   eachDayOfInterval, 
@@ -69,11 +69,12 @@ export function CalendarGrid({
     today.getMonth()
   ) && parse(currentMonth, "MMM-yyyy", new Date()).getFullYear() === today.getFullYear();
   
-  // Disable next month button if we're at the max months ahead
+  // Allow calendar navigation up to 3 months ahead
+  const maxMonthsAhead = 3;
   const isNextMonthDisabled = isEqual(
     parse(currentMonth, "MMM-yyyy", new Date()).getMonth(),
-    add(today, { months: maxMonths - 1 }).getMonth()
-  ) && parse(currentMonth, "MMM-yyyy", new Date()).getFullYear() === add(today, { months: maxMonths - 1 }).getFullYear();
+    add(today, { months: maxMonthsAhead - 1 }).getMonth()
+  ) && parse(currentMonth, "MMM-yyyy", new Date()).getFullYear() === add(today, { months: maxMonthsAhead - 1 }).getFullYear();
   
   // Fetch meal bookings for the displayed month
   const startDate = startOfWeek(firstDayCurrentMonth, { weekStartsOn: 0 });
@@ -183,14 +184,26 @@ export function CalendarGrid({
             
             // Get all booked missionary types on this day
             const missionariesByType = new Map<string, {id: number, name: string}[]>();
-            mealStatus.bookedMissionaries.forEach(m => {
+            mealStatus.bookedMissionaries.forEach((m: any) => {
               const missionaries = missionariesByType.get(m.type) || [];
               missionaries.push({id: m.id, name: m.name});
               missionariesByType.set(m.type, missionaries);
             });
             
-            // Determine calendar day class based on booked missionaries
+            // Determine calendar day class based on booked missionaries - support for up to 5 sets
             let dayClass = "";
+            const bookedMissionaryIds = mealStatus.bookedMissionaries.map((m: any) => m.id);
+            
+            if (bookedMissionaryIds.length === 1) {
+              // Single missionary set - determine which set number (1-5) based on ID
+              const setNumber = ((bookedMissionaryIds[0] - 1) % 5) + 1;
+              dayClass = `missionary-set-${setNumber}`;
+            } else if (bookedMissionaryIds.length > 1) {
+              // Multiple missionary sets booked
+              dayClass = "missionary-booked-multiple";
+            }
+            
+            // Legacy support for elders/sisters
             const hasElders = !!missionariesByType.get("elders")?.length;
             const hasSisters = !!missionariesByType.get("sisters")?.length;
             
@@ -206,7 +219,7 @@ export function CalendarGrid({
             // When missionaryType is a numeric ID, check if that specific missionary is already booked
             const isMissionaryId = !isNaN(parseInt(missionaryType, 10));
             const isDayUnavailable = isMissionaryId 
-              ? mealStatus.bookedMissionaries.some(m => m.id.toString() === missionaryType)
+              ? mealStatus.bookedMissionaries.some((m: any) => m.id.toString() === missionaryType)
               : ((missionaryType === "elders" && hasElders) || 
                  (missionaryType === "sisters" && hasSisters));
             
