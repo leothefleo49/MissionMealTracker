@@ -48,6 +48,15 @@ export function CalendarGrid({
   wardId,
   autoSelectNextAvailable = false
 }: CalendarGridProps) {
+  
+  // Fetch ward missionaries to determine total count for fractional display
+  const { data: wardMissionaries } = useQuery({
+    queryKey: ['/api/wards', wardId, 'missionaries'],
+    queryFn: () => fetch(`/api/wards/${wardId}/missionaries`).then(res => res.json()),
+    enabled: !!wardId,
+    staleTime: 5000,
+    refetchInterval: 5000
+  });
   const today = startOfToday();
   const [currentMonth, setCurrentMonth] = useState(format(startMonth, "MMM-yyyy"));
   const firstDayCurrentMonth = parse(currentMonth, "MMM-yyyy", new Date());
@@ -148,7 +157,7 @@ export function CalendarGrid({
   }, [autoSelectNextAvailable, selectedDate, mealStatusMap, days, missionaryType, onSelectDate]);
   
   return (
-    <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden bg-white">
+    <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden bg-white max-w-full">
       <div className="flex justify-between items-center bg-gray-50 px-2 sm:px-4 py-2 sm:py-3 border-b border-gray-200">
         <Button
           variant="ghost"
@@ -218,18 +227,51 @@ export function CalendarGrid({
               uniqueMissionaries.set(m.id, {id: m.id, name: m.name, type: m.type});
             });
             
-            // Determine calendar day class based on booked missionaries
-            let dayClass = "";
+            // Get total missionary count and determine fractional layout
+            const totalMissionaries = wardMissionaries?.length || 1;
             const uniqueMissionaryIds = Array.from(uniqueMissionaries.keys());
             
-            if (uniqueMissionaryIds.length === 1) {
-              // Single missionary/companionship - use set color based on ID
-              const setNumber = ((uniqueMissionaryIds[0] - 1) % 5) + 1;
-              dayClass = `missionary-set-${setNumber}`;
-            } else if (uniqueMissionaryIds.length > 1) {
-              // Multiple missionaries/companionships booked - show split colors
-              dayClass = "missionary-booked-multiple";
-            }
+            // Create fractional color background based on booked missionaries
+            const createFractionalStyles = () => {
+              if (uniqueMissionaryIds.length === 0) return { className: "", style: {} };
+              
+              // For single missionary ward, fill entire cell
+              if (totalMissionaries === 1) {
+                const setNumber = ((uniqueMissionaryIds[0] - 1) % 5) + 1;
+                return { className: `missionary-set-${setNumber}`, style: {} };
+              }
+              
+              // For multiple missionaries, create fractional sections using linear gradient
+              const sections = [];
+              const sectionSize = 100 / totalMissionaries;
+              
+              for (let i = 0; i < totalMissionaries; i++) {
+                const missionaryId = wardMissionaries?.[i]?.id;
+                const isBooked = uniqueMissionaryIds.includes(missionaryId);
+                const setNumber = (i % 5) + 1;
+                
+                const start = i * sectionSize;
+                const end = (i + 1) * sectionSize;
+                
+                if (isBooked) {
+                  sections.push(`var(--missionary-${setNumber}-color) ${start}% ${end}%`);
+                } else {
+                  sections.push(`transparent ${start}% ${end}%`);
+                }
+              }
+              
+              if (sections.length > 0) {
+                const backgroundImage = `linear-gradient(to right, ${sections.join(', ')})`;
+                return { 
+                  className: "fractional-missionary-booking", 
+                  style: { backgroundImage, color: 'white' }
+                };
+              }
+              
+              return { className: "", style: {} };
+            };
+            
+            const { className: dayClass, style: dayStyle } = createFractionalStyles();
             
             // Legacy support for elders/sisters type filtering
             const hasElders = !!missionariesByType.get("elders")?.length;
@@ -271,12 +313,7 @@ export function CalendarGrid({
                     {format(day, "d")}
                   </span>
                 </div>
-                {/* Show booking indicator dots for very small screens */}
-                {uniqueMissionaryIds.length > 0 && (
-                  <div className="flex justify-center mt-0.5 sm:hidden">
-                    <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                  </div>
-                )}
+
               </div>
             );
           })

@@ -125,6 +125,13 @@
   /* Sister missionary color */
   --sisters: 38 92% 50%;
   --sisters-light: 38 92% 95%;
+  
+  /* Missionary set colors for fractional display */
+  --missionary-1-color: hsl(220, 90%, 60%);
+  --missionary-2-color: hsl(38, 92%, 50%);
+  --missionary-3-color: hsl(160, 80%, 45%);
+  --missionary-4-color: hsl(280, 85%, 60%);
+  --missionary-5-color: hsl(15, 85%, 55%);
 }
 
 .dark {
@@ -160,6 +167,38 @@
   }
 }
 
+/* Missionary set background colors */
+.missionary-set-1 {
+  background-color: var(--missionary-1-color);
+  color: white;
+}
+
+.missionary-set-2 {
+  background-color: var(--missionary-2-color);
+  color: white;
+}
+
+.missionary-set-3 {
+  background-color: var(--missionary-3-color);
+  color: white;
+}
+
+.missionary-set-4 {
+  background-color: var(--missionary-4-color);
+  color: white;
+}
+
+.missionary-set-5 {
+  background-color: var(--missionary-5-color);
+  color: white;
+}
+
+/* Fractional missionary booking - will be handled dynamically via inline styles */
+.fractional-missionary-booking {
+  position: relative;
+  color: white;
+}
+
 /* Mobile-specific styles */
 @media (max-width: 640px) {
   .calendar-day {
@@ -168,6 +207,16 @@
   
   .calendar-day .rounded-full {
     @apply h-8 w-8 text-sm;
+  }
+  
+  /* Prevent horizontal scrolling on mobile */
+  .calendar-grid {
+    @apply overflow-x-hidden;
+  }
+  
+  /* Ensure calendar fits screen width */
+  .calendar-container {
+    @apply max-w-full overflow-hidden;
   }
   
   /* Improve ward access form on thin phones */
