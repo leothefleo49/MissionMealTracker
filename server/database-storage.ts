@@ -128,6 +128,14 @@ export class DatabaseStorage implements IStorage {
     return missionary || undefined;
   }
 
+  async getMissionaryByEmail(emailAddress: string): Promise<Missionary | undefined> {
+    const [missionary] = await db
+      .select()
+      .from(missionaries)
+      .where(eq(missionaries.emailAddress, emailAddress));
+    return missionary || undefined;
+  }
+
   async getMissionariesByType(type: string, wardId: number): Promise<Missionary[]> {
     return await db
       .select()
@@ -178,6 +186,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(missionaries.id, id))
       .returning();
     return updatedMissionary || undefined;
+  }
+
+  async deleteMissionary(id: number): Promise<boolean> {
+    const result = await db
+      .delete(missionaries)
+      .where(eq(missionaries.id, id));
+    return true;
   }
 
   // Meal methods

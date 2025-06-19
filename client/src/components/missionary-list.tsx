@@ -192,7 +192,21 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
-
+                      
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 px-2 border-red-200 text-red-700 hover:bg-red-50"
+                        onClick={() => deleteMissionaryMutation.mutate(missionary.id)}
+                        disabled={deleteMissionaryMutation.isPending}
+                        title="Delete missionary"
+                      >
+                        {deleteMissionaryMutation.isPending ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
                     </div>
                   </div>
                 </CardContent>

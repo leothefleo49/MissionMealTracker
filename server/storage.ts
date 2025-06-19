@@ -25,11 +25,13 @@ export interface IStorage {
   // Missionary methods
   getMissionary(id: number): Promise<Missionary | undefined>;
   getMissionaryByName(wardId: number, name: string): Promise<Missionary | undefined>;
+  getMissionaryByEmail(emailAddress: string): Promise<Missionary | undefined>;
   getMissionariesByType(type: string, wardId: number): Promise<Missionary[]>;
   getMissionariesByWard(wardId: number): Promise<Missionary[]>;
   getAllMissionaries(): Promise<Missionary[]>;
   createMissionary(missionary: InsertMissionary): Promise<Missionary>;
   updateMissionary(id: number, data: Partial<Missionary>): Promise<Missionary | undefined>;
+  deleteMissionary(id: number): Promise<boolean>;
   
   // Meal methods
   getMeal(id: number): Promise<Meal | undefined>;

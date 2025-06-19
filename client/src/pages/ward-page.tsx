@@ -233,7 +233,7 @@ export default function WardPage() {
                         <span className="text-sm text-gray-500">Loading missionaries...</span>
                       </div>
                     ) : missionaries && missionaries.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                      <div className="missionary-select-grid grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
                         {missionaries.map((missionary: any, index: number) => {
                           const isSelected = missionaryType === missionary.id.toString();
                           const setNumber = (index % 5) + 1;
@@ -251,7 +251,7 @@ export default function WardPage() {
                               key={missionary.id}
                               type="button"
                               variant={isSelected ? "default" : "outline"}
-                              className={`py-2 flex justify-center items-center text-sm ${
+                              className={`missionary-select-button py-2 flex justify-center items-center text-sm ${
                                 isSelected 
                                   ? `${colors.bg} text-white hover:${colors.bg}/90` 
                                   : `border ${colors.border} ${colors.text} hover:bg-gray-50`

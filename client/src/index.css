@@ -126,6 +126,36 @@
   .calendar-day .rounded-full {
     @apply h-8 w-8 text-sm;
   }
+  
+  /* Improve ward access form on thin phones */
+  .ward-access-form {
+    @apply px-2 py-4;
+  }
+  
+  .ward-access-input {
+    @apply text-base; /* Prevent zoom on iOS */
+  }
+  
+  /* Better missionary selection on mobile */
+  .missionary-select-grid {
+    @apply grid-cols-1 gap-1;
+  }
+  
+  .missionary-select-button {
+    @apply py-3 px-2 text-xs;
+  }
+  
+  /* Responsive tabs */
+  .tab-list {
+    @apply text-xs px-2;
+  }
+}
+
+/* Tablet-specific styles */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .missionary-select-grid {
+    @apply grid-cols-2 gap-2;
+  }
 }
 
 /* Missionary calendar styling - supports up to 5 sets with distinct colors */
