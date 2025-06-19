@@ -138,13 +138,13 @@ export class WhatsAppService {
     try {
       const messageLog: InsertMessageLog = {
         missionaryId: missionary.id,
+        wardId: missionary.wardId,
         messageType,
         content: message,
         method: 'whatsapp',
         successful,
-        sentAt: new Date(),
         segmentCount: 1, // WhatsApp messages are typically 1 segment
-        estimatedCost: 0, // WhatsApp Business API has free tier
+        estimatedCost: "0", // WhatsApp Business API has free tier
         failureReason
       };
 

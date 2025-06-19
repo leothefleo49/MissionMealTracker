@@ -226,13 +226,13 @@ export class EmailService {
     try {
       const messageLog: InsertMessageLog = {
         missionaryId: missionary.id,
+        wardId: missionary.wardId,
         messageType,
         content: textContent,
         method: 'email',
         successful,
-        sentAt: new Date(),
         segmentCount: 1, // Email is always 1 "segment"
-        estimatedCost: 0, // Email is free
+        estimatedCost: "0", // Email is free
         failureReason
       };
 
