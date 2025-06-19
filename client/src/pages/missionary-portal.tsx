@@ -15,6 +15,11 @@ export default function MissionaryPortal() {
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("upcoming");
   const [missionaryType, setMissionaryType] = useState<"elders" | "sisters">("elders");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authenticating, setAuthenticating] = useState(false);
+  const [authError, setAuthError] = useState("");
   const isMobile = useIsMobile();
   
   // Fetch ward data

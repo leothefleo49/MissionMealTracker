@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,27 @@ interface MissionaryListProps {
 export default function MissionaryList({ wardId }: MissionaryListProps) {
   const [editingMissionary, setEditingMissionary] = useState<Missionary | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const deleteMissionaryMutation = useMutation({
+    mutationFn: async (missionaryId: number) => {
+      return apiRequest("DELETE", `/api/missionaries/${missionaryId}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Missionary Deleted",
+        description: "The missionary has been removed from the system.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/missionaries/ward", wardId] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Delete Failed",
+        description: error.message || "Failed to delete missionary.",
+        variant: "destructive",
+      });
+    },
+  });
   
   const { data: missionaries, isLoading, error } = useQuery({
     queryKey: ["/api/admin/missionaries/ward", wardId],

@@ -198,7 +198,7 @@ export default function WardPage() {
       <main className="flex-grow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Tabs defaultValue="calendar" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-8 border-b border-gray-200 w-full justify-start overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+            <TabsList className="tab-list mb-8 border-b border-gray-200 w-full justify-start overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
               <TabsTrigger value="calendar" className="px-1 py-3 sm:py-4 text-sm sm:text-base whitespace-nowrap">
                 <Calendar className="w-4 h-4 mr-1 inline md:hidden" />
                 Schedule a Meal

@@ -636,6 +636,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete missionary endpoint
+  app.delete('/api/missionaries/:id', requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const missionaryId = parseInt(id, 10);
+      
+      if (isNaN(missionaryId)) {
+        return res.status(400).json({ message: 'Invalid missionary ID' });
+      }
+      
+      const missionary = await storage.getMissionary(missionaryId);
+      if (!missionary) {
+        return res.status(404).json({ message: 'Missionary not found' });
+      }
+      
+      // Delete all meals associated with this missionary first
+      const meals = await storage.getMealsByMissionary(missionaryId);
+      for (const meal of meals) {
+        await storage.cancelMeal(meal.id, "Missionary deleted");
+      }
+      
+      // Delete the missionary
+      await storage.deleteMissionary(missionaryId);
+      
+      res.json({ message: 'Missionary deleted successfully' });
+    } catch (err) {
+      console.error('Error deleting missionary:', err);
+      res.status(500).json({ message: 'Failed to delete missionary' });
+    }
+  });
+
   // Email verification routes
   app.post('/api/admin/missionaries/:id/send-verification', requireAdmin, async (req, res) => {
     try {
