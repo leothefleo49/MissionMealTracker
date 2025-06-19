@@ -173,10 +173,10 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                     <FormItem>
                       <FormLabel>Contact Information</FormLabel>
                       <FormControl>
-                        <Input placeholder="email@missionary.org or +1XXXXXXXXXX" {...field} />
+                        <Input placeholder="email@missionary.org" {...field} />
                       </FormControl>
                       <FormDescription>
-                        Enter email address for Gmail or phone number for WhatsApp
+                        Enter email address to receive test notification
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -199,8 +199,7 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="email">Gmail Email</SelectItem>
-                          <SelectItem value="whatsapp">WhatsApp Message</SelectItem>
+                          <SelectItem value="email">Email Notification</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

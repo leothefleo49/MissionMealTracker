@@ -174,42 +174,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
           </DialogDescription>
         </DialogHeader>
         
-        {/* Consent Status Section (non-editable) */}
-        <div className="bg-gray-50 rounded-md p-3 mb-4 border border-gray-200">
-          <h4 className="text-sm font-semibold mb-2">Consent Status</h4>
-          <div className="flex items-center gap-2 mb-1">
-            <div className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-              missionary.consentStatus === "granted" 
-                ? "bg-green-100 text-green-800" 
-                : missionary.consentStatus === "denied"
-                ? "bg-red-100 text-red-800"
-                : missionary.consentStatus === "pending" && missionary.consentVerificationSentAt
-                ? "bg-yellow-100 text-yellow-800"
-                : "bg-gray-100 text-gray-800"
-            }`}>
-              {missionary.consentStatus === "granted" 
-                ? "Consent Granted" 
-                : missionary.consentStatus === "denied" 
-                ? "Consent Denied" 
-                : missionary.consentStatus === "pending" && missionary.consentVerificationSentAt
-                ? "Verification Sent"
-                : "No Consent Requested"}
-            </div>
-          </div>
-          {missionary.consentDate && (
-            <p className="text-xs text-gray-600">
-              Last updated: {new Date(missionary.consentDate).toLocaleDateString()} {new Date(missionary.consentDate).toLocaleTimeString()}
-            </p>
-          )}
-          {missionary.consentVerificationSentAt && missionary.consentStatus === "pending" && (
-            <p className="text-xs text-gray-600">
-              Verification sent: {new Date(missionary.consentVerificationSentAt).toLocaleDateString()} {new Date(missionary.consentVerificationSentAt).toLocaleTimeString()}
-            </p>
-          )}
-          <p className="text-xs text-gray-500 mt-2">
-            Note: Consent must be verified by the missionary via text message before notifications can be sent.
-          </p>
-        </div>
+
         
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -481,31 +446,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                           <RadioGroupItem value="email" />
                         </FormControl>
                         <FormLabel className="font-normal">
-                          Email (Free)
-                        </FormLabel>
-                      </FormItem>
-                      <FormItem className="flex items-center space-x-3 space-y-0">
-                        <FormControl>
-                          <RadioGroupItem value="whatsapp" />
-                        </FormControl>
-                        <FormLabel className="font-normal">
-                          WhatsApp (Free)
-                        </FormLabel>
-                      </FormItem>
-                      <FormItem className="flex items-center space-x-3 space-y-0 opacity-50">
-                        <FormControl>
-                          <RadioGroupItem value="text" disabled />
-                        </FormControl>
-                        <FormLabel className="font-normal">
-                          SMS Text (Requires Permission)
-                        </FormLabel>
-                      </FormItem>
-                      <FormItem className="flex items-center space-x-3 space-y-0 opacity-50">
-                        <FormControl>
-                          <RadioGroupItem value="messenger" disabled />
-                        </FormControl>
-                        <FormLabel className="font-normal">
-                          Messenger (Requires Permission)
+                          Email Notifications
                         </FormLabel>
                       </FormItem>
                     </RadioGroup>
@@ -675,20 +616,13 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
               </>
             )}
             
-            <DialogFooter className="flex-col items-stretch sm:items-end">
-              <div className="flex justify-end space-x-2 mb-2">
-                <Button variant="outline" type="button" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={updateMissionary.isPending}>
-                  {updateMissionary.isPending ? "Saving..." : "Save Changes"}
-                </Button>
-              </div>
-              
-              <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-200 mt-4">
-                <p>To request consent for notifications, close this dialog and use the messaging button in the missionary list view.</p>
-                <p className="mt-1">Missionaries must reply with "YES" followed by the verification code they receive via text message.</p>
-              </div>
+            <DialogFooter>
+              <Button variant="outline" type="button" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateMissionary.isPending}>
+                {updateMissionary.isPending ? "Saving..." : "Save Changes"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

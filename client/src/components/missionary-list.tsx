@@ -163,16 +163,7 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
                         )}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {missionary.preferredNotification === "email" ? "Gmail: " : 
-                         missionary.preferredNotification === "whatsapp" ? "WhatsApp: " :
-                         missionary.preferredNotification === "text" ? "SMS (Deprecated): " : "Messenger (Deprecated): "}
-                        {missionary.preferredNotification === "email" 
-                          ? missionary.emailAddress || 'No email'
-                          : missionary.preferredNotification === "whatsapp"
-                          ? missionary.whatsappNumber || 'No WhatsApp'
-                          : missionary.preferredNotification === "text" 
-                          ? missionary.phoneNumber || 'No phone'
-                          : missionary.messengerAccount || "Not provided"}
+                        Email: {missionary.emailAddress || 'No email address'}
                       </div>
                       <div className="text-xs text-gray-400 mt-1">
                         Notifications: {
@@ -190,41 +181,7 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
                         </div>
                       )}
                       
-                      {/* Consent status display */}
-                      <div className="mt-2 pt-2 border-t border-gray-100">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium text-gray-600">Consent Status:</span>
-                          {missionary.consentStatus === "granted" ? (
-                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                              <Check className="h-3 w-3 mr-1" /> Consent Granted
-                            </Badge>
-                          ) : missionary.consentStatus === "denied" ? (
-                            <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                              <X className="h-3 w-3 mr-1" /> Consent Denied
-                            </Badge>
-                          ) : missionary.consentStatus === "pending" && missionary.consentVerificationSentAt ? (
-                            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                              <RefreshCw className="h-3 w-3 mr-1" /> Verification Sent
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
-                              No Consent Requested
-                            </Badge>
-                          )}
-                        </div>
-                        
-                        {missionary.consentDate && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            Last updated: {formatDate(missionary.consentDate)}
-                          </div>
-                        )}
-                        
-                        {missionary.consentVerificationSentAt && missionary.consentStatus === "pending" && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            Verification sent: {formatDate(missionary.consentVerificationSentAt)}
-                          </div>
-                        )}
-                      </div>
+
                     </div>
                     <div className="flex flex-col gap-2">
                       <Button 
@@ -235,30 +192,7 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      
-                      {/* Consent request button */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className={`h-8 px-2 ${
-                          missionary.consentStatus === "granted" 
-                            ? "border-green-200 text-green-700 hover:bg-green-50" 
-                            : "border-blue-200 text-blue-700 hover:bg-blue-50"
-                        }`}
-                        onClick={() => requestConsentMutation.mutate(missionary.id)}
-                        disabled={requestConsentMutation.isPending || missionary.consentStatus === "granted"}
-                        title={
-                          missionary.consentStatus === "granted" 
-                            ? "Consent already granted" 
-                            : "Send consent request"
-                        }
-                      >
-                        {requestConsentMutation.isPending ? (
-                          <RefreshCw className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <MessageCircle className="h-4 w-4" />
-                        )}
-                      </Button>
+
                     </div>
                   </div>
                 </CardContent>
