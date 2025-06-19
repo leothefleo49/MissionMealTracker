@@ -12,7 +12,7 @@ import {
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
-import { setupAuth, createSuperAdminUser } from "./auth";
+import { setupAuth, createSuperAdminUser, comparePasswords } from "./auth";
 import { notificationManager } from "./notifications";
 import { EmailVerificationService } from "./email-verification";
 import { TransferManagementService } from "./transfer-management";
@@ -27,6 +27,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const emailVerificationService = new EmailVerificationService();
   const transferService = new TransferManagementService();
   
+  // Middleware to check if user is authenticated
+  const requireAuth = (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+    next();
+  };
+
   // Middleware to check if user is admin
   const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
     if (!req.isAuthenticated() || !req.user?.isAdmin) {
@@ -730,6 +738,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) {
       console.error('Error verifying email:', err);
       res.status(400).json({ message: err.message || 'Verification failed' });
+    }
+  });
+
+  // Missionary portal authentication
+  app.post('/api/missionary-portal/authenticate', async (req, res) => {
+    try {
+      const { accessCode, emailAddress, password } = req.body;
+      
+      if (!accessCode || !emailAddress || !password) {
+        return res.status(400).json({ message: 'Missing required fields' });
+      }
+      
+      // Get ward by access code
+      const ward = await storage.getWardByAccessCode(accessCode);
+      if (!ward) {
+        return res.status(404).json({ message: 'Invalid access code' });
+      }
+      
+      // Get missionary by email
+      const missionary = await storage.getMissionaryByEmail(emailAddress);
+      if (!missionary || missionary.wardId !== ward.id) {
+        return res.status(401).json({ authenticated: false });
+      }
+      
+      // Check if missionary has a password set
+      if (!missionary.password) {
+        return res.status(401).json({ authenticated: false, message: 'Password not set. Please register first.' });
+      }
+      
+      // Verify password
+      const isValidPassword = await comparePasswords(password, missionary.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ authenticated: false });
+      }
+      
+      res.json({ authenticated: true, missionary: { id: missionary.id, name: missionary.name } });
+    } catch (error) {
+      console.error('Missionary portal authentication error:', error);
+      res.status(500).json({ message: 'Authentication failed' });
+    }
+  });
+
+  // Ward leave/rejoin functionality
+  app.post('/api/wards/:wardId/leave', requireAuth, async (req, res) => {
+    try {
+      const { wardId } = req.params;
+      const userId = req.user!.id;
+      const parsedWardId = parseInt(wardId, 10);
+      
+      if (isNaN(parsedWardId)) {
+        return res.status(400).json({ message: 'Invalid ward ID' });
+      }
+      
+      const success = await storage.removeUserFromWard(userId, parsedWardId);
+      
+      if (success) {
+        res.json({ message: 'Successfully left the ward' });
+      } else {
+        res.status(404).json({ message: 'Ward not found or user not a member' });
+      }
+    } catch (error) {
+      console.error('Error leaving ward:', error);
+      res.status(500).json({ message: 'Failed to leave ward' });
+    }
+  });
+
+  app.post('/api/wards/:accessCode/rejoin', requireAuth, async (req, res) => {
+    try {
+      const { accessCode } = req.params;
+      const userId = req.user!.id;
+      
+      const ward = await storage.getWardByAccessCode(accessCode);
+      if (!ward) {
+        return res.status(404).json({ message: 'Invalid access code' });
+      }
+      
+      // Check if user is already a member
+      const userWards = await storage.getUserWards(userId);
+      const isAlreadyMember = userWards.some(uw => uw.id === ward.id);
+      
+      if (isAlreadyMember) {
+        return res.status(400).json({ message: 'Already a member of this ward' });
+      }
+      
+      await storage.addUserToWard({ userId, wardId: ward.id });
+      res.json({ message: 'Successfully rejoined the ward', ward });
+    } catch (error) {
+      console.error('Error rejoining ward:', error);
+      res.status(500).json({ message: 'Failed to rejoin ward' });
     }
   });
 

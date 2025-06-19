@@ -34,13 +34,54 @@ export default function MissionaryPortal() {
     retry: false
   });
   
+  const handleAuthentication = async () => {
+    setAuthenticating(true);
+    setAuthError("");
+    
+    try {
+      const response = await fetch(`/api/missionary-portal/authenticate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          accessCode, 
+          emailAddress: authEmail, 
+          password: authPassword 
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.authenticated) {
+          setIsAuthenticated(true);
+          localStorage.setItem(`missionary-auth-${accessCode}`, 'true');
+        } else {
+          setAuthError("Invalid email or password");
+        }
+      } else {
+        setAuthError("Authentication failed");
+      }
+    } catch (error) {
+      setAuthError("Network error occurred");
+    } finally {
+      setAuthenticating(false);
+    }
+  };
+
+  // Check for stored authentication
+  useEffect(() => {
+    const stored = localStorage.getItem(`missionary-auth-${accessCode}`);
+    if (stored === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, [accessCode]);
+
   const wardId = ward?.id;
   
   // Fetch missionaries data for this ward
   const { data: missionaries } = useQuery<any[]>({
     queryKey: ['/api/wards', wardId, 'missionaries'],
     queryFn: () => fetch(`/api/wards/${wardId}/missionaries`).then(res => res.json()),
-    enabled: !!wardId,
+    enabled: !!wardId && isAuthenticated,
   });
   
   // Set default selected missionary for compatibility with existing code
@@ -58,6 +99,75 @@ export default function MissionaryPortal() {
   // Get missionary ID based on selection
   const missionary = missionaries?.find(m => m.id.toString() === selectedMissionaryId);
   const missionaryId = missionary?.id;
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6">
+            <div className="text-center mb-6">
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Missionary Portal Access</h1>
+              <p className="text-gray-600">Enter your credentials to access the portal</p>
+            </div>
+            
+            <form onSubmit={(e) => { e.preventDefault(); handleAuthentication(); }} className="space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Address
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="your.email@missionary.org"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter your password"
+                  required
+                />
+              </div>
+              
+              {authError && (
+                <div className="text-red-600 text-sm text-center">{authError}</div>
+              )}
+              
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={authenticating || !authEmail || !authPassword}
+              >
+                {authenticating ? "Authenticating..." : "Access Portal"}
+              </Button>
+            </form>
+            
+            <div className="mt-4 text-center">
+              <Button 
+                variant="outline" 
+                onClick={() => setLocation(`/missionary-register/${accessCode}`)}
+                className="text-sm"
+              >
+                New missionary? Register here
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
