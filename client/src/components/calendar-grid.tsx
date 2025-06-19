@@ -80,28 +80,28 @@ export function CalendarGrid({
   const endDate = endOfWeek(endOfMonth(firstDayCurrentMonth), { weekStartsOn: 0 });
   
   const { data: meals, isLoading } = useQuery({
-    queryKey: ['/api/meals', startDate.toISOString(), endDate.toISOString()],
+    queryKey: ['/api/meals', format(startDate, 'yyyy-MM'), format(endDate, 'yyyy-MM')],
     queryFn: () => fetch(
       `/api/meals?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
-    ).then(res => res.json())
+    ).then(res => res.json()),
+    staleTime: 30 * 60 * 1000, // Consider data fresh for 30 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchInterval: false,
+    gcTime: 60 * 60 * 1000 // Keep cache for 1 hour
   });
   
   // Create a map of dates to meal status
-  const mealStatusMap = new Map<string, MealStatus>();
-  
-  useEffect(() => {
+  const mealStatusMap = useMemo(() => {
+    const map = new Map<string, MealStatus>();
+    
     if (meals) {
-      // Create a fresh map for each update
-      const newMealStatusMap = new Map<string, MealStatus>();
-      
       meals.forEach((meal: any) => {
         if (meal.cancelled) return;
         
         const mealDate = format(parseISO(meal.date), "yyyy-MM-dd");
-        // Get existing status or create a new one with empty bookedMissionaries array
-        const mealStatus = newMealStatusMap.get(mealDate) || { bookedMissionaries: [] };
+        const mealStatus = map.get(mealDate) || { bookedMissionaries: [] };
         
-        // Add this missionary to the bookedMissionaries array if not already present
         const missionaryExists = mealStatus.bookedMissionaries.some(
           (m) => m.id === meal.missionary.id
         );
@@ -114,16 +114,11 @@ export function CalendarGrid({
           });
         }
         
-        // Update the map
-        newMealStatusMap.set(mealDate, mealStatus);
-      });
-      
-      // Replace the old map with the new one
-      mealStatusMap.clear(); // Clear the existing map
-      newMealStatusMap.forEach((status, date) => {
-        mealStatusMap.set(date, status);
+        map.set(mealDate, mealStatus);
       });
     }
+    
+    return map;
   }, [meals]);
   
   return (
