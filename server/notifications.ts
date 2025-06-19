@@ -197,12 +197,15 @@ export class TwilioService extends BaseNotificationService {
         missionaryId: missionary.id,
         wardId: missionary.wardId,
         messageType,
+        messageContent: message,
+        deliveryMethod: 'sms',
         content: message,
         method: 'sms',
         successful,
-        failureReason,
+        charCount: message.length,
         segmentCount: segments,
-        estimatedCost: (segments * 0.0075).toString() // SMS cost
+        estimatedCost: (segments * 0.0075).toString(),
+        failureReason,
       };
 
       await db.insert(messageLogs).values(messageLog);
@@ -269,12 +272,15 @@ export class MessengerService extends BaseNotificationService {
         missionaryId: missionary.id,
         wardId: missionary.wardId,
         messageType,
+        messageContent: message,
+        deliveryMethod: 'messenger',
         content: message,
         method: 'messenger',
         successful,
-        failureReason,
+        charCount: message.length,
         segmentCount: 1,
-        estimatedCost: "0"
+        estimatedCost: "0",
+        failureReason,
       };
       
       await db.insert(messageLogs).values(messageLog);

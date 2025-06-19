@@ -492,20 +492,20 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                           WhatsApp (Free)
                         </FormLabel>
                       </FormItem>
-                      <FormItem className="flex items-center space-x-3 space-y-0">
+                      <FormItem className="flex items-center space-x-3 space-y-0 opacity-50">
                         <FormControl>
-                          <RadioGroupItem value="text" />
+                          <RadioGroupItem value="text" disabled />
                         </FormControl>
                         <FormLabel className="font-normal">
-                          Text Message (Legacy)
+                          SMS Text (Requires Permission)
                         </FormLabel>
                       </FormItem>
-                      <FormItem className="flex items-center space-x-3 space-y-0">
+                      <FormItem className="flex items-center space-x-3 space-y-0 opacity-50">
                         <FormControl>
-                          <RadioGroupItem value="messenger" />
+                          <RadioGroupItem value="messenger" disabled />
                         </FormControl>
                         <FormLabel className="font-normal">
-                          Facebook Messenger (Legacy)
+                          Messenger (Requires Permission)
                         </FormLabel>
                       </FormItem>
                     </RadioGroup>

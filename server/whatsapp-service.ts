@@ -140,11 +140,14 @@ export class WhatsAppService {
         missionaryId: missionary.id,
         wardId: missionary.wardId,
         messageType,
+        messageContent: message,
+        deliveryMethod: 'whatsapp',
         content: message,
         method: 'whatsapp',
         successful,
-        segmentCount: 1, // WhatsApp messages are typically 1 segment
-        estimatedCost: "0", // WhatsApp Business API has free tier
+        charCount: message.length,
+        segmentCount: 1,
+        estimatedCost: "0",
         failureReason
       };
 
