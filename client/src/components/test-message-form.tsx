@@ -34,15 +34,13 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-// import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CustomRadio } from "@/components/custom-radio";
 import { useToast } from "@/hooks/use-toast";
 
 // Schema for test message form
 const testMessageSchema = z.object({
-  phoneNumber: z.string().min(10, "Please enter a valid phone number with country code (e.g., +1XXXXXXXXXX)"),
-  notificationMethod: z.enum(["text", "messenger"]),
-  messengerAccount: z.string().optional(),
+  contactInfo: z.string().min(5, "Please enter a valid email address or WhatsApp number"),
+  notificationMethod: z.enum(["email", "whatsapp"]),
   messageType: z.enum(["custom", "meal_reminder", "day_of", "weekly_summary"]),
   customMessage: z.string().optional(),
   schedulingOption: z.enum(["immediate", "scheduled"]),
@@ -64,18 +62,16 @@ type TestMessageFormProps = {
 
 export function TestMessageForm({ wardId }: TestMessageFormProps) {
   const { toast } = useToast();
-  const [isMessenger, setIsMessenger] = useState(false);
   const [isCustomMessage, setIsCustomMessage] = useState(false);
   const [isScheduled, setIsScheduled] = useState(false);
   
   const form = useForm<z.infer<typeof testMessageSchema>>({
     resolver: zodResolver(testMessageSchema),
     defaultValues: {
-      phoneNumber: "",
-      notificationMethod: "text",
+      contactInfo: "",
+      notificationMethod: "email",
       messageType: "custom",
       customMessage: "",
-      messengerAccount: "",
       schedulingOption: "immediate",
       scheduledDate: undefined,
       scheduledTime: "12:00",
@@ -92,7 +88,6 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
   
   // Set initial states based on form default values
   useEffect(() => {
-    setIsMessenger(form.getValues("notificationMethod") === "messenger");
     setIsCustomMessage(form.getValues("messageType") === "custom");
     setIsScheduled(form.getValues("schedulingOption") === "scheduled");
   }, []);
@@ -158,7 +153,7 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
       <CardHeader>
         <CardTitle>Test Message</CardTitle>
         <CardDescription>
-          Send a test message to verify notification functionality
+          Send a test message to verify Gmail or WhatsApp notification functionality
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -173,15 +168,15 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
-                  name="phoneNumber"
+                  name="contactInfo"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
+                      <FormLabel>Contact Information</FormLabel>
                       <FormControl>
-                        <Input placeholder="+1XXXXXXXXXX" {...field} />
+                        <Input placeholder="email@missionary.org or +1XXXXXXXXXX" {...field} />
                       </FormControl>
                       <FormDescription>
-                        Include country code (e.g., +1 for US/Canada)
+                        Enter email address for Gmail or phone number for WhatsApp
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -195,20 +190,17 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                     <FormItem>
                       <FormLabel>Notification Method</FormLabel>
                       <Select
-                        onValueChange={(value: "text" | "messenger") => {
-                          field.onChange(value);
-                          setIsMessenger(value === "messenger");
-                        }}
+                        onValueChange={field.onChange}
                         defaultValue={field.value}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select method" />
+                            <SelectValue placeholder="Select notification method" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="text">Text Message</SelectItem>
-                          <SelectItem value="messenger">Facebook Messenger</SelectItem>
+                          <SelectItem value="email">Gmail Email</SelectItem>
+                          <SelectItem value="whatsapp">WhatsApp Message</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -217,38 +209,15 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                 />
               </div>
               
-              {/* Messenger Account (conditional) */}
-              {isMessenger && (
-                <FormField
-                  control={form.control}
-                  name="messengerAccount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Messenger Account</FormLabel>
-                      <FormControl>
-                        <Input 
-                          placeholder="username or URL" 
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Enter Facebook username or Messenger URL
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-              
               {/* Message Type */}
               <FormField
                 control={form.control}
                 name="messageType"
                 render={({ field }) => (
-                  <FormItem className="space-y-3">
+                  <FormItem>
                     <FormLabel>Message Type</FormLabel>
                     <FormControl>
-                      <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
+                      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                         <CustomRadio
                           name="messageType"
                           value="custom"
@@ -306,11 +275,14 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                       <FormLabel>Message Content</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Enter your message here"
-                          className="min-h-[120px]"
+                          placeholder="Enter your test message here..."
+                          className="min-h-[80px]"
                           {...field}
                         />
                       </FormControl>
+                      <FormDescription>
+                        Enter the custom message you want to send for testing
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -322,10 +294,10 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                 control={form.control}
                 name="schedulingOption"
                 render={({ field }) => (
-                  <FormItem className="space-y-3">
+                  <FormItem>
                     <FormLabel>Scheduling</FormLabel>
                     <FormControl>
-                      <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
+                      <div className="flex gap-4">
                         <CustomRadio
                           name="schedulingOption"
                           value="immediate"
@@ -368,7 +340,7 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                               <Button
                                 variant={"outline"}
                                 className={cn(
-                                  "pl-3 text-left font-normal",
+                                  "w-full pl-3 text-left font-normal",
                                   !field.value && "text-muted-foreground"
                                 )}
                               >
@@ -387,7 +359,7 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                               selected={field.value}
                               onSelect={field.onChange}
                               disabled={(date) =>
-                                date < new Date(new Date().setHours(0, 0, 0, 0))
+                                date < new Date() || date < new Date("1900-01-01")
                               }
                               initialFocus
                             />
@@ -402,12 +374,11 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                     control={form.control}
                     name="scheduledTime"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="relative">
                         <FormLabel>Time</FormLabel>
                         <div className="relative">
                           <FormControl>
                             <Input
-                              placeholder="HH:MM"
                               type="time"
                               {...field}
                               value={field.value || ""}
@@ -446,7 +417,7 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                       name="mealDetails.startTime"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Meal Time</FormLabel>
+                          <FormLabel>Start Time</FormLabel>
                           <FormControl>
                             <Input type="time" {...field} value={field.value || ""} />
                           </FormControl>
@@ -454,35 +425,35 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                         </FormItem>
                       )}
                     />
-                    
-                    <FormField
-                      control={form.control}
-                      name="mealDetails.hostName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Host Name</FormLabel>
-                          <FormControl>
-                            <Input {...field} value={field.value || ""} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="mealDetails.mealDescription"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Meal Description</FormLabel>
-                          <FormControl>
-                            <Input {...field} value={field.value || ""} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
                   </div>
+                  
+                  <FormField
+                    control={form.control}
+                    name="mealDetails.hostName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Host Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} placeholder="Host family name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="mealDetails.mealDescription"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Meal Description</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} placeholder="What will be served" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   
                   <FormField
                     control={form.control}

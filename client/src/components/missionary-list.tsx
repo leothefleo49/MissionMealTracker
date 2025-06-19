@@ -163,8 +163,14 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
                         )}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {missionary.preferredNotification === "text" ? "SMS: " : "Messenger: "}
-                        {missionary.preferredNotification === "text" 
+                        {missionary.preferredNotification === "email" ? "Gmail: " : 
+                         missionary.preferredNotification === "whatsapp" ? "WhatsApp: " :
+                         missionary.preferredNotification === "text" ? "SMS (Deprecated): " : "Messenger (Deprecated): "}
+                        {missionary.preferredNotification === "email" 
+                          ? missionary.emailAddress || 'No email'
+                          : missionary.preferredNotification === "whatsapp"
+                          ? missionary.whatsappNumber || 'No WhatsApp'
+                          : missionary.preferredNotification === "text" 
                           ? missionary.phoneNumber || 'No phone'
                           : missionary.messengerAccount || "Not provided"}
                       </div>
