@@ -34,6 +34,7 @@ type VerificationForm = z.infer<typeof verificationSchema>;
 
 export default function MissionaryRegister() {
   const [, setLocation] = useLocation();
+  const [mode, setMode] = useState<"login" | "register">("login");
   const [step, setStep] = useState<"register" | "verify" | "complete">("register");
   const [missionaryData, setMissionaryData] = useState<RegisterForm | null>(null);
   const { toast } = useToast();

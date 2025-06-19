@@ -174,15 +174,6 @@ export default function WardPage() {
               <Button 
                 variant="outline" 
                 size={isMobile ? "sm" : "default"}
-                onClick={() => setLocation(`/ward/${accessCode}/missionary-portal`)}
-                className="flex items-center"
-              >
-                <UserPlus className="h-4 w-4 mr-1" />
-                {isMobile ? "Portal" : "Missionary Portal"}
-              </Button>
-              <Button 
-                variant="outline" 
-                size={isMobile ? "sm" : "default"}
                 onClick={() => setLocation('/auth')}
                 className="flex items-center text-blue-600 border-blue-200 hover:bg-blue-50"
               >
@@ -289,7 +280,13 @@ export default function WardPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="current">
-                          {new Date().toLocaleDateString('default', { month: 'long' })} - {new Date(new Date().setMonth(new Date().getMonth() + 5)).toLocaleDateString('default', { month: 'long' })} {new Date().getFullYear()}
+                          {new Date().toLocaleDateString('default', { month: 'long' })} {new Date().getFullYear()}
+                        </SelectItem>
+                        <SelectItem value="next1">
+                          {new Date(new Date().getFullYear(), new Date().getMonth() + 1).toLocaleDateString('default', { month: 'long' })} {new Date(new Date().getFullYear(), new Date().getMonth() + 1).getFullYear()}
+                        </SelectItem>
+                        <SelectItem value="next2">
+                          {new Date(new Date().getFullYear(), new Date().getMonth() + 2).toLocaleDateString('default', { month: 'long' })} {new Date(new Date().getFullYear(), new Date().getMonth() + 2).getFullYear()}
                         </SelectItem>
                       </SelectContent>
                     </Select>

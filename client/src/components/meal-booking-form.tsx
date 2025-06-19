@@ -29,6 +29,9 @@ const formSchema = z.object({
   startTime: z.string().min(1, { message: "Please select a time" }),
   mealDescription: z.string().optional(),
   specialNotes: z.string().optional(),
+  wardId: z.number().optional(),
+  missionaryId: z.number().optional(),
+  date: z.string().optional(),
 });
 
 type BookingFormProps = {
