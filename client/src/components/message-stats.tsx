@@ -150,8 +150,19 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-1">Message Segments</p>
-                    <h3 className="text-2xl font-bold">{formatNumber(stats?.totalSegments || 0)}</h3>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Notification Types</p>
+                    <div className="flex items-center space-x-2">
+                      <div className="text-sm">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                          Gmail: {stats?.byNotificationMethod?.email || 0}
+                        </span>
+                      </div>
+                      <div className="text-sm">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                          WhatsApp: {stats?.byNotificationMethod?.whatsapp || 0}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                     <BarChart2 className="h-5 w-5 text-primary" />
@@ -165,11 +176,6 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
                         Math.round(stats.totalCharacters / stats.totalMessages) : 0}
                     </span>
                   </div>
-                  <Progress 
-                    value={stats?.totalMessages ? 
-                      Math.min((stats.totalCharacters / stats.totalMessages) / 1.6, 100) : 0} 
-                    className="h-1 mt-1" 
-                  />
                 </div>
               </CardContent>
             </Card>
@@ -178,20 +184,17 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-1">Estimated Cost</p>
-                    <h3 className="text-2xl font-bold">{formatCurrency(stats?.estimatedCost || 0)}</h3>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Operating Cost</p>
+                    <h3 className="text-2xl font-bold text-green-600">FREE</h3>
                   </div>
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <CreditCard className="h-5 w-5 text-primary" />
+                  <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                    <CreditCard className="h-5 w-5 text-green-600" />
                   </div>
                 </div>
                 <div className="mt-4">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Cost per Message</span>
-                    <span>
-                      {stats?.totalMessages ? 
-                        formatCurrency(stats.estimatedCost / stats.totalMessages) : '$0.00'}
-                    </span>
+                    <span>Gmail & WhatsApp</span>
+                    <span className="text-green-600 font-medium">$0.00</span>
                   </div>
                 </div>
               </CardContent>

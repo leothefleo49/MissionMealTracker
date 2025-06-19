@@ -1071,9 +1071,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/test-message", requireAdmin, async (req, res) => {
     try {
       const {
-        phoneNumber,
+        contactInfo,
         notificationMethod,
-        messengerAccount,
         messageType,
         customMessage,
         mealDetails,
@@ -1084,12 +1083,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } = req.body;
       
       // Basic validation
-      if (!phoneNumber) {
-        return res.status(400).json({ message: "Phone number is required" });
+      if (!contactInfo) {
+        return res.status(400).json({ message: "Contact information is required" });
       }
       
-      if (notificationMethod === "messenger" && !messengerAccount) {
-        return res.status(400).json({ message: "Messenger account is required for messenger notifications" });
+      if (!notificationMethod || !["email", "whatsapp"].includes(notificationMethod)) {
+        return res.status(400).json({ message: "Valid notification method (email or whatsapp) is required" });
       }
       
       if (messageType === "custom" && !customMessage) {
@@ -1117,23 +1116,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Set up mock data for testing
-      // Format the phone number to E.164 format
-      // If number doesn't start with +, add the + prefix
-      let formattedPhoneNumber = phoneNumber;
-      if (!formattedPhoneNumber.startsWith('+')) {
-        formattedPhoneNumber = '+' + formattedPhoneNumber;
-      }
-      
-      // For US numbers without country code, add +1 prefix if the number is 10 digits
-      if (formattedPhoneNumber.startsWith('+') && !formattedPhoneNumber.startsWith('+1') && formattedPhoneNumber.length === 11) {
-        formattedPhoneNumber = '+1' + formattedPhoneNumber.substring(1);
-      }
-      
-      console.log(`Test message: using formatted phone number ${formattedPhoneNumber}`);
-      
-      // For debugging consent issues
-      console.log(`Creating or finding test missionary for stats tracking`);
+      // Set up test missionary data for notification tracking
+      console.log(`Test message: using contact info ${contactInfo}`);
       
       // First try to find an existing test missionary for this ward
       let testMissionary = await storage.getMissionaryByName(wardId, "Test Missionary");
@@ -1143,10 +1127,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const insertTestMissionary = {
             name: "Test Missionary",
-            type: "elders",
-            phoneNumber: formattedPhoneNumber,
-            messengerAccount: messengerAccount || "",
-            preferredNotification: notificationMethod,
+            type: "elders" as const,
+            phoneNumber: notificationMethod === "whatsapp" ? contactInfo : "+15551234567",
+            emailAddress: notificationMethod === "email" ? contactInfo : "test@missionary.org",
+            whatsappNumber: notificationMethod === "whatsapp" ? contactInfo : null,
+            preferredNotification: notificationMethod as "email" | "whatsapp",
             active: true,
             notificationScheduleType: "before_meal",
             hoursBefore: 3,
@@ -1154,11 +1139,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             weeklySummaryDay: "monday",
             weeklySummaryTime: "08:00",
             wardId,
-            consentStatus: 'pending',
-            consentDate: null,
+            consentStatus: 'granted',
+            consentDate: new Date(),
             consentVerificationToken: null,
             consentVerificationSentAt: null,
-            dietaryRestrictions: ""
+            dietaryRestrictions: "",
+            messengerAccount: "",
+            emailVerified: notificationMethod === "email"
           };
           
           testMissionary = await storage.createMissionary(insertTestMissionary);
@@ -1179,7 +1166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         date: mealDetails.date || new Date().toISOString().split('T')[0],
         startTime: mealDetails.startTime || "17:30",
         hostName: mealDetails.hostName || "Test Host",
-        hostPhone: formattedPhoneNumber, // Use the properly formatted phone number
+        hostPhone: notificationMethod === "whatsapp" ? contactInfo : "+15551234567",
         hostEmail: "test@example.com",
         mealDescription: mealDetails.mealDescription || "Test meal",
         specialNotes: mealDetails.specialNotes || "",
@@ -1194,59 +1181,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Handle different message types
       let result = false;
       
-      // First, check if the missionary has consented yet
-      // If not, we need to send a consent request first
-      if (mockMissionary.consentStatus !== 'granted') {
-        // Generate a verification code
-        const verificationCode = generateVerificationCode();
-        
-        // Update missionary with the verification token
-        const updatedMissionary = await storage.updateMissionary(mockMissionary.id, {
-          consentVerificationToken: verificationCode,
-          consentVerificationSentAt: new Date(),
-          consentStatus: 'pending'
-        });
-        
-        // Make sure we also update our local reference to the missionary
-        Object.assign(mockMissionary, updatedMissionary);
-        
-        // Prepare consent message following Twilio's best practices
-        const consentMessage = 
-          `This is the Ward Missionary Meal Scheduler. To receive meal notifications, reply with YES ${verificationCode}. ` +
-          "Reply STOP at any time to opt out. Msg & data rates may apply.";
-        
-        try {
-          // Send consent message using direct Twilio API to bypass consent checks
-          if (notificationManager.smsService && notificationManager.smsService.twilioClient) {
-            await notificationManager.smsService.twilioClient.messages.create({
-              body: consentMessage,
-              from: notificationManager.smsService.twilioPhoneNumber,
-              to: mockMissionary.phoneNumber
-            });
-            result = true;
-          } else {
-            // Fallback for development without Twilio
-            console.log(`[CONSENT REQUEST] Sending to ${mockMissionary.phoneNumber}: ${consentMessage}`);
-            result = true;
-          }
-          
-          // Return a special message about the consent process
-          return res.status(200).json({ 
-            success: true, 
-            message: "Consent request sent. User must respond with 'YES' before receiving regular messages.",
-            requiresConsent: true
-          });
-        } catch (error) {
-          console.error("Failed to send consent request:", error);
-          return res.status(500).json({ message: "Failed to send consent request" });
-        }
-      }
+      // Gmail and WhatsApp don't require SMS consent - proceed directly with test message
+      console.log(`Test message will be sent via ${notificationMethod} to ${contactInfo}`);
       
-      // If consent has been granted, proceed with the regular message
       // For scheduled messages, add to a queue (just mock this for now)
       if (schedulingOption === "scheduled") {
         console.log(`Test message scheduled for ${scheduledDate} at ${scheduledTime}`);
-        // In a real implementation, you would add this to a database queue
         result = true;
       } else {
         // Send immediate message
@@ -1255,11 +1195,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (!mockMeal) {
               return res.status(400).json({ message: "Meal details are required for meal reminders" });
             }
-            console.log('Before sending meal reminder, mockMissionary:', JSON.stringify({
-              id: mockMissionary.id,
-              name: mockMissionary.name,
-              consentStatus: mockMissionary.consentStatus
-            }));
             result = await notificationManager.sendMealReminder(mockMissionary as any, mockMeal as any);
             break;
             
