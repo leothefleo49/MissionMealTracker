@@ -251,6 +251,12 @@ export const messageStatsSchema = z.object({
   totalCharacters: z.number(),
   totalSegments: z.number(),
   estimatedCost: z.number(),
+  byNotificationMethod: z.object({
+    email: z.number(),
+    whatsapp: z.number(),
+    text: z.number(),
+    messenger: z.number(),
+  }).optional(),
   byWard: z.array(z.object({
     wardId: z.number(),
     wardName: z.string(),

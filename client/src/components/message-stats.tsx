@@ -60,6 +60,12 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
       totalCharacters: 0,
       totalSegments: 0,
       estimatedCost: 0,
+      byNotificationMethod: {
+        email: 0,
+        whatsapp: 0,
+        text: 0,
+        messenger: 0,
+      },
       byWard: [],
       byMissionary: [],
       byPeriod: [],

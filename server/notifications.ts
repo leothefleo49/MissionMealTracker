@@ -376,6 +376,22 @@ export class MessageStatsService {
       })
     );
 
+    // Get breakdown by notification method
+    const byMethodStats = await db
+      .select({
+        method: messageLogs.method,
+        count: count(),
+      })
+      .from(messageLogs)
+      .groupBy(messageLogs.method);
+
+    const byNotificationMethod = {
+      email: byMethodStats.find(m => m.method === 'email')?.count || 0,
+      whatsapp: byMethodStats.find(m => m.method === 'whatsapp')?.count || 0,
+      text: byMethodStats.find(m => m.method === 'text')?.count || 0, // Legacy
+      messenger: byMethodStats.find(m => m.method === 'messenger')?.count || 0, // Legacy
+    };
+
     return {
       totalMessages: totalStats.totalMessages,
       totalSuccessful: totalStats.totalSuccessful,
@@ -383,6 +399,7 @@ export class MessageStatsService {
       totalCharacters: 0, // Not tracking characters in new system
       totalSegments: Number(totalStats.totalSegments) || 0,
       estimatedCost: 0, // Email and WhatsApp are free
+      byNotificationMethod,
       byWard: byWard.map(ward => ({
         wardId: ward.wardId,
         wardName: ward.wardName,
@@ -420,6 +437,23 @@ export class MessageStatsService {
 
     const totalFailed = totalStats.totalMessages - totalStats.totalSuccessful;
 
+    // Get breakdown by notification method for this ward
+    const byMethodStats = await db
+      .select({
+        method: messageLogs.method,
+        count: count(),
+      })
+      .from(messageLogs)
+      .where(eq(messageLogs.wardId, wardId))
+      .groupBy(messageLogs.method);
+
+    const byNotificationMethod = {
+      email: byMethodStats.find(m => m.method === 'email')?.count || 0,
+      whatsapp: byMethodStats.find(m => m.method === 'whatsapp')?.count || 0,
+      text: byMethodStats.find(m => m.method === 'text')?.count || 0,
+      messenger: byMethodStats.find(m => m.method === 'messenger')?.count || 0,
+    };
+
     return {
       totalMessages: totalStats.totalMessages,
       totalSuccessful: totalStats.totalSuccessful,
@@ -427,6 +461,7 @@ export class MessageStatsService {
       totalCharacters: 0,
       totalSegments: Number(totalStats.totalSegments) || 0,
       estimatedCost: 0, // Free services
+      byNotificationMethod,
       byWard: [],
       byMissionary: [],
       byPeriod: [],
