@@ -75,7 +75,7 @@ abstract class BaseNotificationService implements INotificationService {
 
 // Email notification service wrapper
 export class EmailNotificationService extends BaseNotificationService {
-  private emailService: EmailService;
+  public emailService: EmailService;
 
   constructor() {
     super();
@@ -97,7 +97,7 @@ export class EmailNotificationService extends BaseNotificationService {
 
 // WhatsApp notification service wrapper
 export class WhatsAppNotificationService extends BaseNotificationService {
-  private whatsappService: WhatsAppService;
+  public whatsappService: WhatsAppService;
 
   constructor() {
     super();
@@ -126,22 +126,10 @@ export class TwilioService extends BaseNotificationService {
     super();
     console.warn("TwilioService is deprecated. Please use EmailNotificationService or WhatsAppNotificationService instead.");
     
-    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
-      console.warn("Twilio credentials not found. Text notifications will be logged but not sent.");
-      this.twilioClient = null;
-      this.twilioPhoneNumber = '';
-    } else {
-      try {
-        const twilio = require('twilio');
-        this.twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-        this.twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
-        console.log("Twilio client initialized successfully.");
-      } catch (error) {
-        console.error("Failed to initialize Twilio client:", error);
-        this.twilioClient = null;
-        this.twilioPhoneNumber = '';
-      }
-    }
+    // Always disable Twilio for the free notification system
+    console.warn("Twilio SMS is now disabled. Using free email and WhatsApp notifications instead.");
+    this.twilioClient = null;
+    this.twilioPhoneNumber = '';
   }
 
   async sendMealReminder(missionary: Missionary, meal: Meal): Promise<boolean> {
@@ -382,8 +370,8 @@ export class MessageStatsService {
         return {
           period: name,
           messageCount: result.messageCount,
-          segments: result.segments || 0,
-          estimatedCost: this.calculateEstimatedCost(result.segments || 0),
+          segments: Number(result.segments) || 0,
+          estimatedCost: this.calculateEstimatedCost(Number(result.segments) || 0),
         };
       })
     );
@@ -393,7 +381,7 @@ export class MessageStatsService {
       totalSuccessful: totalStats.totalSuccessful,
       totalFailed,
       totalCharacters: 0, // Not tracking characters in new system
-      totalSegments: totalStats.totalSegments || 0,
+      totalSegments: Number(totalStats.totalSegments) || 0,
       estimatedCost: 0, // Email and WhatsApp are free
       byWard: byWard.map(ward => ({
         wardId: ward.wardId,
@@ -437,7 +425,7 @@ export class MessageStatsService {
       totalSuccessful: totalStats.totalSuccessful,
       totalFailed,
       totalCharacters: 0,
-      totalSegments: totalStats.totalSegments || 0,
+      totalSegments: Number(totalStats.totalSegments) || 0,
       estimatedCost: 0, // Free services
       byWard: [],
       byMissionary: [],
