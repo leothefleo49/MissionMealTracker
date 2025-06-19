@@ -1,5 +1,5 @@
 import { relations, sql } from "drizzle-orm";
-import { boolean, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, serial, text, timestamp, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -79,8 +79,10 @@ export const missionaries = pgTable("missionaries", {
   name: text("name").notNull(),
   type: text("type").notNull(), // 'elders' or 'sisters'
   phoneNumber: text("phone_number").notNull(),
+  emailAddress: text("email_address"), // Email address for notifications
+  whatsappNumber: text("whatsapp_number"), // WhatsApp number (can be same as phone)
   messengerAccount: text("messenger_account"),
-  preferredNotification: text("preferred_notification").default("text").notNull(), // 'text' or 'messenger'
+  preferredNotification: text("preferred_notification").default("email").notNull(), // 'email', 'whatsapp', 'text', 'messenger'
   active: boolean("active").default(true).notNull(),
   dietaryRestrictions: text("dietary_restrictions"), // Food allergies or dietary restrictions
   
@@ -92,8 +94,8 @@ export const missionaries = pgTable("missionaries", {
   weeklySummaryTime: text("weekly_summary_time").default("18:00"), // Time to send weekly summary
   useMultipleNotifications: boolean("use_multiple_notifications").default(false), // True if using multiple notification types
   
-  // Consent management
-  consentStatus: text("consent_status").default("pending").notNull(), // 'pending', 'granted', 'denied'
+  // Consent management (mainly for WhatsApp and SMS)
+  consentStatus: text("consent_status").default("granted").notNull(), // 'pending', 'granted', 'denied' - email doesn't need explicit consent
   consentDate: timestamp("consent_date"), // When consent was granted or denied
   consentVerificationToken: text("consent_verification_token"), // Token used for verification
   consentVerificationSentAt: timestamp("consent_verification_sent_at"), // When verification was sent
@@ -110,6 +112,8 @@ export const insertMissionarySchema = createInsertSchema(missionaries).pick({
   name: true,
   type: true,
   phoneNumber: true,
+  emailAddress: true,
+  whatsappNumber: true,
   messengerAccount: true,
   preferredNotification: true,
   active: true,
@@ -184,19 +188,19 @@ export const checkMealAvailabilitySchema = z.object({
 
 export type CheckMealAvailability = z.infer<typeof checkMealAvailabilitySchema>;
 
-// Message Logs table - for tracking SMS/Messenger notifications
+// Message Logs table - for tracking email/WhatsApp/SMS/Messenger notifications
 export const messageLogs = pgTable("message_logs", {
   id: serial("id").primaryKey(),
   missionaryId: integer("missionary_id").notNull().references(() => missionaries.id),
   wardId: integer("ward_id").notNull().references(() => wards.id),
   sentAt: timestamp("sent_at").notNull().defaultNow(),
   messageType: text("message_type").notNull(), // 'before_meal', 'day_of', 'weekly_summary'
-  messageContent: text("message_content").notNull(),
-  deliveryMethod: text("delivery_method").notNull(), // 'sms', 'messenger'
+  content: text("content").notNull(), // Message content
+  method: text("method").notNull(), // 'email', 'whatsapp', 'sms', 'messenger'
   successful: boolean("successful").notNull(),
   failureReason: text("failure_reason"),
-  charCount: integer("char_count").notNull(),
-  segmentCount: integer("segment_count").notNull(), // For SMS that are split into multiple messages
+  segmentCount: integer("segment_count").notNull().default(1), // For SMS that are split into multiple messages
+  estimatedCost: text("estimated_cost").notNull().default("0"), // Cost in dollars as string
 });
 
 export const messageLogsRelations = relations(messageLogs, ({ one }) => ({
@@ -208,12 +212,12 @@ export const insertMessageLogSchema = createInsertSchema(messageLogs).pick({
   missionaryId: true,
   wardId: true,
   messageType: true,
-  messageContent: true,
-  deliveryMethod: true,
+  content: true,
+  method: true,
   successful: true,
   failureReason: true,
-  charCount: true,
   segmentCount: true,
+  estimatedCost: true,
 });
 
 export type InsertMessageLog = z.infer<typeof insertMessageLogSchema>;
