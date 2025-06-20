@@ -1761,6 +1761,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Missionary password reset endpoint
+  app.post('/api/missionary-forgot-password', async (req, res) => {
+    try {
+      const { emailAddress, accessCode } = req.body;
+      
+      if (!emailAddress || !accessCode) {
+        return res.status(400).json({ message: 'Email address and access code are required' });
+      }
+      
+      // Validate email format
+      if (!emailAddress.endsWith('@missionary.org')) {
+        return res.status(400).json({ message: 'Please use your @missionary.org email address' });
+      }
+      
+      // Find the ward by access code
+      const ward = await storage.getWardByAccessCode(accessCode);
+      if (!ward) {
+        return res.status(404).json({ message: 'Invalid ward access code' });
+      }
+      
+      // Find the missionary by email
+      const missionary = await storage.getMissionaryByEmail(emailAddress);
+      if (!missionary || missionary.wardId !== ward.id) {
+        return res.status(404).json({ message: 'Missionary not found in this ward' });
+      }
+      
+      // Generate a new temporary password
+      const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+      const { hashPassword } = await import('./auth');
+      const hashedTempPassword = await hashPassword(tempPassword);
+      
+      // Update missionary with temporary password
+      await storage.updateMissionary(missionary.id, {
+        password: hashedTempPassword
+      });
+      
+      // Send password reset email
+      const emailService = new (await import('./email-service')).EmailService();
+      const emailSent = await emailService.sendCustomMessage(
+        missionary,
+        `Your password has been reset. Your new temporary password is: ${tempPassword}\n\nPlease log in to the missionary portal and change your password immediately for security.`,
+        'password_reset'
+      );
+      
+      if (emailSent) {
+        res.json({ message: 'Password reset email sent successfully' });
+      } else {
+        res.status(500).json({ message: 'Failed to send password reset email' });
+      }
+    } catch (err) {
+      console.error('Error processing password reset:', err);
+      res.status(500).json({ message: 'Failed to process password reset request' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -192,12 +192,19 @@ export default function MissionaryPortal() {
                 </Button>
               </div>
               
-              <div className="text-center">
+              <div className="text-center space-y-2">
                 <button
                   onClick={() => setLocation(`/missionary-register/${accessCode}`)}
-                  className="text-sm text-blue-600 hover:text-blue-700 underline"
+                  className="block w-full text-sm text-blue-600 hover:text-blue-700 underline"
                 >
                   Don't have an account? Register here
+                </button>
+                
+                <button
+                  onClick={() => setLocation(`/missionary-forgot-password/${accessCode}`)}
+                  className="block w-full text-sm text-gray-600 hover:text-gray-700 underline"
+                >
+                  Forgot your password?
                 </button>
               </div>
             </div>
