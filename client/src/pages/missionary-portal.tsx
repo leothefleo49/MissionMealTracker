@@ -424,6 +424,134 @@ export default function MissionaryPortal() {
                     )}
                   </div>
                 </TabsContent>
+                
+                <TabsContent value="settings">
+                  <div className="space-y-6">
+                    <div>
+                      <h2 className="text-xl font-semibold mb-2">Account Settings</h2>
+                      <p className="text-sm text-gray-500">
+                        Manage your missionary portal account settings and preferences.
+                      </p>
+                    </div>
+                    
+                    {authenticatedMissionary && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center">
+                            <User className="mr-2 h-5 w-5" />
+                            Profile Information
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-sm font-medium text-gray-700">Name</label>
+                              <p className="text-sm text-gray-900">{authenticatedMissionary.name}</p>
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium text-gray-700">Email</label>
+                              <p className="text-sm text-gray-900">{authEmail}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                    
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center">
+                          <Lock className="mr-2 h-5 w-5" />
+                          Change Password
+                        </CardTitle>
+                        <CardDescription>
+                          Update your password to keep your account secure.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <form onSubmit={handlePasswordChange} className="space-y-4">
+                          <div className="space-y-2">
+                            <label htmlFor="current-password" className="text-sm font-medium text-gray-700">
+                              Current Password
+                            </label>
+                            <div className="relative">
+                              <input
+                                id="current-password"
+                                type={showCurrentPassword ? "text" : "password"}
+                                value={currentPassword}
+                                onChange={(e) => setCurrentPassword(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
+                                required
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                              >
+                                {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <label htmlFor="new-password" className="text-sm font-medium text-gray-700">
+                              New Password
+                            </label>
+                            <div className="relative">
+                              <input
+                                id="new-password"
+                                type={showNewPassword ? "text" : "password"}
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
+                                required
+                                minLength={6}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowNewPassword(!showNewPassword)}
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                              >
+                                {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <label htmlFor="confirm-password" className="text-sm font-medium text-gray-700">
+                              Confirm New Password
+                            </label>
+                            <div className="relative">
+                              <input
+                                id="confirm-password"
+                                type={showConfirmPassword ? "text" : "password"}
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
+                                required
+                                minLength={6}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                              >
+                                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <Button 
+                            type="submit" 
+                            disabled={changingPassword}
+                            className="w-full"
+                          >
+                            {changingPassword ? "Changing Password..." : "Change Password"}
+                          </Button>
+                        </form>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
               </Tabs>
             </CardContent>
           </Card>

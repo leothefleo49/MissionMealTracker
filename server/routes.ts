@@ -1816,6 +1816,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Missionary password change endpoint
+  app.post('/api/missionary-change-password', async (req, res) => {
+    try {
+      const { accessCode, emailAddress, currentPassword, newPassword } = req.body;
+      
+      if (!accessCode || !emailAddress || !currentPassword || !newPassword) {
+        return res.status(400).json({ message: 'All fields are required' });
+      }
+      
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: 'New password must be at least 6 characters long' });
+      }
+      
+      // Get ward by access code
+      const ward = await storage.getWardByAccessCode(accessCode);
+      if (!ward) {
+        return res.status(404).json({ message: 'Invalid access code' });
+      }
+      
+      // Get missionary by email
+      const missionary = await storage.getMissionaryByEmail(emailAddress);
+      if (!missionary || missionary.wardId !== ward.id) {
+        return res.status(404).json({ message: 'Missionary not found' });
+      }
+      
+      // Verify current password
+      const { comparePasswords } = await import('./auth');
+      const isValidPassword = await comparePasswords(currentPassword, missionary.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: 'Current password is incorrect' });
+      }
+      
+      // Hash new password
+      const { hashPassword } = await import('./auth');
+      const hashedNewPassword = await hashPassword(newPassword);
+      
+      // Update missionary password
+      await storage.updateMissionary(missionary.id, {
+        password: hashedNewPassword
+      });
+      
+      res.json({ message: 'Password changed successfully' });
+    } catch (err) {
+      console.error('Error changing password:', err);
+      res.status(500).json({ message: 'Failed to change password' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
