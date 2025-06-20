@@ -1841,9 +1841,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Missionary not found' });
       }
       
+      // Check if missionary has a password set
+      if (!missionary.password) {
+        return res.status(401).json({ message: 'No password set. Please contact administrator.' });
+      }
+      
       // Verify current password
       const { comparePasswords } = await import('./auth');
-      const isValidPassword = await comparePasswords(currentPassword, missionary.password);
+      const isValidPassword = await comparePasswords(currentPassword, missionary.password!);
       if (!isValidPassword) {
         return res.status(401).json({ message: 'Current password is incorrect' });
       }
