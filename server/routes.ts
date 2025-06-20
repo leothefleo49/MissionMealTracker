@@ -710,33 +710,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { accessCode, emailAddress, password } = req.body;
       
+      console.log('[AUTH] Attempting authentication for:', emailAddress, 'with access code:', accessCode);
+      
       if (!accessCode || !emailAddress || !password) {
+        console.log('[AUTH] Missing required fields');
         return res.status(400).json({ message: 'Missing required fields' });
       }
       
       // Get ward by access code
       const ward = await storage.getWardByAccessCode(accessCode);
+      console.log('[AUTH] Ward found:', ward ? `${ward.name} (ID: ${ward.id})` : 'Not found');
       if (!ward) {
         return res.status(404).json({ message: 'Invalid access code' });
       }
       
       // Get missionary by email
       const missionary = await storage.getMissionaryByEmail(emailAddress);
+      console.log('[AUTH] Missionary found:', missionary ? `${missionary.name} (ID: ${missionary.id}, Ward: ${missionary.wardId})` : 'Not found');
       if (!missionary || missionary.wardId !== ward.id) {
+        console.log('[AUTH] Missionary not found or ward mismatch');
         return res.status(401).json({ authenticated: false });
       }
       
       // Check if missionary has a password set
       if (!missionary.password) {
+        console.log('[AUTH] Missionary has no password set');
         return res.status(401).json({ authenticated: false, message: 'Password not set. Please register first.' });
       }
       
+      console.log('[AUTH] Checking password...');
       // Verify password
       const isValidPassword = await comparePasswords(password, missionary.password);
+      console.log('[AUTH] Password valid:', isValidPassword);
       if (!isValidPassword) {
         return res.status(401).json({ authenticated: false });
       }
       
+      console.log('[AUTH] Authentication successful for:', missionary.name);
       res.json({ authenticated: true, missionary: { id: missionary.id, name: missionary.name } });
     } catch (error) {
       console.error('Missionary portal authentication error:', error);
