@@ -3,11 +3,12 @@ import { useLocation, useParams } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Calendar, User, Bell } from "lucide-react";
+import { ArrowLeft, Calendar, User, Bell, Settings, Lock, Eye, EyeOff } from "lucide-react";
 import { MissionaryUpcomingMeals } from "@/components/missionary-upcoming-meals";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarGrid } from "@/components/calendar-grid";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useToast } from "@/hooks/use-toast";
 
 export default function MissionaryPortal() {
   const params = useParams();
@@ -22,7 +23,16 @@ export default function MissionaryPortal() {
   const [authError, setAuthError] = useState("");
   const [wardCodeInput, setWardCodeInput] = useState("");
   const [selectedMissionaryId, setSelectedMissionaryId] = useState<string>("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [authenticatedMissionary, setAuthenticatedMissionary] = useState<any>(null);
   const isMobile = useIsMobile();
+  const { toast } = useToast();
   
   // Fetch ward data
   const { data: ward } = useQuery<any>({
@@ -53,8 +63,12 @@ export default function MissionaryPortal() {
   useEffect(() => {
     if (accessCode) {
       const stored = localStorage.getItem(`missionary-auth-${accessCode}`);
+      const missionaryData = localStorage.getItem(`missionary-data-${accessCode}`);
       if (stored === 'true') {
         setIsAuthenticated(true);
+        if (missionaryData) {
+          setAuthenticatedMissionary(JSON.parse(missionaryData));
+        }
       }
     }
   }, [accessCode]);
@@ -86,7 +100,9 @@ export default function MissionaryPortal() {
         const data = await response.json();
         if (data.authenticated) {
           setIsAuthenticated(true);
+          setAuthenticatedMissionary(data.missionary);
           localStorage.setItem(`missionary-auth-${accessCode}`, 'true');
+          localStorage.setItem(`missionary-data-${accessCode}`, JSON.stringify(data.missionary));
         } else {
           setAuthError("Invalid email or password");
         }
@@ -97,6 +113,77 @@ export default function MissionaryPortal() {
       setAuthError("Network error occurred");
     } finally {
       setAuthenticating(false);
+    }
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Please fill in all password fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Error",
+        description: "New passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      toast({
+        title: "Error",
+        description: "New password must be at least 6 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setChangingPassword(true);
+    
+    try {
+      const response = await fetch('/api/missionary-change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accessCode,
+          emailAddress: authEmail,
+          currentPassword,
+          newPassword
+        }),
+      });
+      
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Password changed successfully",
+        });
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      } else {
+        const data = await response.json();
+        toast({
+          title: "Error",
+          description: data.message || "Failed to change password",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Network error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -284,7 +371,7 @@ export default function MissionaryPortal() {
               </div>
               
               <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="mb-6 w-full grid grid-cols-2">
+                <TabsList className="mb-6 w-full grid grid-cols-3">
                   <TabsTrigger value="upcoming" className="flex items-center justify-center text-xs sm:text-sm">
                     <Bell className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                     <span className="hidden xs:inline">Upcoming Meals</span>
@@ -294,6 +381,11 @@ export default function MissionaryPortal() {
                     <Calendar className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                     <span className="hidden xs:inline">Calendar View</span>
                     <span className="xs:hidden">Calendar</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="settings" className="flex items-center justify-center text-xs sm:text-sm">
+                    <Settings className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden xs:inline">Settings</span>
+                    <span className="xs:hidden">Settings</span>
                   </TabsTrigger>
                 </TabsList>
                 
