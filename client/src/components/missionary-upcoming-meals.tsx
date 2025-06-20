@@ -38,10 +38,13 @@ export function MissionaryUpcomingMeals({ missionaryId, missionaryType }: Missio
   
   // Fetch meals for the selected missionary type
   const { data: meals, isLoading } = useQuery<any[]>({
-    queryKey: ['/api/meals', today.toISOString(), endDate.toISOString(), missionaryType],
+    queryKey: ['/api/meals', today.toDateString(), endDate.toDateString(), missionaryType],
     queryFn: () => fetch(
       `/api/meals?startDate=${today.toISOString()}&endDate=${endDate.toISOString()}`
-    ).then(res => res.json())
+    ).then(res => res.json()),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchInterval: false,
+    refetchOnWindowFocus: false
   });
   
   // Filter meals by missionary type

@@ -132,7 +132,8 @@ export class DatabaseStorage implements IStorage {
     const [missionary] = await db
       .select()
       .from(missionaries)
-      .where(eq(missionaries.emailAddress, emailAddress));
+      .where(eq(missionaries.emailAddress, emailAddress))
+      .orderBy(missionaries.id); // Ensure consistent ordering to get the same record every time
     return missionary || undefined;
   }
 
