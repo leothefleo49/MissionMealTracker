@@ -21,9 +21,10 @@ export default function MissionaryPortal() {
   const [authenticating, setAuthenticating] = useState(false);
   const [authError, setAuthError] = useState("");
   const [wardCodeInput, setWardCodeInput] = useState("");
+  const [selectedMissionaryId, setSelectedMissionaryId] = useState<string>("");
   const isMobile = useIsMobile();
   
-  // Fetch ward data - always call the hook but conditionally enable it
+  // Fetch ward data
   const { data: ward } = useQuery<any>({
     queryKey: ['/api/wards', accessCode],
     queryFn: () => fetch(`/api/wards/${accessCode}`).then(res => {
@@ -33,8 +34,75 @@ export default function MissionaryPortal() {
       return res.json();
     }),
     retry: false,
-    enabled: !!accessCode // Only run the query if we have an access code
+    enabled: !!accessCode
   });
+
+  const wardId = ward?.id;
+  
+  // Fetch missionaries data
+  const { data: missionaries } = useQuery<any[]>({
+    queryKey: ['/api/wards', wardId, 'missionaries'],
+    queryFn: () => fetch(`/api/wards/${wardId}/missionaries`).then(res => res.json()),
+    enabled: !!wardId && isAuthenticated,
+    staleTime: 1000,
+    refetchInterval: 1000,
+    refetchOnWindowFocus: true
+  });
+
+  // Check for stored authentication
+  useEffect(() => {
+    if (accessCode) {
+      const stored = localStorage.getItem(`missionary-auth-${accessCode}`);
+      if (stored === 'true') {
+        setIsAuthenticated(true);
+      }
+    }
+  }, [accessCode]);
+
+  // Initialize missionary selection
+  useEffect(() => {
+    if (missionaries && missionaries.length > 0 && !selectedMissionaryId) {
+      const defaultMissionary = missionaries.find(m => m.type === missionaryType) || missionaries[0];
+      setSelectedMissionaryId(defaultMissionary.id.toString());
+    }
+  }, [missionaries, missionaryType, selectedMissionaryId]);
+
+  const handleAuthentication = async () => {
+    setAuthenticating(true);
+    setAuthError("");
+    
+    try {
+      const response = await fetch(`/api/missionary-portal/authenticate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          accessCode, 
+          emailAddress: authEmail, 
+          password: authPassword 
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.authenticated) {
+          setIsAuthenticated(true);
+          localStorage.setItem(`missionary-auth-${accessCode}`, 'true');
+        } else {
+          setAuthError("Invalid email or password");
+        }
+      } else {
+        setAuthError("Authentication failed");
+      }
+    } catch (error) {
+      setAuthError("Network error occurred");
+    } finally {
+      setAuthenticating(false);
+    }
+  };
+
+  // Get missionary ID based on selection
+  const missionary = missionaries?.find(m => m.id.toString() === selectedMissionaryId);
+  const missionaryId = missionary?.id;
   
   // Show access code prompt if no access code provided
   if (!accessCode) {
@@ -82,75 +150,6 @@ export default function MissionaryPortal() {
       </div>
     );
   }
-  
-  const handleAuthentication = async () => {
-    setAuthenticating(true);
-    setAuthError("");
-    
-    try {
-      const response = await fetch(`/api/missionary-portal/authenticate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          accessCode, 
-          emailAddress: authEmail, 
-          password: authPassword 
-        }),
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.authenticated) {
-          setIsAuthenticated(true);
-          localStorage.setItem(`missionary-auth-${accessCode}`, 'true');
-        } else {
-          setAuthError("Invalid email or password");
-        }
-      } else {
-        setAuthError("Authentication failed");
-      }
-    } catch (error) {
-      setAuthError("Network error occurred");
-    } finally {
-      setAuthenticating(false);
-    }
-  };
-
-  // Check for stored authentication
-  useEffect(() => {
-    const stored = localStorage.getItem(`missionary-auth-${accessCode}`);
-    if (stored === 'true') {
-      setIsAuthenticated(true);
-    }
-  }, [accessCode]);
-
-  const wardId = ward?.id;
-  
-  // Fetch missionaries data for this ward
-  const { data: missionaries } = useQuery<any[]>({
-    queryKey: ['/api/wards', wardId, 'missionaries'],
-    queryFn: () => fetch(`/api/wards/${wardId}/missionaries`).then(res => res.json()),
-    enabled: !!wardId && isAuthenticated,
-    staleTime: 1000,
-    refetchInterval: 1000,
-    refetchOnWindowFocus: true
-  });
-  
-  // Set default selected missionary for compatibility with existing code
-  const [selectedMissionaryId, setSelectedMissionaryId] = useState<string>("");
-  
-  // Initialize the selection once missionaries are loaded
-  // Using useEffect instead of useState for initialization
-  useEffect(() => {
-    if (missionaries && missionaries.length > 0 && !selectedMissionaryId) {
-      const defaultMissionary = missionaries.find(m => m.type === missionaryType) || missionaries[0];
-      setSelectedMissionaryId(defaultMissionary.id.toString());
-    }
-  }, [missionaries, missionaryType, selectedMissionaryId]);
-  
-  // Get missionary ID based on selection
-  const missionary = missionaries?.find(m => m.id.toString() === selectedMissionaryId);
-  const missionaryId = missionary?.id;
 
   if (!isAuthenticated) {
     return (
@@ -171,6 +170,7 @@ export default function MissionaryPortal() {
                   onChange={(e) => setAuthEmail(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                
                 <input
                   type="password"
                   placeholder="Enter your password"
@@ -258,7 +258,7 @@ export default function MissionaryPortal() {
                             variant={selectedMissionaryId === m.id.toString() ? "default" : "outline"}
                             onClick={() => {
                               setSelectedMissionaryId(m.id.toString());
-                              setMissionaryType(m.type); // Keep missionaryType in sync for compatibility
+                              setMissionaryType(m.type);
                             }}
                             className={`w-full ${m.type === "sisters" && selectedMissionaryId === m.id.toString() ? "bg-amber-500 hover:bg-amber-600" : ""}`}
                           >
@@ -323,12 +323,6 @@ export default function MissionaryPortal() {
                         <p>No missionary selected or data unavailable.</p>
                       </div>
                     )}
-                    
-                    <div className="mt-4 p-4 bg-blue-50 rounded-md border border-blue-100">
-                      <p className="text-sm text-blue-700">
-                        <strong>Note:</strong> This is a view-only calendar. Contact the ward meal coordinator if you need to make changes to your schedule.
-                      </p>
-                    </div>
                   </div>
                 </TabsContent>
               </Tabs>
@@ -336,17 +330,6 @@ export default function MissionaryPortal() {
           </Card>
         </div>
       </main>
-      
-      {/* Footer */}
-      <footer className="bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col items-center justify-between md:flex-row">
-            <div className="flex items-center">
-              <p className="text-sm text-gray-500">&copy; {new Date().getFullYear()} Missionary Meal Calendar</p>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
