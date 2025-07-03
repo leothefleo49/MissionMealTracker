@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useState, useEffect } from "react";
+import { useLocation, useParams } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Bell, ArrowLeft, Mail, Lock, User, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query"; // Import useQuery
 import { apiRequest } from "@/lib/queryClient";
 
 const registerSchema = z.object({
@@ -33,9 +33,17 @@ type RegisterForm = z.infer<typeof registerSchema>;
 type VerificationForm = z.infer<typeof verificationSchema>;
 type MissionaryData = RegisterForm & { missionaryId?: number };
 
+interface Ward {
+  id: number;
+  name: string;
+  accessCode: string;
+  allowMissionarySelfRegistration: boolean; // Add this field
+}
+
 export default function MissionaryRegister() {
   const [, setLocation] = useLocation();
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const params = useParams();
+  const accessCodeFromUrl = params.accessCode; // Get access code from URL
   const [step, setStep] = useState<"register" | "verify" | "complete">("register");
   const [missionaryData, setMissionaryData] = useState<MissionaryData | null>(null);
   const { toast } = useToast();
@@ -46,7 +54,7 @@ export default function MissionaryRegister() {
       name: "",
       emailAddress: "",
       type: undefined,
-      wardAccessCode: "",
+      wardAccessCode: accessCodeFromUrl || "", // Pre-fill if from URL
       password: "",
     },
   });
@@ -57,6 +65,32 @@ export default function MissionaryRegister() {
       verificationCode: "",
     },
   });
+
+  // Fetch ward details to check self-registration setting
+  const { data: ward, isLoading: isLoadingWard, error: wardError } = useQuery<Ward>({
+    queryKey: ['/api/wards', accessCodeFromUrl],
+    queryFn: async () => {
+      if (!accessCodeFromUrl) {
+        throw new Error("No ward access code provided.");
+      }
+      const response = await fetch(`/api/wards/${accessCodeFromUrl}`);
+      if (!response.ok) {
+        throw new Error("Invalid ward access code or ward not found.");
+      }
+      return response.json();
+    },
+    enabled: !!accessCodeFromUrl, // Only fetch if accessCodeFromUrl exists
+    retry: false,
+    staleTime: Infinity,
+  });
+
+  useEffect(() => {
+    // If coming from a specific ward URL, set the wardAccessCode
+    if (accessCodeFromUrl) {
+      registerForm.setValue("wardAccessCode", accessCodeFromUrl);
+    }
+  }, [accessCodeFromUrl, registerForm]);
+
 
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterForm) => {
@@ -84,7 +118,7 @@ export default function MissionaryRegister() {
   const verifyMutation = useMutation({
     mutationFn: async (data: VerificationForm) => {
       if (!missionaryData?.missionaryId) throw new Error("No missionary ID found");
-      
+
       return apiRequest("POST", "/api/missionaries/verify", {
         missionaryId: missionaryData.missionaryId,
         verificationCode: data.verificationCode,
@@ -123,6 +157,72 @@ export default function MissionaryRegister() {
       setLocation(`/missionary-portal/${missionaryData.wardAccessCode}`);
     }
   };
+
+  // Render loading state for ward data
+  if (accessCodeFromUrl && isLoadingWard) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6 text-center">
+            <Bell className="h-12 w-12 text-primary mx-auto mb-4 animate-bounce" />
+            <h1 className="text-xl font-bold text-gray-900">Loading Ward Info...</h1>
+            <p className="text-gray-600 mt-2">Please wait while we fetch ward details.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Render message if self-registration is disabled for this ward
+  if (ward && !ward.allowMissionarySelfRegistration) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100 p-4">
+        <Card className="border-2 border-red-200 bg-white shadow-lg w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="flex items-center text-red-700">
+              <Lock className="h-6 w-6 mr-2" />
+              Registration Restricted
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-gray-600">
+              Self-registration for missionaries in the {ward.name} is currently disabled by the ward administration.
+            </p>
+            <p className="text-gray-600">
+              Please contact your ward missionary coordinator or a ward admin to have your account created.
+            </p>
+            <Button variant="outline" onClick={() => setLocation("/")} className="w-full">
+              Back to Home
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Render error if ward data could not be fetched for some reason
+  if (accessCodeFromUrl && wardError && !ward) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100 p-4">
+        <Card className="border-2 border-red-200 bg-white shadow-lg w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="flex items-center text-red-700">
+              <AlertCircle className="h-6 w-6 mr-2" />
+              Ward Not Found
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-gray-600">
+              The ward access code provided is invalid or the ward does not exist. Please check the link or contact your ward missionary coordinator.
+            </p>
+            <Button variant="outline" onClick={() => setLocation("/")} className="w-full">
+              Back to Home
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100">

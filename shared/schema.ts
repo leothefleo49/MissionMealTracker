@@ -13,6 +13,8 @@ export const wards = pgTable("wards", {
   maxBookingsPerPeriod: integer("max_bookings_per_period").default(1), // Simplified control (0 means unlimited)
   bookingPeriodDays: integer("booking_period_days").default(30), // Default 30 days for tracking limits
   active: boolean("active").default(true),
+  // New field to control missionary self-registration
+  allowMissionarySelfRegistration: boolean("allow_missionary_self_registration").default(true),
   // Keeping these fields for database compatibility, but they won't be used in the UI
   maxBookingsPerAddress: integer("max_bookings_per_address").default(1),
   maxBookingsPerPhone: integer("max_bookings_per_phone").default(1),
@@ -89,18 +91,18 @@ export const missionaries = pgTable("missionaries", {
   messengerAccount: text("messenger_account"),
   preferredNotification: text("preferred_notification").default("email").notNull(), // 'email', 'whatsapp', 'text', 'messenger'
   active: boolean("active").default(true).notNull(),
-  
+
   // Enhanced dietary and preference information
   foodAllergies: text("food_allergies"), // Specific food allergies
   petAllergies: text("pet_allergies"), // Pet allergies
   allergySeverity: text("allergy_severity").default("mild"), // 'mild', 'moderate', 'severe', 'life-threatening'
   favoriteMeals: text("favorite_meals"), // Favorite meals/foods
   dietaryRestrictions: text("dietary_restrictions"), // Other dietary restrictions
-  
+
   // Transfer management
   transferDate: timestamp("transfer_date"), // Scheduled transfer date
   transferNotificationSent: boolean("transfer_notification_sent").default(false),
-  
+
   // Notification settings
   notificationScheduleType: text("notification_schedule_type").default("before_meal").notNull(), // 'before_meal', 'day_of', 'weekly_summary', 'multiple'
   hoursBefore: integer("hours_before").default(3), // Hours before the meal to send notification
@@ -108,10 +110,10 @@ export const missionaries = pgTable("missionaries", {
   weeklySummaryDay: text("weekly_summary_day").default("sunday"), // Day of week to send weekly summary
   weeklySummaryTime: text("weekly_summary_time").default("18:00"), // Time to send weekly summary
   useMultipleNotifications: boolean("use_multiple_notifications").default(false), // True if using multiple notification types
-  
+
   // Authentication fields
   password: text("password"), // For missionary portal access
-  
+
   // Consent management (mainly for WhatsApp and SMS)
   consentStatus: text("consent_status").default("granted").notNull(), // 'pending', 'granted', 'denied' - email doesn't need explicit consent
   consentDate: timestamp("consent_date"), // When consent was granted or denied

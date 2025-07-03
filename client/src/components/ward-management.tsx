@@ -1,9 +1,8 @@
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm } from "@hookform/resolvers/zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Pencil, Plus, RefreshCw, Trash, Check, X, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -49,6 +48,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { WardUsers } from "./ward-users";
+import { useToast } from "@/hooks/use-toast"; // Ensure useToast is imported
 
 // Define the zod schema for new ward creation
 const createWardSchema = z.object({
@@ -83,7 +83,7 @@ export function WardManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [currentWard, setCurrentWard] = useState<Ward | null>(null);
-  
+
   // Create form
   const createForm = useForm<CreateWardFormValues>({
     resolver: zodResolver(createWardSchema),
@@ -97,7 +97,7 @@ export function WardManagement() {
       active: true,
     },
   });
-  
+
   // Edit form
   const editForm = useForm<Partial<Ward> & { id?: number }>({
     resolver: zodResolver(createWardSchema.partial()),
@@ -112,7 +112,7 @@ export function WardManagement() {
       active: true
     },
   });
-  
+
   // Fetch wards
   const { data: wards, isLoading, error, refetch } = useQuery({
     queryKey: ["/api/admin/wards"],
@@ -124,7 +124,7 @@ export function WardManagement() {
       return response.json();
     },
   });
-  
+
   // Generate a random access code
   function generateAccessCode() {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -135,7 +135,7 @@ export function WardManagement() {
     }
     return result;
   }
-  
+
   // Create ward mutation
   const createWardMutation = useMutation({
     mutationFn: async (data: CreateWardFormValues) => {
@@ -143,7 +143,7 @@ export function WardManagement() {
       if (!data.accessCode) {
         data.accessCode = generateAccessCode();
       }
-      
+
       const res = await apiRequest("POST", "/api/admin/wards", data);
       return await res.json();
     },
@@ -172,7 +172,7 @@ export function WardManagement() {
       });
     },
   });
-  
+
   // Edit ward mutation
   const editWardMutation = useMutation({
     mutationFn: async (data: Partial<Ward> & { id: number }) => {
@@ -196,18 +196,19 @@ export function WardManagement() {
       });
     },
   });
-  
+
   // Regenerate access code mutation
   const regenerateAccessCodeMutation = useMutation({
     mutationFn: async (wardId: number) => {
       const newAccessCode = generateAccessCode();
-      const res = await apiRequest("PATCH", `/api/admin/wards/${wardId}/access-code`, { accessCode: newAccessCode });
+      const res = await apiRequest("PATCH", `/api/admin/wards/${wardId}`, { accessCode: newAccessCode }); // Corrected endpoint
       return await res.json();
     },
     onSuccess: () => {
       toast({
         title: "Access code regenerated",
-        description: "A new access code has been generated for this ward.",
+        description: "A new access code has been generated for this ward. Please update any saved links!",
+        variant: "default" // Assuming default is good
       });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
     },
@@ -219,17 +220,17 @@ export function WardManagement() {
       });
     },
   });
-  
+
   function onCreateSubmit(values: CreateWardFormValues) {
     createWardMutation.mutate(values);
   }
-  
+
   function onEditSubmit(values: Partial<Ward>) {
     if (currentWard?.id) {
       editWardMutation.mutate({ ...values, id: currentWard.id });
     }
   }
-  
+
   function handleEditWard(ward: Ward) {
     setCurrentWard(ward);
     editForm.reset({
@@ -243,11 +244,11 @@ export function WardManagement() {
     });
     setIsEditDialogOpen(true);
   }
-  
+
   function handleRegenerateAccessCode(wardId: number) {
     regenerateAccessCodeMutation.mutate(wardId);
   }
-  
+
   // Copy access code to clipboard
   function copyAccessCodeToClipboard(accessCode: string) {
     navigator.clipboard.writeText(accessCode).then(() => {
@@ -259,7 +260,7 @@ export function WardManagement() {
       console.error('Failed to copy text: ', err);
     });
   }
-  
+
   if (isLoading) {
     return (
       <div className="py-4">
@@ -267,7 +268,7 @@ export function WardManagement() {
       </div>
     );
   }
-  
+
   if (error) {
     return (
       <div className="py-4 text-red-600">
@@ -275,7 +276,7 @@ export function WardManagement() {
       </div>
     );
   }
-  
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -294,7 +295,7 @@ export function WardManagement() {
                 Add a new ward to the system. You will need to provide a name and optionally a custom access code.
               </DialogDescription>
             </DialogHeader>
-            
+
             <Form {...createForm}>
               <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
                 <FormField
@@ -310,7 +311,7 @@ export function WardManagement() {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={createForm.control}
                   name="accessCode"
@@ -340,7 +341,7 @@ export function WardManagement() {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={createForm.control}
                   name="description"
@@ -358,10 +359,10 @@ export function WardManagement() {
                     </FormItem>
                   )}
                 />
-                
+
                 <div className="bg-slate-50 p-4 rounded-md border">
                   <h3 className="text-sm font-medium mb-3">Scheduling Settings</h3>
-                  
+
                   <FormField
                     control={createForm.control}
                     name="allowCombinedBookings"
@@ -382,7 +383,7 @@ export function WardManagement() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <div className="grid md:grid-cols-2 gap-3 mt-3">
                     <FormField
                       control={createForm.control}
@@ -405,7 +406,7 @@ export function WardManagement() {
                         </FormItem>
                       )}
                     />
-                    
+
                     <FormField
                       control={createForm.control}
                       name="bookingPeriodDays"
@@ -429,7 +430,7 @@ export function WardManagement() {
                     />
                   </div>
                 </div>
-                
+
                 <DialogFooter className="mt-6">
                   <Button 
                     type="submit" 
@@ -447,7 +448,7 @@ export function WardManagement() {
           </DialogContent>
         </Dialog>
       </div>
-      
+
       {wards && wards.length > 0 ? (
         <div className="grid gap-4">
           {wards.map((ward: Ward) => (
@@ -485,7 +486,7 @@ export function WardManagement() {
                           <Copy className="h-4 w-4" />
                         </Button>
                       </div>
-                    
+
                       <p className="text-sm font-medium mb-1 mt-3">Ward Calendar Link:</p>
                       <div className="flex items-center gap-2 w-full overflow-x-auto">
                         <code className="bg-slate-100 px-2 py-1 rounded text-sm truncate max-w-[180px] sm:max-w-full">
@@ -531,7 +532,7 @@ export function WardManagement() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="mt-4 grid gap-4">
                   <div>
                     <h4 className="text-sm font-medium mb-2">Scheduling Settings</h4>
@@ -550,7 +551,7 @@ export function WardManagement() {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div>
                     <h4 className="text-sm font-medium mb-2">Ward Access</h4>
                     <WardUsers wardId={ward.id} />
@@ -565,7 +566,7 @@ export function WardManagement() {
           <p className="text-gray-500">No wards have been created yet. Create your first ward to get started.</p>
         </div>
       )}
-      
+
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -575,7 +576,7 @@ export function WardManagement() {
               Update the ward's information and settings.
             </DialogDescription>
           </DialogHeader>
-          
+
           {currentWard && (
             <Form {...editForm}>
               <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
@@ -592,7 +593,7 @@ export function WardManagement() {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={editForm.control}
                   name="description"
@@ -610,10 +611,10 @@ export function WardManagement() {
                     </FormItem>
                   )}
                 />
-                
+
                 <div className="bg-slate-50 p-4 rounded-md border">
                   <h3 className="text-sm font-medium mb-3">Scheduling Settings</h3>
-                  
+
                   <FormField
                     control={editForm.control}
                     name="allowCombinedBookings"
@@ -634,7 +635,7 @@ export function WardManagement() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                     <FormField
                       control={editForm.control}
@@ -658,7 +659,7 @@ export function WardManagement() {
                         </FormItem>
                       )}
                     />
-                    
+
                     <FormField
                       control={editForm.control}
                       name="bookingPeriodDays"
@@ -683,7 +684,7 @@ export function WardManagement() {
                     />
                   </div>
                 </div>
-                
+
                 <FormField
                   control={editForm.control}
                   name="active"
@@ -704,7 +705,7 @@ export function WardManagement() {
                     </FormItem>
                   )}
                 />
-                
+
                 <DialogFooter className="mt-6">
                   <Button 
                     type="submit" 
