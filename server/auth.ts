@@ -19,6 +19,9 @@ declare global {
       username: string;
       isAdmin: boolean;
       isSuperAdmin: boolean;
+      // NEW: Added new admin roles to the Express User interface
+      isMissionAdmin: boolean;
+      isStakeAdmin: boolean;
     }
   }
 }
@@ -72,12 +75,14 @@ export function setupAuth(app: Express) {
               username: "superadmin",
               password: await hashPassword("Ts2120130981!"),
               isAdmin: true,
-              isSuperAdmin: true
+              isSuperAdmin: true,
+              isMissionAdmin: false, // Default for new roles
+              isStakeAdmin: false,   // Default for new roles
             });
           }
           return done(null, superAdmin);
         }
-        
+
         // Regular user authentication
         const user = await storage.getUserByUsername(username);
         if (!user || !(await comparePasswords(password, user.password))) {
@@ -89,23 +94,23 @@ export function setupAuth(app: Express) {
       }
     }),
   );
-  
+
   // Setup password-only strategy for ward access with fixed password
   passport.use('password-only',
     new LocalStrategy({ usernameField: 'wardAccessCode', passwordField: 'password' }, 
     async (wardAccessCode, password, done) => {
       try {
         // Check if password matches the ward access password
-        if (password !== "feast2323") {
+        if (password !== "feast2323") { // This is the fixed ward admin password
           return done(null, false, { message: "Invalid password" });
         }
-        
+
         // Get the ward by access code
         const ward = await storage.getWardByAccessCode(wardAccessCode);
         if (!ward) {
           return done(null, false, { message: "Invalid ward access code" });
         }
-        
+
         // Create or find ward admin user
         let wardAdmin = await storage.getUserByUsername(`ward_admin_${ward.id}`);
         if (!wardAdmin) {
@@ -114,16 +119,18 @@ export function setupAuth(app: Express) {
             username: `ward_admin_${ward.id}`,
             password: await hashPassword("feast2323"),
             isAdmin: true,
-            isSuperAdmin: false
+            isSuperAdmin: false,
+            isMissionAdmin: false, // Default for new roles
+            isStakeAdmin: false,   // Default for new roles
           });
-          
+
           // Associate with ward
           await storage.addUserToWard({
             userId: wardAdmin.id,
             wardId: ward.id
           });
         }
-        
+
         return done(null, wardAdmin);
       } catch (error) {
         return done(error);
@@ -152,7 +159,7 @@ export function setupAuth(app: Express) {
       // Auto-fill username for superadmin
       req.body.username = "superadmin";
     }
-    
+
     passport.authenticate("local-regular", (err: Error, user: User) => {
       if (err) {
         return next(err);
@@ -168,20 +175,22 @@ export function setupAuth(app: Express) {
           id: user.id,
           username: user.username,
           isAdmin: user.isAdmin,
-          isSuperAdmin: user.isSuperAdmin
+          isSuperAdmin: user.isSuperAdmin,
+          isMissionAdmin: user.isMissionAdmin, // NEW: Include in response
+          isStakeAdmin: user.isStakeAdmin,     // NEW: Include in response
         });
       });
     })(req, res, next);
   });
-  
+
   // Ward-specific admin login
   app.post("/api/ward-login", (req, res, next) => {
     const { wardAccessCode, password } = req.body;
-    
+
     if (!wardAccessCode || !password) {
       return res.status(400).json({ message: "Ward access code and password required" });
     }
-    
+
     passport.authenticate("password-only", (err: Error, user: User) => {
       if (err) {
         return next(err);
@@ -198,6 +207,8 @@ export function setupAuth(app: Express) {
           username: user.username,
           isAdmin: user.isAdmin,
           isSuperAdmin: user.isSuperAdmin,
+          isMissionAdmin: user.isMissionAdmin, // NEW: Include in response
+          isStakeAdmin: user.isStakeAdmin,     // NEW: Include in response
           wardAccessCode: wardAccessCode
         });
       });
@@ -219,7 +230,9 @@ export function setupAuth(app: Express) {
         id: req.user.id,
         username: req.user.username,
         isAdmin: req.user.isAdmin,
-        isSuperAdmin: req.user.isSuperAdmin
+        isSuperAdmin: req.user.isSuperAdmin,
+        isMissionAdmin: req.user.isMissionAdmin, // NEW: Include in response
+        isStakeAdmin: req.user.isStakeAdmin,     // NEW: Include in response
       });
     } else {
       res.status(401).json({ message: "Not authenticated" });
@@ -246,7 +259,9 @@ export async function createSuperAdminUser() {
         username: "superadmin",
         password: await hashPassword("Ts2120130981!"), 
         isAdmin: true,
-        isSuperAdmin: true
+        isSuperAdmin: true,
+        isMissionAdmin: false, // Default for new roles
+        isStakeAdmin: false,   // Default for new roles
       };
       await storage.createUser(superAdminUser);
       console.log("Super admin user created with default credentials");

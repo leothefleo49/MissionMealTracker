@@ -9,9 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bell, ArrowLeft, Mail, Lock, User, MapPin } from "lucide-react";
+import { Bell, ArrowLeft, Mail, Lock, User, MapPin, AlertCircle } from "lucide-react"; // Added AlertCircle
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQuery } from "@tanstack/react-query"; // Import useQuery
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
 const registerSchema = z.object({
@@ -33,17 +33,17 @@ type RegisterForm = z.infer<typeof registerSchema>;
 type VerificationForm = z.infer<typeof verificationSchema>;
 type MissionaryData = RegisterForm & { missionaryId?: number };
 
-interface Ward {
+interface Ward { // Defined here for local use
   id: number;
   name: string;
   accessCode: string;
-  allowMissionarySelfRegistration: boolean; // Add this field
+  // Removed: allowMissionarySelfRegistration: boolean;
 }
 
 export default function MissionaryRegister() {
   const [, setLocation] = useLocation();
   const params = useParams();
-  const accessCodeFromUrl = params.accessCode; // Get access code from URL
+  const accessCodeFromUrl = params.accessCode;
   const [step, setStep] = useState<"register" | "verify" | "complete">("register");
   const [missionaryData, setMissionaryData] = useState<MissionaryData | null>(null);
   const { toast } = useToast();
@@ -54,7 +54,7 @@ export default function MissionaryRegister() {
       name: "",
       emailAddress: "",
       type: undefined,
-      wardAccessCode: accessCodeFromUrl || "", // Pre-fill if from URL
+      wardAccessCode: accessCodeFromUrl || "",
       password: "",
     },
   });
@@ -66,11 +66,12 @@ export default function MissionaryRegister() {
     },
   });
 
-  // Fetch ward details to check self-registration setting
+  // Fetch ward details (still useful for ward name display, etc.)
   const { data: ward, isLoading: isLoadingWard, error: wardError } = useQuery<Ward>({
     queryKey: ['/api/wards', accessCodeFromUrl],
     queryFn: async () => {
       if (!accessCodeFromUrl) {
+        // If no access code, don't try to fetch ward data (will handle at render)
         throw new Error("No ward access code provided.");
       }
       const response = await fetch(`/api/wards/${accessCodeFromUrl}`);
@@ -79,22 +80,19 @@ export default function MissionaryRegister() {
       }
       return response.json();
     },
-    enabled: !!accessCodeFromUrl, // Only fetch if accessCodeFromUrl exists
+    enabled: !!accessCodeFromUrl,
     retry: false,
     staleTime: Infinity,
   });
 
   useEffect(() => {
-    // If coming from a specific ward URL, set the wardAccessCode
     if (accessCodeFromUrl) {
       registerForm.setValue("wardAccessCode", accessCodeFromUrl);
     }
   }, [accessCodeFromUrl, registerForm]);
 
-
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterForm) => {
-      // Register missionary with email verification
       const response = await apiRequest("POST", "/api/missionaries/register", data);
       return await response.json();
     },
@@ -158,7 +156,10 @@ export default function MissionaryRegister() {
     }
   };
 
-  // Render loading state for ward data
+  // Removed conditional rendering for ward.allowMissionarySelfRegistration
+  // The form will always be rendered if an access code is provided or a valid ward is found.
+
+  // Render loading state for ward data (remains the same)
   if (accessCodeFromUrl && isLoadingWard) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100">
@@ -173,34 +174,7 @@ export default function MissionaryRegister() {
     );
   }
 
-  // Render message if self-registration is disabled for this ward
-  if (ward && !ward.allowMissionarySelfRegistration) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100 p-4">
-        <Card className="border-2 border-red-200 bg-white shadow-lg w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="flex items-center text-red-700">
-              <Lock className="h-6 w-6 mr-2" />
-              Registration Restricted
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-gray-600">
-              Self-registration for missionaries in the {ward.name} is currently disabled by the ward administration.
-            </p>
-            <p className="text-gray-600">
-              Please contact your ward missionary coordinator or a ward admin to have your account created.
-            </p>
-            <Button variant="outline" onClick={() => setLocation("/")} className="w-full">
-              Back to Home
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Render error if ward data could not be fetched for some reason
+  // Render error if ward data could not be fetched for some reason (remains the same)
   if (accessCodeFromUrl && wardError && !ward) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100 p-4">

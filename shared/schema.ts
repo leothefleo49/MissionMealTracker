@@ -13,8 +13,6 @@ export const wards = pgTable("wards", {
   maxBookingsPerPeriod: integer("max_bookings_per_period").default(1), // Simplified control (0 means unlimited)
   bookingPeriodDays: integer("booking_period_days").default(30), // Default 30 days for tracking limits
   active: boolean("active").default(true),
-  // New field to control missionary self-registration
-  allowMissionarySelfRegistration: boolean("allow_missionary_self_registration").default(true),
   // Keeping these fields for database compatibility, but they won't be used in the UI
   maxBookingsPerAddress: integer("max_bookings_per_address").default(1),
   maxBookingsPerPhone: integer("max_bookings_per_phone").default(1),
@@ -40,6 +38,9 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   isAdmin: boolean("is_admin").default(false).notNull(),
   isSuperAdmin: boolean("is_super_admin").default(false).notNull(),
+  // NEW: Added new admin roles
+  isMissionAdmin: boolean("is_mission_admin").default(false).notNull(),
+  isStakeAdmin: boolean("is_stake_admin").default(false).notNull(),
   canUsePaidNotifications: boolean("can_use_paid_notifications").default(false).notNull(),
 });
 
@@ -63,6 +64,9 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
   isAdmin: true,
   isSuperAdmin: true,
+  // NEW: Include new roles in insert schema
+  isMissionAdmin: true,
+  isStakeAdmin: true,
 });
 
 export const insertUserWardSchema = createInsertSchema(userWards).pick({

@@ -14,6 +14,9 @@ interface AuthUser {
   username: string;
   isAdmin: boolean;
   isSuperAdmin: boolean;
+  // NEW: Added new admin roles
+  isMissionAdmin: boolean;
+  isStakeAdmin: boolean;
 }
 
 type AuthContextType = {
@@ -44,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [authInitialized, setAuthInitialized] = useState(false);
   const [selectedWard, setSelectedWard] = useState<Ward | null>(null);
-  
+
   // Get current authenticated user
   const {
     data: user,
@@ -78,11 +81,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Set the first ward as selected when wards are first loaded
+  // This also handles the admin dashboard initial display bug
   useEffect(() => {
     if (userWards && userWards.length > 0 && !selectedWard) {
       setSelectedWard(userWards[0]);
     }
-  }, [userWards, selectedWard]);
+  }, [userWards, selectedWard, setSelectedWard]); // Added setSelectedWard to dependency array
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
@@ -95,12 +99,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (loggedInUser: AuthUser) => {
       queryClient.setQueryData(["/api/user"], loggedInUser);
-      
+
       // If the user is an admin, fetch their wards
       if (loggedInUser.isAdmin) {
         queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
       }
-      
+
       toast({
         title: "Login successful",
         description: `Welcome back, ${loggedInUser.username}!`,
@@ -115,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
   });
-  
+
   const wardLoginMutation = useMutation({
     mutationFn: async (credentials: WardLoginData) => {
       const res = await apiRequest("POST", "/api/ward-login", credentials);
@@ -127,12 +131,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (loggedInUser: AuthUser) => {
       queryClient.setQueryData(["/api/user"], loggedInUser);
-      
+
       // If the user is an admin, fetch their wards
       if (loggedInUser.isAdmin) {
         queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
       }
-      
+
       toast({
         title: "Ward login successful",
         description: "You've successfully logged in as a ward admin",

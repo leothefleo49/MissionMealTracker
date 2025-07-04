@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { useForm } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form"; // Correct import here
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState } from "react";
-import { Pencil, Plus, RefreshCw, Trash, Check, X, Copy } from "lucide-react";
+import { Pencil, Plus, RefreshCw, Trash, Check, X, Copy, QrCode } from "lucide-react"; // Added QrCode icon
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -48,7 +48,8 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { WardUsers } from "./ward-users";
-import { useToast } from "@/hooks/use-toast"; // Ensure useToast is imported
+import { useToast } from "@/hooks/use-toast";
+import { QRCodeDisplay } from "./qr-code-display"; // Import new QR code component
 
 // Define the zod schema for new ward creation
 const createWardSchema = z.object({
@@ -74,6 +75,7 @@ type Ward = {
   maxBookingsPerPeriod: number;
   bookingPeriodDays: number;
   active: boolean;
+  allowMissionarySelfRegistration: boolean; // Keep in type definition for consistency
 };
 
 type CreateWardFormValues = z.infer<typeof createWardSchema>;
@@ -83,6 +85,10 @@ export function WardManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [currentWard, setCurrentWard] = useState<Ward | null>(null);
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false); // State for confirmation dialog
+  const [wardToRegenerate, setWardToRegenerate] = useState<Ward | null>(null); // Store ward for regeneration
+  const [showQrCodeDialog, setShowQrCodeDialog] = useState(false); // State for QR code dialog
+  const [qrCodeValue, setQrCodeValue] = useState(''); // Value for QR code
 
   // Create form
   const createForm = useForm<CreateWardFormValues>({
@@ -109,7 +115,7 @@ export function WardManagement() {
       allowCombinedBookings: false,
       maxBookingsPerPeriod: 0,
       bookingPeriodDays: 30,
-      active: true
+      active: true,
     },
   });
 
@@ -197,25 +203,29 @@ export function WardManagement() {
     },
   });
 
-  // Regenerate access code mutation
-  const regenerateAccessCodeMutation = useMutation({
+  // Regenerate all access (code, link, QR) mutation
+  const regenerateAllAccessMutation = useMutation({
     mutationFn: async (wardId: number) => {
       const newAccessCode = generateAccessCode();
-      const res = await apiRequest("PATCH", `/api/admin/wards/${wardId}`, { accessCode: newAccessCode }); // Corrected endpoint
+      const res = await apiRequest("PATCH", `/api/admin/wards/${wardId}`, { accessCode: newAccessCode });
       return await res.json();
     },
-    onSuccess: () => {
+    onSuccess: (updatedWard) => {
       toast({
-        title: "Access code regenerated",
-        description: "A new access code has been generated for this ward. Please update any saved links!",
-        variant: "default" // Assuming default is good
+        title: "Access Regenerated!",
+        description: "New access code and calendar link generated. Please update any saved links and QR codes.",
+        variant: "default"
       });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
+      // Optionally show the new QR code directly after regeneration
+      const newWardCalendarLink = `${window.location.origin}/ward/${updatedWard.accessCode}`;
+      setQrCodeValue(newWardCalendarLink);
+      setShowQrCodeDialog(true);
     },
     onError: (error: Error) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to regenerate access code. Please try again.",
+        description: error.message || "Failed to regenerate access. Please try again.",
         variant: "destructive",
       });
     },
@@ -241,12 +251,31 @@ export function WardManagement() {
       maxBookingsPerPeriod: ward.maxBookingsPerPeriod,
       bookingPeriodDays: ward.bookingPeriodDays,
       active: ward.active,
+      allowMissionarySelfRegistration: ward.allowMissionarySelfRegistration,
     });
     setIsEditDialogOpen(true);
   }
 
-  function handleRegenerateAccessCode(wardId: number) {
-    regenerateAccessCodeMutation.mutate(wardId);
+  // Handler for opening the regeneration confirmation dialog
+  function handleConfirmRegenerateAll(ward: Ward) {
+    setWardToRegenerate(ward);
+    setShowRegenerateConfirm(true);
+  }
+
+  // Handler for performing the regeneration after confirmation
+  function handleRegenerateConfirmed() {
+    if (wardToRegenerate) {
+      regenerateAllAccessMutation.mutate(wardToRegenerate.id);
+      setShowRegenerateConfirm(false);
+      setWardToRegenerate(null);
+    }
+  }
+
+  // Handler for displaying QR code
+  function handleShowQrCode(ward: Ward) {
+    const wardCalendarLink = `${window.location.origin}/ward/${ward.accessCode}`;
+    setQrCodeValue(wardCalendarLink);
+    setShowQrCodeDialog(true);
   }
 
   // Copy access code to clipboard
@@ -513,13 +542,23 @@ export function WardManagement() {
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={() => handleRegenerateAccessCode(ward.id)}
-                        disabled={regenerateAccessCodeMutation.isPending}
+                        onClick={() => handleConfirmRegenerateAll(ward)} // Open confirmation dialog
+                        disabled={regenerateAllAccessMutation.isPending}
                         className="whitespace-nowrap"
                       >
                         <RefreshCw className="h-4 w-4 mr-2" />
-                        <span className="hidden sm:inline">Regenerate Code</span>
-                        <span className="sm:hidden">Regenerate</span>
+                        <span className="hidden sm:inline">Regenerate All</span>
+                        <span className="sm:hidden">Regen. All</span>
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleShowQrCode(ward)} // Show QR code dialog
+                        className="whitespace-nowrap"
+                      >
+                        <QrCode className="h-4 w-4 mr-2" />
+                        <span className="hidden sm:inline">Show QR Code</span>
+                        <span className="sm:hidden">QR Code</span>
                       </Button>
                       <Button 
                         variant="outline" 
@@ -719,6 +758,39 @@ export function WardManagement() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Regeneration Confirmation Dialog */}
+      <AlertDialog open={showRegenerateConfirm} onOpenChange={setShowRegenerateConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to regenerate all access?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will generate a **new access code and calendar link** for the ward "{wardToRegenerate?.name}".
+              All old links and QR codes will become invalid, and you will need to redistribute the new ones to ward members.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowRegenerateConfirm(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRegenerateConfirmed}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={regenerateAllAccessMutation.isPending}
+            >
+              {regenerateAllAccessMutation.isPending ? "Regenerating..." : "Regenerate All"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* QR Code Display Dialog */}
+      <QRCodeDisplay
+        isOpen={showQrCodeDialog}
+        onClose={() => setShowQrCodeDialog(false)}
+        value={qrCodeValue}
+        title={`${currentWard?.name || 'Ward'} Calendar QR Code`}
+        description="Scan this QR code or share the link with ward members to access the meal calendar."
+      />
     </div>
   );
 }

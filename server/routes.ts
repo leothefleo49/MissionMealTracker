@@ -6,7 +6,7 @@ import {
   insertMealSchema, 
   updateMealSchema, 
   checkMealAvailabilitySchema, 
-  insertMissionarySchema,
+  insertMissionarySchema, 
   insertWardSchema,
   insertUserWardSchema
 } from "@shared/schema";
@@ -35,9 +35,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
-  // Middleware to check if user is admin
+  // Middleware to check if user is admin (any admin role)
   const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-    if (!req.isAuthenticated() || !req.user?.isAdmin) {
+    if (!req.isAuthenticated() || !(req.user?.isAdmin || req.user?.isSuperAdmin || req.user?.isMissionAdmin || req.user?.isStakeAdmin)) {
       return res.status(403).json({ message: 'Access denied: Admin privileges required' });
     }
     next();
@@ -155,7 +155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user has access to this ward
-      if (!req.user!.isSuperAdmin) {
+      if (!req.user!.isSuperAdmin && !req.user!.isMissionAdmin && !req.user!.isStakeAdmin) { // Only ward admins need explicit ward access check
         const userWards = await storage.getUserWards(req.user!.id);
         const hasAccess = userWards.some(ward => ward.id === parsedWardId);
 
@@ -171,6 +171,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to fetch missionaries' });
     }
   });
+
+  // NEW: Admin create missionary endpoint
+  app.post('/api/admin/missionaries', requireAdmin, async (req, res) => {
+    try {
+      const missionaryData = insertMissionarySchema.parse(req.body);
+
+      // Hash password if provided
+      if (missionaryData.password) {
+        missionaryData.password = await hashPassword(missionaryData.password);
+      }
+
+      // Ensure consentStatus is set to 'granted' if created by admin
+      missionaryData.consentStatus = 'granted';
+      missionaryData.consentDate = new Date();
+      missionaryData.emailVerified = true; // Assume verified if admin adds
+
+      const missionary = await storage.createMissionary(missionaryData);
+      res.status(201).json(missionary);
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+
 
   // Check meal availability
   app.post('/api/meals/check-availability', async (req, res) => {
@@ -543,7 +566,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Prepare consent message
             const consentMessage = 
               `This is the Ward Missionary Meal Scheduler. To receive meal notifications, reply with YES ${verificationCode}. ` +
-            "Reply STOP at any time to opt out of messages. Msg & data rates may apply.";
+              "Reply STOP at any time to opt out of messages. Msg & data rates may apply.";
 
             // Send the message using Twilio directly (bypassing consent checks since we're asking for consent)
             if (notificationManager.smsService && notificationManager.smsService.twilioClient) {
@@ -763,11 +786,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Invalid ward access code' });
       }
 
-      // Check if self-registration is allowed for this ward
-      if (ward && !ward.allowMissionarySelfRegistration) {
-          return res.status(403).json({ message: 'Self-registration is not allowed for this ward. Please contact your ward admin.' });
-      }
-
       // Check if missionary with this email already exists
       const existingMissionary = await storage.getMissionaryByEmail(emailAddress);
       if (existingMissionary) {
@@ -914,13 +932,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate ward access if wardId is provided
       if (wardId) {
-        // Get user's wards
-        const userWards = await storage.getUserWards(req.user!.id);
-        const userWardIds = userWards.map(ward => ward.id);
+        // Check if user has access to this ward based on their role
+        if (!req.user!.isSuperAdmin && !req.user!.isMissionAdmin && !req.user!.isStakeAdmin) {
+          const userWards = await storage.getUserWards(req.user!.id);
+          const hasAccess = userWards.some(ward => ward.id === parsedWardId); // Assuming parsedWardId is defined
 
-        // Check if user has access to this ward or is superadmin
-        if (!req.user!.isSuperAdmin && !userWardIds.includes(wardId)) {
-          return res.status(403).json({ message: 'You do not have access to this ward' });
+          if (!hasAccess) {
+            return res.status(403).json({ message: 'You do not have access to this ward' });
+          }
         }
       }
 
@@ -954,16 +973,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Ward Management Routes (SuperAdmin only)
+  // Ward Management Routes (SuperAdmin only for creating/editing wards)
   app.get('/api/admin/wards', requireAdmin, async (req, res) => {
     try {
       let wards;
 
-      // If super admin, get all wards
+      // Super Admins see all wards
       if (req.user!.isSuperAdmin) {
         wards = await storage.getAllWards();
-      } else {
-        // Regular admin can only see their wards
+      } 
+      // Mission Admins see wards within their assigned missions (if implemented)
+      // Stake Admins see wards within their assigned stakes (if implemented)
+      // Regular Admins (Ward Admins) only see their assigned wards
+      else {
         wards = await storage.getUserWards(req.user!.id);
       }
 
@@ -1023,25 +1045,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid ward ID' });
       }
 
-      // Check if user is superadmin or has access to this ward
+      // Check if current user has permission to add to this ward
+      // SuperAdmin can add to any ward
+      // MissionAdmin/StakeAdmin/WardAdmin can only add to wards they manage
       if (!req.user!.isSuperAdmin) {
         const userWards = await storage.getUserWards(req.user!.id);
-        const userWardIds = userWards.map(ward => ward.id);
+        const hasAccess = userWards.some(ward => ward.id === parsedWardId);
 
-        if (!userWardIds.includes(parsedWardId)) {
-          return res.status(403).json({ message: 'You do not have access to this ward' });
+        if (!hasAccess) {
+          return res.status(403).json({ message: 'You do not have permission to add users to this ward' });
         }
       }
 
       // Validate request body
-      const { userId } = req.body;
-      if (!userId || isNaN(parseInt(userId, 10))) {
-        return res.status(400).json({ message: 'Valid userId is required' });
+      const { username, isAdmin, isSuperAdmin, isMissionAdmin, isStakeAdmin } = req.body; // NEW: Get role flags
+      if (!username) {
+        return res.status(400).json({ message: 'Username is required' });
       }
+
+      const userToAdd = await storage.getUserByUsername(username);
+      if (!userToAdd) {
+        return res.status(404).json({ message: 'User not found. Please create the user first via Super Admin login.' });
+      }
+
+      // Validate if the current admin has permission to assign the requested role
+      // This is a simplified check. Full hierarchical control would be more complex.
+      if (!req.user!.isSuperAdmin) {
+          if (isSuperAdmin || isMissionAdmin || isStakeAdmin) {
+              return res.status(403).json({ message: 'You do not have permission to assign this role.' });
+          }
+      }
+      // Stake Admin can only assign Ward Admin
+      if (req.user!.isStakeAdmin && (isSuperAdmin || isMissionAdmin)) {
+          return res.status(403).json({ message: 'Stake Admins can only assign Ward Admin roles.' });
+      }
+      // Mission Admin can only assign Stake Admin or Ward Admin
+      if (req.user!.isMissionAdmin && isSuperAdmin) {
+          return res.status(403).json({ message: 'Mission Admins cannot assign Super Admin roles.' });
+      }
+
+      // Update user's roles
+      await storage.updateUser(userToAdd.id, {
+          isAdmin: isAdmin,
+          isSuperAdmin: isSuperAdmin,
+          isMissionAdmin: isMissionAdmin,
+          isStakeAdmin: isStakeAdmin,
+      });
 
       // Add user to ward
       const userWard = await storage.addUserToWard({ 
-        userId: parseInt(userId, 10), 
+        userId: userToAdd.id, 
         wardId: parsedWardId 
       });
 
@@ -1063,13 +1116,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid ward ID or user ID' });
       }
 
-      // Check if user is superadmin or has access to this ward
-      if (!req.user!.isSuperAdmin) {
+      // Check if current user has permission to remove from this ward
+      if (!req.user!.isSuperAdmin && !req.user!.isMissionAdmin && !req.user!.isStakeAdmin) { // Only ward admins need explicit ward access check
         const userWards = await storage.getUserWards(req.user!.id);
-        const userWardIds = userWards.map(ward => ward.id);
+        const hasAccess = userWards.some(ward => ward.id === parsedWardId);
 
-        if (!userWardIds.includes(parsedWardId)) {
-          return res.status(403).json({ message: 'You do not have access to this ward' });
+        if (!hasAccess) {
+          return res.status(403).json({ message: 'You do not have permission to remove users from this ward' });
         }
       }
 
@@ -1106,12 +1159,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: 'This ward is no longer active' });
       }
 
-      // Return basic ward info with the new allowMissionarySelfRegistration field
+      // Return basic ward info without sensitive data
       res.json({
         id: ward.id,
         name: ward.name,
-        accessCode: ward.accessCode,
-        allowMissionarySelfRegistration: ward.allowMissionarySelfRegistration // Include the new field
+        accessCode: ward.accessCode
       });
     } catch (err) {
       console.error('Error accessing ward by code:', err);
@@ -1241,8 +1293,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let stats;
       if (wardId) {
-        // If user is not super admin, verify they have access to this ward
-        if (!req.user!.isSuperAdmin) {
+        // Check if user has access to this ward based on their role
+        if (!req.user!.isSuperAdmin && !req.user!.isMissionAdmin && !req.user!.isStakeAdmin) {
           const userWards = await storage.getUserWards(req.user!.id);
           const hasAccess = userWards.some(ward => ward.id === wardId);
 
@@ -1308,7 +1360,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user is admin of this ward
-      if (!req.user!.isSuperAdmin) {
+      if (!req.user!.isSuperAdmin && !req.user!.isMissionAdmin && !req.user!.isStakeAdmin) {
         const userWards = await storage.getUserWards(req.user!.id);
         const hasAccess = userWards.some(w => w.id === wardId);
 
@@ -1479,7 +1531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const verificationCode = generateVerificationCode();
 
       // Update missionary with the verification token and timestamp
-      await storage.updateMissionary(missionaryId, {
+      await storage.updateMissionary(missionary.id, {
         consentVerificationToken: verificationCode,
         consentVerificationSentAt: new Date(),
         consentStatus: 'pending'

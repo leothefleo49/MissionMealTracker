@@ -8,12 +8,12 @@
     background-color: rgba(59, 130, 246, 0.1);
     border: 1px solid #3b82f6;
   }
-  
+
   .missionary-booked-sisters {
     background-color: rgba(245, 158, 11, 0.1);
     border: 1px solid #f59e0b;
   }
-  
+
   .missionary-booked-both {
     background: linear-gradient(135deg, 
               rgba(59, 130, 246, 0.1) 0%, 
@@ -23,237 +23,167 @@
     border: 1px dashed #94a3b8;
   }
 
-  /* Missionary set colors (up to 5 sets) */
+  /* Missionary set colors (up to 6 sets) */
   .missionary-set-1 {
-    background-color: rgba(59, 130, 246, 0.15);
+    background-color: rgba(59, 130, 246, 0.15); /* Blue */
     border: 1px solid #3b82f6;
   }
-  
+
   .missionary-set-2 {
-    background-color: rgba(245, 158, 11, 0.15);
+    background-color: rgba(245, 158, 11, 0.15); /* Amber */
     border: 1px solid #f59e0b;
   }
-  
+
   .missionary-set-3 {
-    background-color: rgba(34, 197, 94, 0.15);
+    background-color: rgba(34, 197, 94, 0.15); /* Green */
     border: 1px solid #22c55e;
   }
-  
+
   .missionary-set-4 {
-    background-color: rgba(168, 85, 247, 0.15);
-    border: 1px solid #a855f7;
+    background-color: rgba(236, 72, 153, 0.15); /* Pink */
+    border: 1px solid #ec4899;
   }
-  
+
   .missionary-set-5 {
-    background-color: rgba(239, 68, 68, 0.15);
-    border: 1px solid #ef4444;
+    background-color: rgba(147, 51, 234, 0.15); /* Purple */
+    border: 1px solid #9333ea;
   }
-  
-  /* Multiple bookings split colors */
+
+  .missionary-set-6 {
+    background-color: rgba(6, 182, 212, 0.15); /* Cyan */
+    border: 1px solid #06b6d4;
+  }
+
+  /* Multiple bookings split colors (conic gradient for up to 6 sets) */
   .missionary-booked-multiple {
-    background: linear-gradient(90deg, 
-      rgba(59, 130, 246, 0.15) 0%, 
-      rgba(59, 130, 246, 0.15) 20%,
-      rgba(245, 158, 11, 0.15) 20%,
-      rgba(245, 158, 11, 0.15) 40%,
-      rgba(34, 197, 94, 0.15) 40%,
-      rgba(34, 197, 94, 0.15) 60%,
-      rgba(168, 85, 247, 0.15) 60%,
-      rgba(168, 85, 247, 0.15) 80%,
-      rgba(239, 68, 68, 0.15) 80%,
-      rgba(239, 68, 68, 0.15) 100%
+    background: conic-gradient(
+      rgba(59, 130, 246, 0.2) 0deg 60deg, /* Set 1 */
+      rgba(245, 158, 11, 0.2) 60deg 120deg, /* Set 2 */
+      rgba(34, 197, 94, 0.2) 120deg 180deg, /* Set 3 */
+      rgba(236, 72, 153, 0.2) 180deg 240deg, /* Set 4 */
+      rgba(147, 51, 234, 0.2) 240deg 300deg, /* Set 5 */
+      rgba(6, 182, 212, 0.2) 300deg 360deg /* Set 6 */
     );
-    border: 1px dashed #94a3b8;
+    border: 2px dashed #6b7280;
   }
-  
+
   .calendar-day {
     aspect-ratio: 1;
     max-width: 100%;
   }
-  
-  .calendar-day.missionary-booked-elders {
-    background-color: rgba(59, 130, 246, 0.1);
-    border: 1px solid #3b82f6;
+
+  /* Specific styling for the dots */
+  .missionary-dot-container {
+    position: relative;
+    width: 15px; /* Size of the dice face */
+    height: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 3px; /* Slightly rounded corners for the "dice" */
+    border: 1px solid;
+    color: var(--dot-color); /* Use CSS variable for dot color */
+    background-color: var(--dot-bg-color); /* Use CSS variable for background */
+    margin: 0 1px; /* Small margin between dot containers */
   }
-  
-  .calendar-day.missionary-booked-sisters {
-    background-color: rgba(245, 158, 11, 0.1);
-    border: 1px solid #f59e0b;
+
+  /* Define dot colors based on missionary set number */
+  .missionary-set-1 .missionary-dot-container {
+    --dot-color: #1e40af; /* Darker blue for dot */
+    --dot-bg-color: rgba(59, 130, 246, 0.2);
   }
-  
-  .calendar-day.missionary-booked-both {
-    background: linear-gradient(135deg, 
-            rgba(59, 130, 246, 0.1) 0%, 
-            rgba(59, 130, 246, 0.1) 50%, 
-            rgba(245, 158, 11, 0.1) 50%, 
-            rgba(245, 158, 11, 0.1) 100%);
-    border: 1px dashed #94a3b8;
+  .missionary-set-2 .missionary-dot-container {
+    --dot-color: #92400e; /* Darker amber for dot */
+    --dot-bg-color: rgba(245, 158, 11, 0.2);
   }
-  
+  .missionary-set-3 .missionary-dot-container {
+    --dot-color: #15803d; /* Darker green for dot */
+    --dot-bg-color: rgba(34, 197, 94, 0.2);
+  }
+  .missionary-set-4 .missionary-dot-container {
+    --dot-color: #be185d; /* Darker pink for dot */
+    --dot-bg-color: rgba(236, 72, 153, 0.2);
+  }
+  .missionary-set-5 .missionary-dot-container {
+    --dot-color: #7c2d12; /* Darker purple/brown for dot */
+    --dot-bg-color: rgba(147, 51, 234, 0.2);
+  }
+  .missionary-set-6 .missionary-dot-container {
+    --dot-color: #0e7490; /* Darker cyan for dot */
+    --dot-bg-color: rgba(6, 182, 212, 0.2);
+  }
+
   /* Mobile optimization */
   @media (max-width: 640px) {
     .calendar-day {
-      aspect-ratio: 1;
-      font-size: 0.875rem;
-      padding: 0.25rem;
+      @apply p-0.5;
+      min-height: 2.5rem;
+      width: 100%;
+    }
+
+    .calendar-day .rounded-full {
+      @apply h-6 w-6 text-xs;
+    }
+
+    .missionary-dot-container {
+      width: 12px; /* Smaller for mobile */
+      height: 12px;
+    }
+    .missionary-dot-container .bg-current {
+      width: 3px; /* Smaller dots for mobile */
+      height: 3px;
     }
   }
-}
 
-:root {
-  --background: 0 0% 100%;
-  --foreground: 20 14.3% 4.1%;
-  --muted: 60 4.8% 95.9%;
-  --muted-foreground: 25 5.3% 44.7%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 20 14.3% 4.1%;
-  --card: 0 0% 100%;
-  --card-foreground: 20 14.3% 4.1%;
-  --border: 20 5.9% 90%;
-  --input: 20 5.9% 90%;
-  --primary: 207 90% 54%;
-  --primary-foreground: 211 100% 99%;
-  --secondary: 60 4.8% 95.9%;
-  --secondary-foreground: 24 9.8% 10%;
-  --accent: 60 4.8% 95.9%;
-  --accent-foreground: 24 9.8% 10%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 60 9.1% 97.8%;
-  --ring: 20 14.3% 4.1%;
-  --radius: 0.5rem;
-
-  /* Sister missionary color */
-  --sisters: 38 92% 50%;
-  --sisters-light: 38 92% 95%;
-  
-  /* Missionary set colors for fractional display */
-  --missionary-1-color: hsl(220, 90%, 60%);
-  --missionary-2-color: hsl(38, 92%, 50%);
-  --missionary-3-color: hsl(160, 80%, 45%);
-  --missionary-4-color: hsl(280, 85%, 60%);
-  --missionary-5-color: hsl(15, 85%, 55%);
-}
-
-.dark {
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 64.9%;
-  --popover: 240 10% 3.9%;
-  --popover-foreground: 0 0% 98%;
-  --card: 240 10% 3.9%;
-  --card-foreground: 0 0% 98%;
-  --border: 240 3.7% 15.9%;
-  --input: 240 3.7% 15.9%;
-  --primary: 207 90% 54%;
-  --primary-foreground: 211 100% 99%;
-  --secondary: 240 3.7% 15.9%;
-  --secondary-foreground: 0 0% 98%;
-  --accent: 240 3.7% 15.9%;
-  --accent-foreground: 0 0% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 98%;
-  --ring: 240 4.9% 83.9%;
-  --radius: 0.5rem;
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply font-sans antialiased bg-background text-foreground;
-  }
-}
-
-/* Missionary set background colors */
-.missionary-set-1 {
-  background-color: var(--missionary-1-color);
-}
-
-.missionary-set-2 {
-  background-color: var(--missionary-2-color);
-}
-
-.missionary-set-3 {
-  background-color: var(--missionary-3-color);
-}
-
-.missionary-set-4 {
-  background-color: var(--missionary-4-color);
-}
-
-.missionary-set-5 {
-  background-color: var(--missionary-5-color);
-}
-
-/* Fractional missionary booking - will be handled dynamically via inline styles */
-.fractional-missionary-booking {
-  position: relative;
-}
-
-/* Mobile-specific styles */
-@media (max-width: 640px) {
-  .calendar-day {
-    @apply p-0.5;
-    min-height: 2.5rem;
-    width: 100%;
-  }
-  
-  .calendar-day .rounded-full {
-    @apply h-6 w-6 text-xs;
-  }
-  
   /* Prevent horizontal scrolling on mobile */
   .calendar-grid {
     @apply overflow-x-hidden;
     width: 100%;
     max-width: 100%;
   }
-  
+
   /* Ensure calendar fits screen width perfectly */
   .calendar-container {
     @apply max-w-full overflow-hidden mx-auto;
     width: calc(100vw - 2rem);
     max-width: calc(100vw - 2rem);
   }
-  
+
   /* Mobile calendar header adjustments */
   .calendar-container .flex.justify-between {
     @apply px-2 py-2;
   }
-  
+
   /* Day headers more compact */
   .calendar-container .grid.grid-cols-7.text-center {
     padding-top: 0.25rem;
     padding-bottom: 0.25rem;
   }
-  
+
   .calendar-container .grid.grid-cols-7.text-center > div {
     @apply text-xs;
     padding-left: 0.125rem;
     padding-right: 0.125rem;
   }
-  
+
   /* Improve ward access form on thin phones */
   .ward-access-form {
     @apply px-2 py-4;
   }
-  
+
   .ward-access-input {
     @apply text-base; /* Prevent zoom on iOS */
   }
-  
+
   /* Better missionary selection on mobile */
   .missionary-select-grid {
     @apply grid-cols-1 gap-1;
   }
-  
+
   .missionary-select-button {
     @apply py-3 px-2 text-xs;
   }
-  
+
   /* Responsive tabs */
   .tab-list {
     @apply text-xs px-2;
@@ -266,38 +196,38 @@
     width: calc(100vw - 1rem);
     max-width: calc(100vw - 1rem);
   }
-  
+
   .calendar-day {
     min-height: 2rem;
   }
-  
+
   .calendar-day .rounded-full {
     @apply h-5 w-5 text-xs;
   }
-  
+
   .calendar-container .grid.grid-cols-7.text-center > div {
     font-size: 0.75rem;
     padding-left: 0;
     padding-right: 0;
   }
-  
+
   /* Optimize header elements for very thin screens */
   header .flex.justify-between {
     gap: 0.25rem;
   }
-  
+
   /* Make buttons even smaller on very thin screens */
   header button {
     padding: 0.25rem 0.5rem;
     font-size: 0.6875rem;
   }
-  
+
   /* Make icons smaller in header buttons */
   header button svg {
     height: 0.75rem;
     width: 0.75rem;
   }
-  
+
   /* Reduce header padding further */
   header > div {
     padding-left: 0.5rem;
@@ -305,7 +235,7 @@
     padding-top: 0.5rem;
     padding-bottom: 0.5rem;
   }
-  
+
   /* Make title even smaller */
   header h1 {
     font-size: 0.75rem;
@@ -318,67 +248,3 @@
     @apply grid-cols-2 gap-2;
   }
 }
-
-/* Missionary calendar styling - supports up to 5 sets with distinct colors */
-.missionary-set-1 {
-  background-color: rgba(59, 130, 246, 0.15);
-  border: 1px solid #3b82f6;
-  color: #1e40af;
-}
-
-.missionary-set-2 {
-  background-color: rgba(245, 158, 11, 0.15);
-  border: 1px solid #f59e0b;
-  color: #92400e;
-}
-
-.missionary-set-3 {
-  background-color: rgba(34, 197, 94, 0.15);
-  border: 1px solid #22c55e;
-  color: #15803d;
-}
-
-.missionary-set-4 {
-  background-color: rgba(236, 72, 153, 0.15);
-  border: 1px solid #ec4899;
-  color: #be185d;
-}
-
-.missionary-set-5 {
-  background-color: rgba(147, 51, 234, 0.15);
-  border: 1px solid #9333ea;
-  color: #7c2d12;
-}
-
-/* Legacy support */
-.missionary-booked-elders {
-  background-color: rgba(59, 130, 246, 0.1);
-  border: 1px solid #3b82f6;
-}
-
-.missionary-booked-sisters {
-  background-color: rgba(245, 158, 11, 0.1);
-  border: 1px solid #f59e0b;
-}
-
-.missionary-booked-both {
-  background: linear-gradient(135deg, 
-            rgba(59, 130, 246, 0.1) 0%, 
-            rgba(59, 130, 246, 0.1) 50%, 
-            rgba(245, 158, 11, 0.1) 50%, 
-            rgba(245, 158, 11, 0.1) 100%);
-  border: 1px dashed #94a3b8;
-}
-
-/* Multiple sets booked on same day */
-.missionary-booked-multiple {
-  background: conic-gradient(
-    rgba(59, 130, 246, 0.2) 0deg 72deg,
-    rgba(245, 158, 11, 0.2) 72deg 144deg,
-    rgba(34, 197, 94, 0.2) 144deg 216deg,
-    rgba(236, 72, 153, 0.2) 216deg 288deg,
-    rgba(147, 51, 234, 0.2) 288deg 360deg
-  );
-  border: 2px dashed #6b7280;
-}
-

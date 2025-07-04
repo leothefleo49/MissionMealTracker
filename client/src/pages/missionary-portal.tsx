@@ -34,7 +34,7 @@ export default function MissionaryPortal() {
   const isMobile = useIsMobile();
   const { toast } = useToast();
 
-  // Fetch ward data
+  // Fetch ward data (simplified as allowMissionarySelfRegistration is no longer needed here)
   const { data: ward } = useQuery<any>({
     queryKey: ['/api/wards', accessCode],
     queryFn: () => fetch(`/api/wards/${accessCode}`).then(res => {
@@ -241,69 +241,88 @@ export default function MissionaryPortal() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6">
-            <div className="text-center mb-6">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Missionary Portal Access</h1>
-              <p className="text-gray-600">Sign in or register to access your meal schedule</p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-3">
-                <input
-                  type="email"
-                  placeholder="Enter your @missionary.org email"
-                  value={authEmail}
-                  onChange={(e) => setAuthEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-
-                <input
-                  type="password"
-                  placeholder="Enter your password"
-                  value={authPassword}
-                  onChange={(e) => setAuthPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-
-                {authError && (
-                  <div className="text-red-600 text-sm text-center">{authError}</div>
-                )}
-
-                <Button 
-                  onClick={handleAuthentication}
-                  disabled={authenticating || !authEmail || !authPassword}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                >
-                  {authenticating ? "Signing In..." : "Sign In"}
-                </Button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl">
+          {/* Box 1: Missionary Sign-in/Register */}
+          <Card className="w-full">
+            <CardContent className="p-6">
+              <div className="text-center mb-6">
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">Missionary Sign In</h1>
+                <p className="text-gray-600">Sign in to access your meal schedule</p>
               </div>
 
-              <div className="text-center space-y-2">
-                {/* Conditionally render registration link based on ward setting */}
-                {ward?.allowMissionarySelfRegistration === false ? (
-                  <p className="text-sm text-gray-600">
-                    Self-registration is currently disabled for this ward. Please contact your ward admin to create an account.
-                  </p>
-                ) : (
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  <input
+                    type="email"
+                    placeholder="Enter your @missionary.org email"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+
+                  <input
+                    type="password"
+                    placeholder="Enter your password"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+
+                  {authError && (
+                    <div className="text-red-600 text-sm text-center">{authError}</div>
+                  )}
+
+                  <Button 
+                    onClick={handleAuthentication}
+                    disabled={authenticating || !authEmail || !authPassword}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                  >
+                    {authenticating ? "Signing In..." : "Sign In"}
+                  </Button>
+                </div>
+
+                <div className="text-center space-y-2">
                   <button
                     onClick={() => setLocation(`/missionary-register/${accessCode}`)}
                     className="block w-full text-sm text-blue-600 hover:text-blue-700 underline"
                   >
                     Don't have an account? Register here
                   </button>
-                )}
 
-                <button
-                  onClick={() => setLocation(`/missionary-forgot-password/${accessCode}`)}
-                  className="block w-full text-sm text-gray-600 hover:text-gray-700 underline"
-                >
-                  Forgot your password?
-                </button>
+                  <button
+                    onClick={() => setLocation(`/missionary-forgot-password/${accessCode}`)}
+                    className="block w-full text-sm text-gray-600 hover:text-gray-700 underline"
+                  >
+                    Forgot your password?
+                  </button>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {/* Box 2: Admin Sign-in for Missionary Management */}
+          <Card className="w-full">
+            <CardContent className="p-6">
+              <div className="text-center mb-6">
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">Ward Admin Login</h1>
+                <p className="text-gray-600">Ward or Super Admin access for missionary management</p>
+              </div>
+
+              <div className="space-y-4">
+                {/* This will be the form for admin login. For now, it's a placeholder. */}
+                <p className="text-sm text-gray-500 text-center">
+                  Admin login functionality for directly managing missionary accounts from here is a planned feature. For now, please use the main admin dashboard for ward-level missionary management.
+                </p>
+                <Button 
+                  onClick={() => setLocation('/auth')}
+                  className="w-full"
+                >
+                  Go to Main Admin Login
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
