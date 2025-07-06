@@ -257,7 +257,8 @@ export default function WardPage() {
                     <div className="flex items-center">
                       <User className="w-4 h-4 mr-2" />
                       My Meals
-                    </SelectItem>
+                    </div> {/* Corrected line: added missing </div> */}
+                  </SelectItem>
                   <SelectItem value="statistics">
                     <div className="flex items-center">
                       <BarChart3 className="w-4 h-4 mr-2" />
