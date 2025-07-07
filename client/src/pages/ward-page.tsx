@@ -31,7 +31,7 @@ export default function WardPage() {
   const [sortOrder, setSortOrder] = useState("date-asc");
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  
+
   // Fetch ward data by access code
   const { data: ward, isLoading: loadingWard, error: wardError } = useQuery({
     queryKey: ['/api/wards', accessCode],
@@ -43,7 +43,7 @@ export default function WardPage() {
     }),
     retry: false
   });
-  
+
   // Fetch missionaries for this ward
   const { data: missionaries, isLoading: loadingMissionaries } = useQuery<any[]>({
     queryKey: ['/api/wards', ward?.id, 'missionaries'],
@@ -60,13 +60,13 @@ export default function WardPage() {
       setMissionaryType(missionaries[0].id.toString());
     }
   }, [missionaries, missionaryType]);
-  
+
   // Fetch upcoming meals
   const now = new Date();
   const startOfDay = new Date(now.setHours(0, 0, 0, 0));
   const sixMonthsLater = new Date(now);
   sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
-  
+
   const { data: meals, isLoading: loadingMeals } = useQuery({
     queryKey: ['/api/wards', ward?.id, 'meals', startOfDay.toISOString(), sixMonthsLater.toISOString()],
     queryFn: () => fetch(
@@ -77,7 +77,7 @@ export default function WardPage() {
     refetchInterval: 1000,
     refetchOnWindowFocus: true
   });
-  
+
   // If invalid ward access code, show error
   useEffect(() => {
     if (wardError) {
@@ -88,12 +88,12 @@ export default function WardPage() {
       });
     }
   }, [wardError, toast]);
-  
+
   // Handle date selection
   const handleSelectDate = (date: Date) => {
     setSelectedDate(date);
   };
-  
+
   // Handle missionary selection
   const handleMissionaryTypeChange = (value: string) => {
     setMissionaryType(value);
@@ -103,7 +103,7 @@ export default function WardPage() {
   // Check if selected missionary is already booked for selected date
   const isMissionaryBookedForDate = (missionaryId: string, date: Date | null): boolean => {
     if (!date || !meals || !missionaryId) return false;
-    
+
     const dateString = date.toISOString().split('T')[0];
     return meals.some((meal: any) => 
       meal.missionaryId.toString() === missionaryId && 
@@ -114,28 +114,28 @@ export default function WardPage() {
 
   const selectedMissionaryBookedForDate = selectedDate && missionaryType ? 
     isMissionaryBookedForDate(missionaryType, selectedDate) : false;
-  
+
   // Handle form cancellation
   const handleCancelBooking = () => {
     setSelectedDate(null);
   };
-  
+
   // Handle successful booking
   const handleBookingSuccess = () => {
     setSelectedDate(null);
   };
-  
+
   // Filter meals based on missionary type
   const filteredMeals = meals ? meals.filter((meal: any) => {
     if (filterMissionaryType === "all") return true;
     return meal.missionary.type === filterMissionaryType;
   }) : [];
-  
+
   // Sort meals
   const sortedMeals = [...(filteredMeals || [])].sort((a: any, b: any) => {
     const dateA = new Date(a.date);
     const dateB = new Date(b.date);
-    
+
     if (sortOrder === "date-asc") {
       return dateA.getTime() - dateB.getTime();
     } else {
@@ -172,7 +172,7 @@ export default function WardPage() {
       </div>
     );
   }
-  
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
@@ -200,7 +200,7 @@ export default function WardPage() {
                 className="flex items-center text-blue-600 border-blue-200 hover:bg-blue-50 px-2 py-1"
               >
                 <User className="h-3 w-3 sm:h-4 sm:w-4" />
-                {isMobile && <span className="ml-1 text-xs">Login</span>}
+                {isMobile && <span className="ml-1 text-xs">Admin</span>}
                 {!isMobile && <span className="ml-1">Admin Login</span>}
               </Button>
               <Button 
@@ -217,7 +217,7 @@ export default function WardPage() {
           </div>
         </div>
       </header>
-      
+
       {/* Main Content */}
       <main className="flex-grow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -268,7 +268,7 @@ export default function WardPage() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             {/* Desktop tab navigation */}
             <TabsList className="tab-list mb-8 border-b border-gray-200 w-full justify-start overflow-x-auto hidden sm:flex" style={{ scrollbarWidth: 'none' }}>
               <TabsTrigger value="calendar" className="px-3 py-3 sm:py-4 text-sm sm:text-base whitespace-nowrap">
@@ -288,7 +288,7 @@ export default function WardPage() {
                 Meal Statistics
               </TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="calendar">
               <div className="mb-6">
                 <h2 className="text-lg font-medium text-gray-900 mb-2">Schedule a Missionary Meal</h2>
@@ -296,7 +296,7 @@ export default function WardPage() {
                   Select a date to schedule a meal for the missionaries. You can schedule meals up to 3 months in advance.
                 </p>
               </div>
-              
+
               {/* Missionary Selection */}
               <div className="mb-6">
                 <div className="flex flex-col lg:flex-row space-y-4 lg:space-y-0 lg:space-x-4">
@@ -321,7 +321,7 @@ export default function WardPage() {
                             5: { bg: "bg-purple-500", border: "border-purple-500", text: "text-purple-700" }
                           };
                           const colors = setColors[setNumber as keyof typeof setColors];
-                          
+
                           return (
                             <Button
                               key={missionary.id}
@@ -369,14 +369,14 @@ export default function WardPage() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Legend - Dynamic based on missionaries available */}
               <div className="mb-4 flex flex-wrap gap-4 text-sm">
                 <div className="flex items-center">
                   <div className="w-4 h-4 mr-1 bg-white border border-gray-300 rounded"></div>
                   <span>Available</span>
                 </div>
-                
+
                 {missionaries && missionaries.length > 0 && missionaries.map((missionary: any, index: number) => {
                   const setNumber = (index % 5) + 1;
                   const setColors = {
@@ -387,7 +387,7 @@ export default function WardPage() {
                     5: { bg: "bg-purple-100", border: "border-purple-500", text: "text-purple-700" }
                   };
                   const colors = setColors[setNumber as keyof typeof setColors];
-                  
+
                   return (
                     <div key={missionary.id} className="flex items-center">
                       <div className={`w-4 h-4 mr-1 ${colors.bg} border ${colors.border} rounded`}></div>
@@ -396,7 +396,7 @@ export default function WardPage() {
                   );
                 })}
               </div>
-              
+
               {/* Calendar */}
               <CalendarGrid 
                 onSelectDate={handleSelectDate}
@@ -405,7 +405,7 @@ export default function WardPage() {
                 wardId={ward?.id}
                 autoSelectNextAvailable={true}
               />
-              
+
               {/* Booking Form (shown when date is selected) */}
               {selectedDate && ward && (
                 selectedMissionaryBookedForDate ? (
@@ -449,7 +449,7 @@ export default function WardPage() {
                 )
               )}
             </TabsContent>
-            
+
             <TabsContent value="contact">
               <div className="mb-6">
                 <h2 className="text-lg font-medium text-gray-900 mb-2">Contact Missionaries</h2>
@@ -457,7 +457,7 @@ export default function WardPage() {
                   Here you can find contact information for the missionaries serving in {ward.name}.
                 </p>
               </div>
-              
+
               {loadingMissionaries ? (
                 <div className="text-center py-8">
                   <p>Loading missionary information...</p>
@@ -480,7 +480,7 @@ export default function WardPage() {
                 </div>
               )}
             </TabsContent>
-            
+
             <TabsContent value="upcoming">
               <div className="mb-6">
                 <h2 className="text-lg font-medium text-gray-900 mb-2">Your Upcoming Scheduled Meals</h2>
@@ -488,7 +488,7 @@ export default function WardPage() {
                   View and manage your scheduled meals with missionaries.
                 </p>
               </div>
-              
+
               {/* Filter Controls */}
               <div className="mb-6 flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
                 <div className="sm:w-64">
@@ -513,7 +513,7 @@ export default function WardPage() {
                               missionaryTypes.set(missionary.type, missionary.name);
                             }
                           });
-                          
+
                           return Array.from(missionaryTypes.entries()).map(([type, name]) => (
                             <SelectItem key={type} value={type}>
                               {name} Only
@@ -542,7 +542,7 @@ export default function WardPage() {
                   </Select>
                 </div>
               </div>
-              
+
               {/* Upcoming Meals List */}
               <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
                 {loadingMeals ? (
@@ -570,7 +570,7 @@ export default function WardPage() {
                 )}
               </div>
             </TabsContent>
-            
+
             <TabsContent value="statistics">
               <div className="mb-6">
                 <h2 className="text-lg font-medium text-gray-900 mb-2">Meal Statistics & Trends</h2>
@@ -578,13 +578,13 @@ export default function WardPage() {
                   View comprehensive meal data, missionary frequency, and trends for your ward.
                 </p>
               </div>
-              
+
               {ward?.id && <MealStatistics wardId={ward.id} />}
             </TabsContent>
           </Tabs>
         </div>
       </main>
-      
+
       {/* Footer */}
       <footer className="bg-white mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
