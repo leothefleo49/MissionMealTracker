@@ -2,13 +2,10 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
 import session from "express-session";
-import createMemoryStore from "memorystore";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User } from "@shared/schema";
-
-const MemoryStore = createMemoryStore(session);
 
 const scryptAsync = promisify(scrypt);
 
@@ -37,17 +34,12 @@ export async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
-  // Create a MemoryStore for session storage (in production we would use a proper store)
-  const sessionStore = new MemoryStore({
-    checkPeriod: 86400000 // prune expired entries every 24h
-  });
-
   // Setup session middleware
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || 'missionary-meal-calendar-secret',
     resave: false,
     saveUninitialized: false,
-    store: sessionStore,
+    store: storage.sessionStore,
     cookie: {
       secure: process.env.NODE_ENV === 'production',
       maxAge: 1000 * 60 * 60 * 24 // 24 hours
@@ -77,7 +69,7 @@ export function setupAuth(app: Express) {
           }
           return done(null, superAdmin);
         }
-        
+
         // Regular user authentication
         const user = await storage.getUserByUsername(username);
         if (!user || !(await comparePasswords(password, user.password))) {
@@ -89,7 +81,7 @@ export function setupAuth(app: Express) {
       }
     }),
   );
-  
+
   // Setup password-only strategy for ward access with fixed password
   passport.use('password-only',
     new LocalStrategy({ usernameField: 'wardAccessCode', passwordField: 'password' }, 
@@ -99,13 +91,13 @@ export function setupAuth(app: Express) {
         if (password !== "feast2323") {
           return done(null, false, { message: "Invalid password" });
         }
-        
+
         // Get the ward by access code
         const ward = await storage.getWardByAccessCode(wardAccessCode);
         if (!ward) {
           return done(null, false, { message: "Invalid ward access code" });
         }
-        
+
         // Create or find ward admin user
         let wardAdmin = await storage.getUserByUsername(`ward_admin_${ward.id}`);
         if (!wardAdmin) {
@@ -116,14 +108,14 @@ export function setupAuth(app: Express) {
             isAdmin: true,
             isSuperAdmin: false
           });
-          
+
           // Associate with ward
           await storage.addUserToWard({
             userId: wardAdmin.id,
             wardId: ward.id
           });
         }
-        
+
         return done(null, wardAdmin);
       } catch (error) {
         return done(error);
@@ -145,15 +137,12 @@ export function setupAuth(app: Express) {
   });
 
   // Auth routes
-  // Main superadmin login (password only)
   app.post("/api/login", (req, res, next) => {
-    // Check if this is a password-only authentication request
     if (req.body.password === "Ts2120130981!" && !req.body.username) {
-      // Auto-fill username for superadmin
       req.body.username = "superadmin";
     }
-    
-    passport.authenticate("local-regular", (err: Error, user: User) => {
+
+    passport.authenticate("local-regular", (err: Error, user: User | false) => {
       if (err) {
         return next(err);
       }
@@ -173,16 +162,15 @@ export function setupAuth(app: Express) {
       });
     })(req, res, next);
   });
-  
-  // Ward-specific admin login
+
   app.post("/api/ward-login", (req, res, next) => {
     const { wardAccessCode, password } = req.body;
-    
+
     if (!wardAccessCode || !password) {
       return res.status(400).json({ message: "Ward access code and password required" });
     }
-    
-    passport.authenticate("password-only", (err: Error, user: User) => {
+
+    passport.authenticate("password-only", (err: Error, user: User | false) => {
       if (err) {
         return next(err);
       }
@@ -225,23 +213,12 @@ export function setupAuth(app: Express) {
       res.status(401).json({ message: "Not authenticated" });
     }
   });
-
-  // Middleware to check if user is authenticated and is an admin
-  app.use("/api/admin/*", (req, res, next) => {
-    if (req.isAuthenticated() && req.user.isAdmin) {
-      return next();
-    }
-    res.status(403).json({ message: "Forbidden - Admin access required" });
-  });
 }
 
-// Helper function to create super admin user
 export async function createSuperAdminUser() {
   try {
-    // Check if super admin already exists
     const existingSuperAdmin = await storage.getUserByUsername("superadmin");
     if (!existingSuperAdmin) {
-      // Create a super admin user with the fixed password
       const superAdminUser = {
         username: "superadmin",
         password: await hashPassword("Ts2120130981!"), 

@@ -27,5 +27,28 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            // Group major vendor libraries into their own chunks
+            if (id.includes('react-dom')) {
+              return 'vendor-react-dom';
+            }
+            if (id.includes('recharts')) {
+                return 'vendor-recharts';
+            }
+            if (id.includes('@radix-ui')) {
+                return 'vendor-radix';
+            }
+            if (id.includes('lucide-react')) {
+                return 'vendor-lucide';
+            }
+            // Group other node_modules into a single vendor chunk
+            return 'vendor';
+          }
+        },
+      },
+    },
   },
 });
