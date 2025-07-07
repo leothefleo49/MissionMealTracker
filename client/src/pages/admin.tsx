@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Building, Users, Calendar, Settings, LogOut, Utensils } from "lucide-react"; // Added Utensils icon
+import { Building, Users, Calendar, Settings, LogOut } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { WardSelector } from "@/components/ward-selector";
 import MissionaryList from "@/components/missionary-list";
@@ -12,24 +12,11 @@ import { MessageStatsComponent } from "@/components/message-stats";
 import { TestMessageForm } from "@/components/test-message-form";
 
 export default function Admin() {
-  const { user, logoutMutation, selectedWard, setSelectedWard, userWards } = useAuth(); // Destructure selectedWard and userWards
+  const { user, logoutMutation } = useAuth();
   const [activeTab, setActiveTab] = useState("missionaries");
   const [selectedWardId, setSelectedWardId] = useState<number | null>(null);
 
-  // Effect to ensure selectedWardId is updated when selectedWard from useAuth changes
-  useEffect(() => {
-    if (selectedWard) {
-      setSelectedWardId(selectedWard.id);
-    } else if (userWards && userWards.length > 0) {
-      // If no ward is selected but userWards exist, default to the first one
-      setSelectedWard(userWards[0]);
-    } else {
-      setSelectedWardId(null); // No wards available or selected
-    }
-  }, [selectedWard, userWards, setSelectedWard]);
-
-
-  if (!user?.isAdmin && !user?.isSuperAdmin && !user?.isMissionAdmin && !user?.isStakeAdmin) { // Added new roles check
+  if (!user?.isAdmin && !user?.isSuperAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md">
@@ -48,7 +35,7 @@ export default function Admin() {
 
   const tabs = [
     { id: "missionaries", label: "Missionaries", icon: Users },
-    { id: "meals", label: "Meals", icon: Utensils }, // Changed icon to Utensils for meal management
+    { id: "meals", label: "Meals", icon: Calendar },
     { id: "wards", label: "Wards", icon: Building },
     { id: "settings", label: "Settings", icon: Settings },
   ];
@@ -66,13 +53,7 @@ export default function Admin() {
                 {user?.isSuperAdmin && (
                   <Badge variant="secondary" className="text-xs">Super Admin</Badge>
                 )}
-                {user?.isMissionAdmin && ( // NEW: Mission Admin Badge
-                  <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800 border-purple-200">Mission Admin</Badge>
-                )}
-                {user?.isStakeAdmin && ( // NEW: Stake Admin Badge
-                  <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 border-green-200">Stake Admin</Badge>
-                )}
-                {user?.isAdmin && !user?.isSuperAdmin && !user?.isMissionAdmin && !user?.isStakeAdmin && ( // Regular Admin Badge
+                {user?.isAdmin && !user?.isSuperAdmin && (
                   <Badge variant="outline" className="text-xs">Admin</Badge>
                 )}
               </div>
@@ -117,7 +98,7 @@ export default function Admin() {
       {/* Main Content */}
       <main className="flex-grow">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pb-10 overflow-x-hidden">
-
+          
           {/* Missionary Management Tab */}
           {activeTab === "missionaries" && (
             <div>
@@ -171,56 +152,47 @@ export default function Admin() {
               )}
             </div>
           )}
-
-          {/* Meals Tab (NEW: Basic Structure) */}
+          
+          {/* Meals Tab */}
           {activeTab === "meals" && (
             <div>
               <Card>
                 <CardHeader>
                   <CardTitle>Meal Management</CardTitle>
-                  <CardDescription>View, add, and manage upcoming meals for your ward.</CardDescription>
+                  <CardDescription>View and manage upcoming meals</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {/* Ward Selector for Meal Management */}
+                  {/* Ward Selector */}
                   <div className="mb-6">
                     <div className="flex items-center mb-4">
                       <Building className="mr-2 h-5 w-5 text-muted-foreground" />
-                      <h3 className="text-lg font-medium">Current Ward for Meals</h3>
+                      <h3 className="text-lg font-medium">Current Ward</h3>
                     </div>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Select the ward you want to manage meals for.
+                      Select the ward you want to view meals for.
                     </p>
                     <WardSelector onWardChange={(ward) => setSelectedWardId(ward?.id || null)} />
                   </div>
 
-                  {selectedWardId ? (
+                  {selectedWardId && (
                     <div>
                       <p className="text-sm text-gray-500">
-                        Full meal management features for Ward {selectedWardId} are coming soon!
-                        Here you will be able to add, edit, and cancel meals directly.
+                        Meal management features coming soon. Ward members can schedule meals through the ward page.
                       </p>
-                      {/* Placeholder for future meal management components */}
-                      <div className="mt-4 p-4 border rounded-md bg-gray-50 text-center text-gray-400">
-                        [Meal List, Add Meal Form, Edit/Cancel Controls will go here]
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center p-6">
-                      <p className="text-gray-500">Please select a ward to manage meals.</p>
                     </div>
                   )}
                 </CardContent>
               </Card>
             </div>
           )}
-
+          
           {/* Ward Management Tab */}
           {activeTab === "wards" && (
             <div>
               <WardManagement />
             </div>
           )}
-
+          
           {/* Settings Tab */}
           {activeTab === "settings" && (
             <div>
@@ -241,13 +213,13 @@ export default function Admin() {
                       </div>
                       <WardSelector onWardChange={(ward) => setSelectedWardId(ward?.id || null)} />
                     </div>
-
+                    
                     {selectedWardId && (
                       <MessageStatsComponent wardId={selectedWardId} />
                     )}
                   </CardContent>
                 </Card>
-
+                
                 {/* Test Message Form */}
                 <Card>
                   <CardHeader>
@@ -265,10 +237,10 @@ export default function Admin() {
               </div>
             </div>
           )}
-
+          
         </div>
       </main>
-
+      
       {/* Footer */}
       <footer className="bg-white border-t">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">

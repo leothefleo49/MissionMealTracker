@@ -34,13 +34,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"; // NEW: Import Select components for role assignment
 
 interface WardUsersProps {
   wardId: number;
@@ -51,8 +44,6 @@ interface User {
   username: string;
   isAdmin: boolean;
   isSuperAdmin: boolean;
-  isMissionAdmin: boolean;
-  isStakeAdmin: boolean;
 }
 
 interface WardUser {
@@ -61,8 +52,6 @@ interface WardUser {
   username: string;
   isAdmin: boolean;
   isSuperAdmin: boolean;
-  isMissionAdmin: boolean;
-  isStakeAdmin: boolean;
 }
 
 export function WardUsers({ wardId }: WardUsersProps) {
@@ -71,8 +60,7 @@ export function WardUsers({ wardId }: WardUsersProps) {
   const [username, setUsername] = useState("");
   const [userToRemove, setUserToRemove] = useState<WardUser | null>(null);
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<string>('ward_admin'); // State for new role assignment
-
+  
   // Fetch ward users
   const { data: wardUsers, isLoading } = useQuery<WardUser[]>({
     queryKey: ["/api/admin/wards", wardId, "users"],
@@ -85,44 +73,31 @@ export function WardUsers({ wardId }: WardUsersProps) {
     },
     enabled: !!wardId,
   });
-
+  
   // Add user mutation
   const addUserMutation = useMutation({
-    mutationFn: async ({ username, role }: { username: string; role: string }) => {
-      // Determine admin flags based on selected role
-      const isAdmin = role === 'ward_admin' || role === 'stake_admin' || role === 'mission_admin' || role === 'super_admin';
-      const isSuperAdmin = role === 'super_admin';
-      const isMissionAdmin = role === 'mission_admin';
-      const isStakeAdmin = role === 'stake_admin';
-
-      const res = await apiRequest("POST", `/api/admin/wards/${wardId}/users`, { 
-        username, 
-        isAdmin, 
-        isSuperAdmin, 
-        isMissionAdmin, 
-        isStakeAdmin 
-      });
+    mutationFn: async (username: string) => {
+      const res = await apiRequest("POST", `/api/admin/wards/${wardId}/users`, { username });
       return await res.json();
     },
     onSuccess: () => {
       toast({
-        title: "Admin added",
-        description: "Admin has been successfully added to the ward.",
+        title: "User added",
+        description: "User has been successfully added to the ward.",
       });
       setIsAddUserDialogOpen(false);
       setUsername("");
-      setSelectedRole('ward_admin'); // Reset role selection
       queryClient.invalidateQueries({ queryKey: ["/api/admin/wards", wardId, "users"] });
     },
     onError: (error: Error) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to add admin. Admin might not exist or is already added to this ward.",
+        description: error.message || "Failed to add user. User might not exist or is already added to this ward.",
         variant: "destructive",
       });
     },
   });
-
+  
   // Remove user mutation
   const removeUserMutation = useMutation({
     mutationFn: async (userId: number) => {
@@ -131,8 +106,8 @@ export function WardUsers({ wardId }: WardUsersProps) {
     },
     onSuccess: () => {
       toast({
-        title: "Admin removed",
-        description: "Admin has been successfully removed from the ward.",
+        title: "User removed",
+        description: "User has been successfully removed from the ward.",
       });
       setIsRemoveDialogOpen(false);
       setUserToRemove(null);
@@ -141,58 +116,58 @@ export function WardUsers({ wardId }: WardUsersProps) {
     onError: (error: Error) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to remove admin. Please try again.",
+        description: error.message || "Failed to remove user. Please try again.",
         variant: "destructive",
       });
     },
   });
-
+  
   // Handle add user submission
   function handleAddUser() {
     if (username.trim()) {
-      addUserMutation.mutate({ username, role: selectedRole });
+      addUserMutation.mutate(username);
     }
   }
-
+  
   // Handle user removal confirmation
   function handleRemoveUser() {
     if (userToRemove) {
       removeUserMutation.mutate(userToRemove.userId);
     }
   }
-
+  
   function openRemoveDialog(user: WardUser) {
     setUserToRemove(user);
     setIsRemoveDialogOpen(true);
   }
-
+  
   if (isLoading) {
     return (
       <div className="py-2 text-sm text-gray-500">
-        Loading ward admins...
+        Loading ward users...
       </div>
     );
   }
-
+  
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-sm font-medium">Ward Admins</h3>
+        <h3 className="text-sm font-medium">Ward Users</h3>
         <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
               <UserPlus className="h-4 w-4 mr-1" />
-              Add Admin
+              Add User
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add Admin to Ward</DialogTitle>
+              <DialogTitle>Add User to Ward</DialogTitle>
               <DialogDescription>
-                Enter the username of an existing user to grant them admin access to this ward.
+                Enter the username of the user you want to add to this ward. The user must already exist in the system.
               </DialogDescription>
             </DialogHeader>
-
+            
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium" htmlFor="username">
@@ -205,37 +180,20 @@ export function WardUsers({ wardId }: WardUsersProps) {
                   onChange={(e) => setUsername(e.target.value)}
                 />
               </div>
-              {/* NEW: Role selection when adding a user */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium" htmlFor="role">
-                  Assign Role
-                </label>
-                <Select onValueChange={setSelectedRole} value={selectedRole}>
-                  <SelectTrigger id="role">
-                    <SelectValue placeholder="Select a role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ward_admin">Ward Admin</SelectItem>
-                    <SelectItem value="stake_admin">Stake Admin</SelectItem>
-                    <SelectItem value="mission_admin">Mission Admin</SelectItem>
-                    <SelectItem value="super_admin">Super Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
-
+            
             <DialogFooter>
               <Button 
                 disabled={!username.trim() || addUserMutation.isPending} 
                 onClick={handleAddUser}
               >
-                {addUserMutation.isPending ? "Adding..." : "Add Admin"}
+                {addUserMutation.isPending ? "Adding..." : "Add User"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
-
+      
       {wardUsers && wardUsers.length > 0 ? (
         <div className="border rounded-md overflow-x-auto">
           <Table>
@@ -260,17 +218,9 @@ export function WardUsers({ wardId }: WardUsersProps) {
                       <Badge className="bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-100">
                         Super Admin
                       </Badge>
-                    ) : user.isMissionAdmin ? (
-                      <Badge className="bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-100">
-                        Mission Admin
-                      </Badge>
-                    ) : user.isStakeAdmin ? (
-                      <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">
-                        Stake Admin
-                      </Badge>
                     ) : user.isAdmin ? (
                       <Badge className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100">
-                        Ward Admin
+                        Admin
                       </Badge>
                     ) : (
                       <Badge variant="outline">
@@ -296,16 +246,16 @@ export function WardUsers({ wardId }: WardUsersProps) {
       ) : (
         <div className="text-center py-4 border rounded-md bg-slate-50">
           <p className="text-sm text-gray-500">
-            No admins have access to this ward yet.
+            No users have access to this ward yet.
           </p>
         </div>
       )}
-
+      
       {/* Remove User Dialog */}
       <AlertDialog open={isRemoveDialogOpen} onOpenChange={setIsRemoveDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove Admin</AlertDialogTitle>
+            <AlertDialogTitle>Remove User</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to remove {userToRemove?.username} from this ward? 
               They will no longer have access to this ward's data.
@@ -317,7 +267,7 @@ export function WardUsers({ wardId }: WardUsersProps) {
               onClick={handleRemoveUser}
               className="bg-red-500 text-white hover:bg-red-600"
             >
-              {removeUserMutation.isPending ? "Removing..." : "Remove Admin"}
+              {removeUserMutation.isPending ? "Removing..." : "Remove User"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
