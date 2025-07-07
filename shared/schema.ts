@@ -3,30 +3,6 @@ import { boolean, integer, pgTable, serial, text, timestamp, numeric } from "dri
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Missions table
-export const missions = pgTable("missions", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-});
-
-export const missionsRelations = relations(missions, ({ many }) => ({
-  stakes: many(stakes),
-  users: many(users),
-}));
-
-// Stakes table
-export const stakes = pgTable("stakes", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  missionId: integer("mission_id").references(() => missions.id, { onDelete: "cascade" }),
-});
-
-export const stakesRelations = relations(stakes, ({ one, many }) => ({
-  mission: one(missions, { fields: [stakes.missionId], references: [missions.id] }),
-  wards: many(wards),
-  users: many(users),
-}));
-
 // Wards table
 export const wards = pgTable("wards", {
   id: serial("id").primaryKey(),
@@ -34,21 +10,17 @@ export const wards = pgTable("wards", {
   accessCode: text("access_code").notNull().unique(),
   description: text("description"),
   allowCombinedBookings: boolean("allow_combined_bookings").default(false),
-  maxBookingsPerPeriod: integer("max_bookings_per_period").default(1),
-  bookingPeriodDays: integer("booking_period_days").default(30),
+  maxBookingsPerPeriod: integer("max_bookings_per_period").default(1), // Simplified control (0 means unlimited)
+  bookingPeriodDays: integer("booking_period_days").default(30), // Default 30 days for tracking limits
   active: boolean("active").default(true),
-  stakeId: integer("stake_id").references(() => stakes.id, { onDelete: "set null" }),
-  missionId: integer("mission_id").references(() => missions.id, { onDelete: "set null" }),
-  // Legacy fields for compatibility
+  // Keeping these fields for database compatibility, but they won't be used in the UI
   maxBookingsPerAddress: integer("max_bookings_per_address").default(1),
   maxBookingsPerPhone: integer("max_bookings_per_phone").default(1),
 });
 
-export const wardsRelations = relations(wards, ({ one, many }) => ({
+export const wardsRelations = relations(wards, ({ many }) => ({
   missionaries: many(missionaries),
   userAccess: many(userWards),
-  stake: one(stakes, { fields: [wards.stakeId], references: [stakes.id] }),
-  mission: one(missions, { fields: [wards.missionId], references: [missions.id] }),
 }));
 
 export const insertWardSchema = createInsertSchema(wards).pick({
@@ -59,25 +31,15 @@ export const insertWardSchema = createInsertSchema(wards).pick({
 export type InsertWard = z.infer<typeof insertWardSchema>;
 export type Ward = typeof wards.$inferSelect;
 
-// Users table with new admin roles
+// Users table
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
-  isAdmin: boolean("is_admin").default(false).notNull(), // Ward Admin
-  isStakeAdmin: boolean("is_stake_admin").default(false).notNull(), // New role
-  isMissionAdmin: boolean("is_mission_admin").default(false).notNull(), // New role
+  isAdmin: boolean("is_admin").default(false).notNull(),
   isSuperAdmin: boolean("is_super_admin").default(false).notNull(),
   canUsePaidNotifications: boolean("can_use_paid_notifications").default(false).notNull(),
-  missionId: integer("mission_id").references(() => missions.id, { onDelete: "set null" }),
-  stakeId: integer("stake_id").references(() => stakes.id, { onDelete: "set null" }),
 });
-
-export const usersRelations = relations(users, ({ one, many }) => ({
-  wardAccess: many(userWards),
-  mission: one(missions, { fields: [users.missionId], references: [missions.id] }),
-  stake: one(stakes, { fields: [users.stakeId], references: [stakes.id] }),
-}));
 
 export const userWards = pgTable("user_wards", {
   id: serial("id").primaryKey(),
@@ -90,12 +52,14 @@ export const userWardsRelations = relations(userWards, ({ one }) => ({
   ward: one(wards, { fields: [userWards.wardId], references: [wards.id] }),
 }));
 
+export const usersRelations = relations(users, ({ many }) => ({
+  wardAccess: many(userWards),
+}));
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
   isAdmin: true,
-  isStakeAdmin: true,
-  isMissionAdmin: true,
   isSuperAdmin: true,
 });
 
@@ -116,38 +80,43 @@ export const missionaries = pgTable("missionaries", {
   name: text("name").notNull(),
   type: text("type").notNull(), // 'elders' or 'sisters'
   phoneNumber: text("phone_number").notNull(),
-  personalPhone: text("personal_phone"),
-  emailAddress: text("email_address"),
+  personalPhone: text("personal_phone"), // Personal contact phone
+  emailAddress: text("email_address"), // Must end with @missionary.org
   emailVerified: boolean("email_verified").default(false).notNull(),
-  emailVerificationCode: text("email_verification_code"),
+  emailVerificationCode: text("email_verification_code"), // 4-digit code
   emailVerificationSentAt: timestamp("email_verification_sent_at"),
-  whatsappNumber: text("whatsapp_number"),
+  whatsappNumber: text("whatsapp_number"), // WhatsApp number (can be same as phone)
   messengerAccount: text("messenger_account"),
-  preferredNotification: text("preferred_notification").default("email").notNull(),
+  preferredNotification: text("preferred_notification").default("email").notNull(), // 'email', 'whatsapp', 'text', 'messenger'
   active: boolean("active").default(true).notNull(),
-
-  foodAllergies: text("food_allergies"),
-  petAllergies: text("pet_allergies"),
-  allergySeverity: text("allergy_severity").default("mild"),
-  favoriteMeals: text("favorite_meals"),
-  dietaryRestrictions: text("dietary_restrictions"),
-
-  transferDate: timestamp("transfer_date"),
+  
+  // Enhanced dietary and preference information
+  foodAllergies: text("food_allergies"), // Specific food allergies
+  petAllergies: text("pet_allergies"), // Pet allergies
+  allergySeverity: text("allergy_severity").default("mild"), // 'mild', 'moderate', 'severe', 'life-threatening'
+  favoriteMeals: text("favorite_meals"), // Favorite meals/foods
+  dietaryRestrictions: text("dietary_restrictions"), // Other dietary restrictions
+  
+  // Transfer management
+  transferDate: timestamp("transfer_date"), // Scheduled transfer date
   transferNotificationSent: boolean("transfer_notification_sent").default(false),
-
-  notificationScheduleType: text("notification_schedule_type").default("before_meal").notNull(),
-  hoursBefore: integer("hours_before").default(3),
-  dayOfTime: text("day_of_time").default("09:00"),
-  weeklySummaryDay: text("weekly_summary_day").default("sunday"),
-  weeklySummaryTime: text("weekly_summary_time").default("18:00"),
-  useMultipleNotifications: boolean("use_multiple_notifications").default(false),
-
-  password: text("password"),
-
-  consentStatus: text("consent_status").default("granted").notNull(),
-  consentDate: timestamp("consent_date"),
-  consentVerificationToken: text("consent_verification_token"),
-  consentVerificationSentAt: timestamp("consent_verification_sent_at"),
+  
+  // Notification settings
+  notificationScheduleType: text("notification_schedule_type").default("before_meal").notNull(), // 'before_meal', 'day_of', 'weekly_summary', 'multiple'
+  hoursBefore: integer("hours_before").default(3), // Hours before the meal to send notification
+  dayOfTime: text("day_of_time").default("09:00"), // Time of day to send notification for 'day_of' schedule
+  weeklySummaryDay: text("weekly_summary_day").default("sunday"), // Day of week to send weekly summary
+  weeklySummaryTime: text("weekly_summary_time").default("18:00"), // Time to send weekly summary
+  useMultipleNotifications: boolean("use_multiple_notifications").default(false), // True if using multiple notification types
+  
+  // Authentication fields
+  password: text("password"), // For missionary portal access
+  
+  // Consent management (mainly for WhatsApp and SMS)
+  consentStatus: text("consent_status").default("granted").notNull(), // 'pending', 'granted', 'denied' - email doesn't need explicit consent
+  consentDate: timestamp("consent_date"), // When consent was granted or denied
+  consentVerificationToken: text("consent_verification_token"), // Token used for verification
+  consentVerificationSentAt: timestamp("consent_verification_sent_at"), // When verification was sent
 });
 
 export const missionariesRelations = relations(missionaries, ({ one, many }) => ({
@@ -182,7 +151,6 @@ export const insertMissionarySchema = createInsertSchema(missionaries).pick({
   password: true,
   consentStatus: true,
   consentDate: true,
-  emailVerified: true, // Allow setting this on creation
   consentVerificationToken: true,
   consentVerificationSentAt: true,
 });
@@ -196,7 +164,7 @@ export const meals = pgTable("meals", {
   missionaryId: integer("missionary_id").notNull().references(() => missionaries.id),
   wardId: integer("ward_id").notNull().references(() => wards.id, { onDelete: "cascade" }),
   date: timestamp("date").notNull(),
-  startTime: text("start_time").notNull(),
+  startTime: text("start_time").notNull(), // Format: "HH:MM" in 24h format
   hostName: text("host_name").notNull(),
   hostPhone: text("host_phone").notNull(), 
   mealDescription: text("meal_description"),
@@ -239,27 +207,27 @@ export type Meal = typeof meals.$inferSelect;
 // Schema for meal availability checking
 export const checkMealAvailabilitySchema = z.object({
   date: z.string(),
-  missionaryType: z.string(),
+  missionaryType: z.string(), // Can be "elders", "sisters", or a missionary ID
   wardId: z.number(),
 });
 
 export type CheckMealAvailability = z.infer<typeof checkMealAvailabilitySchema>;
 
-// Message Logs table
+// Message Logs table - for tracking email/WhatsApp notifications
 export const messageLogs = pgTable("message_logs", {
   id: serial("id").primaryKey(),
   missionaryId: integer("missionary_id").notNull().references(() => missionaries.id),
   wardId: integer("ward_id").notNull().references(() => wards.id),
   sentAt: timestamp("sent_at").notNull().defaultNow(),
-  messageType: text("message_type").notNull(),
-  messageContent: text("message_content").notNull(),
-  deliveryMethod: text("delivery_method").notNull(),
+  messageType: text("message_type").notNull(), // 'before_meal', 'day_of', 'weekly_summary'
+  messageContent: text("message_content").notNull(), // Legacy column name
+  deliveryMethod: text("delivery_method").notNull(), // Legacy column name - 'email', 'whatsapp'
   successful: boolean("successful").notNull(),
   failureReason: text("failure_reason"),
-  charCount: integer("char_count").notNull().default(0),
+  charCount: integer("char_count").notNull().default(0), // Legacy column
   segmentCount: integer("segment_count").notNull().default(1),
-  content: text("content").notNull(),
-  method: text("method").notNull(),
+  content: text("content").notNull(), // New column name
+  method: text("method").notNull(), // New column name - 'email', 'whatsapp'
   estimatedCost: text("estimated_cost").notNull().default("0"),
 });
 
@@ -319,7 +287,7 @@ export const messageStatsSchema = z.object({
     estimatedCost: z.number(),
   })),
   byPeriod: z.array(z.object({
-    period: z.string(),
+    period: z.string(), // 'today', 'this_week', 'this_month', 'last_month'
     messageCount: z.number(),
     segments: z.number(),
     estimatedCost: z.number(),
