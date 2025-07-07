@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarGrid } from "@/components/calendar-grid";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function MissionaryPortal() {
   const params = useParams();
@@ -16,7 +17,8 @@ export default function MissionaryPortal() {
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("upcoming");
   const [missionaryType, setMissionaryType] = useState<"elders" | "sisters">("elders");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { user, loginMutation } = useAuth();
+  const [isAuthenticated, setIsAuthenticated] = useState(!!user);
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authenticating, setAuthenticating] = useState(false);
@@ -34,7 +36,6 @@ export default function MissionaryPortal() {
   const isMobile = useIsMobile();
   const { toast } = useToast();
 
-  // Fetch ward data (simplified as allowMissionarySelfRegistration is no longer needed here)
   const { data: ward } = useQuery<any>({
     queryKey: ['/api/wards', accessCode],
     queryFn: () => fetch(`/api/wards/${accessCode}`).then(res => {
@@ -49,31 +50,22 @@ export default function MissionaryPortal() {
 
   const wardId = ward?.id;
 
-  // Fetch missionaries data
   const { data: missionaries } = useQuery<any[]>({
     queryKey: ['/api/wards', wardId, 'missionaries'],
     queryFn: () => fetch(`/api/wards/${wardId}/missionaries`).then(res => res.json()),
     enabled: !!wardId && isAuthenticated,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
     refetchInterval: false,
     refetchOnWindowFocus: false
   });
 
-  // Check for stored authentication
   useEffect(() => {
-    if (accessCode) {
-      const stored = localStorage.getItem(`missionary-auth-${accessCode}`);
-      const missionaryData = localStorage.getItem(`missionary-data-${accessCode}`);
-      if (stored === 'true') {
-        setIsAuthenticated(true);
-        if (missionaryData) {
-          setAuthenticatedMissionary(JSON.parse(missionaryData));
-        }
-      }
+    if (user) {
+      setIsAuthenticated(true);
+      setAuthenticatedMissionary(user);
     }
-  }, [accessCode]);
+  }, [user]);
 
-  // Initialize missionary selection
   useEffect(() => {
     if (missionaries && missionaries.length > 0 && !selectedMissionaryId) {
       const defaultMissionary = missionaries.find(m => m.type === missionaryType) || missionaries[0];
@@ -89,10 +81,10 @@ export default function MissionaryPortal() {
       const response = await fetch(`/api/missionary-portal/authenticate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          accessCode, 
-          emailAddress: authEmail, 
-          password: authPassword 
+        body: JSON.stringify({
+          accessCode,
+          emailAddress: authEmail,
+          password: authPassword
         }),
       });
 
@@ -187,11 +179,9 @@ export default function MissionaryPortal() {
     }
   };
 
-  // Get missionary ID based on selection
   const missionary = missionaries?.find(m => m.id.toString() === selectedMissionaryId);
   const missionaryId = missionary?.id;
 
-  // Show access code prompt if no access code provided
   if (!accessCode) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -211,7 +201,7 @@ export default function MissionaryPortal() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
 
-              <Button 
+              <Button
                 onClick={() => {
                   if (wardCodeInput.trim()) {
                     setLocation(`/missionary-portal/${wardCodeInput.trim()}`);
@@ -242,7 +232,6 @@ export default function MissionaryPortal() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl">
-          {/* Box 1: Missionary Sign-in/Register */}
           <Card className="w-full">
             <CardContent className="p-6">
               <div className="text-center mb-6">
@@ -272,7 +261,7 @@ export default function MissionaryPortal() {
                     <div className="text-red-600 text-sm text-center">{authError}</div>
                   )}
 
-                  <Button 
+                  <Button
                     onClick={handleAuthentication}
                     disabled={authenticating || !authEmail || !authPassword}
                     className="w-full bg-blue-600 hover:bg-blue-700"
@@ -300,7 +289,6 @@ export default function MissionaryPortal() {
             </CardContent>
           </Card>
 
-          {/* Box 2: Admin Sign-in for Missionary Management */}
           <Card className="w-full">
             <CardContent className="p-6">
               <div className="text-center mb-6">
@@ -309,11 +297,10 @@ export default function MissionaryPortal() {
               </div>
 
               <div className="space-y-4">
-                {/* This will be the form for admin login. For now, it's a placeholder. */}
                 <p className="text-sm text-gray-500 text-center">
                   Admin login functionality for directly managing missionary accounts from here is a planned feature. For now, please use the main admin dashboard for ward-level missionary management.
                 </p>
-                <Button 
+                <Button
                   onClick={() => setLocation('/auth')}
                   className="w-full"
                 >
@@ -329,7 +316,6 @@ export default function MissionaryPortal() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-2 sm:py-4">
           <div className="flex justify-between items-center gap-1">
@@ -339,8 +325,8 @@ export default function MissionaryPortal() {
                 {isMobile ? "Portal" : "Missionary Portal"}
               </h1>
             </div>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="sm"
               className="flex items-center flex-shrink-0 px-2 py-1"
               onClick={() => setLocation(`/ward/${accessCode}`)}
@@ -353,7 +339,6 @@ export default function MissionaryPortal() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="flex-grow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Card className="mb-6">
@@ -365,7 +350,6 @@ export default function MissionaryPortal() {
             </CardHeader>
 
             <CardContent>
-              {/* Missionary Selector */}
               <div className="mb-6 flex justify-center">
                 <div className="max-w-md w-full">
                   <h3 className="text-sm font-medium mb-2 text-center">Select Missionary</h3>
@@ -417,8 +401,8 @@ export default function MissionaryPortal() {
 
                 <TabsContent value="upcoming">
                   {missionary ? (
-                    <MissionaryUpcomingMeals 
-                      missionaryId={missionaryId} 
+                    <MissionaryUpcomingMeals
+                      missionaryId={missionaryId}
                       missionaryType={missionary.type}
                     />
                   ) : (
@@ -566,8 +550,8 @@ export default function MissionaryPortal() {
                             </div>
                           </div>
 
-                          <Button 
-                            type="submit" 
+                          <Button
+                            type="submit"
                             disabled={changingPassword}
                             className="w-full"
                           >

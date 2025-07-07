@@ -41,8 +41,7 @@ export class EmailVerificationService {
     }
 
     const verificationCode = this.generateVerificationCode();
-    
-    // Store verification code in database
+
     await db.update(missionaries)
       .set({
         emailVerificationCode: verificationCode,
@@ -62,7 +61,7 @@ export class EmailVerificationService {
           </div>
         </div>
         <p style="text-align: center; color: #64748b; font-size: 14px;">
-          Enter this 4-digit code in the application to verify your email address.
+          Enter this 6-digit code in the application to verify your email address.
         </p>
         <p style="text-align: center; color: #64748b; font-size: 14px;">
           This code will expire in 10 minutes for security.
@@ -87,7 +86,6 @@ export class EmailVerificationService {
         subject: subject,
         html: htmlContent
       });
-      
       console.log(`Verification email sent successfully to ${email}`);
       return true;
     } catch (error: unknown) {
@@ -106,7 +104,11 @@ export class EmailVerificationService {
     }
 
     if (!missionary.emailVerificationCode) {
-      throw new Error('No verification code found');
+      throw new Error('No verification code found for this missionary.');
+    }
+
+    if (missionary.emailVerificationCode !== code) {
+      return false; // The codes do not match
     }
 
     // Check if code expired (10 minutes)
@@ -114,25 +116,21 @@ export class EmailVerificationService {
       const sentTime = new Date(missionary.emailVerificationSentAt);
       const now = new Date();
       const diffMinutes = (now.getTime() - sentTime.getTime()) / (1000 * 60);
-      
+
       if (diffMinutes > 10) {
         throw new Error('Verification code has expired');
       }
     }
 
-    if (missionary.emailVerificationCode === code) {
-      // Mark email as verified
-      await db.update(missionaries)
-        .set({
-          emailVerified: true,
-          emailVerificationCode: null,
-          emailVerificationSentAt: null
-        })
-        .where(eq(missionaries.id, missionaryId));
-      
-      return true;
-    }
+    // Mark email as verified and clear the verification code
+    await db.update(missionaries)
+      .set({
+        emailVerified: true,
+        emailVerificationCode: null,
+        emailVerificationSentAt: null
+      })
+      .where(eq(missionaries.id, missionaryId));
 
-    return false;
+    return true;
   }
 }
