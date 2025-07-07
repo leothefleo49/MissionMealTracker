@@ -7,8 +7,8 @@ import {
 import { Ward } from "@shared/schema";
 import { apiRequest, queryClient, getQueryFn } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
-// Define User type here since the server may return additional properties
 interface AuthUser {
   id: number;
   username: string;
@@ -44,10 +44,10 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [authInitialized, setAuthInitialized] = useState(false);
   const [selectedWard, setSelectedWard] = useState<Ward | null>(null);
 
-  // Get current authenticated user
   const {
     data: user,
     error,
@@ -67,19 +67,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     enabled: authInitialized,
   });
 
-  // Get user's wards if they are authenticated and an admin
   const { data: userWards } = useQuery<Ward[], Error>({
     queryKey: ["/api/admin/wards"],
     queryFn: getQueryFn({ on401: "returnNull" }),
     enabled: !!user?.isAdmin,
   });
 
-  // Initialize auth state
   useEffect(() => {
     setAuthInitialized(true);
   }, []);
 
-  // Set the first ward as selected when wards are first loaded
   useEffect(() => {
     if (userWards && userWards.length > 0 && !selectedWard) {
       setSelectedWard(userWards[0]);
@@ -97,12 +94,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (loggedInUser: AuthUser) => {
       queryClient.setQueryData(["/api/user"], loggedInUser);
-
-      // If the user is an admin, fetch their wards
       if (loggedInUser.isAdmin) {
         queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
       }
-
       toast({
         title: "Login successful",
         description: `Welcome back, ${loggedInUser.username}!`,
@@ -129,12 +123,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (loggedInUser: AuthUser) => {
       queryClient.setQueryData(["/api/user"], loggedInUser);
-
-      // If the user is an admin, fetch their wards
       if (loggedInUser.isAdmin) {
         queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
       }
-
       toast({
         title: "Ward login successful",
         description: "You've successfully logged in as a ward admin",
@@ -162,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: "You have been successfully logged out.",
         variant: "default",
       });
+      setLocation("/");
     },
     onError: (error: Error) => {
       toast({

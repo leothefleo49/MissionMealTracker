@@ -121,7 +121,7 @@ export default function Admin() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-20">
+      <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 space-y-3 sm:space-y-0">
             <div className="flex flex-col">
@@ -151,7 +151,7 @@ export default function Admin() {
       </header>
 
       {/* Navigation Tabs */}
-      <nav className="bg-white border-b sticky top-[98px] z-20">
+      <nav className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex flex-wrap gap-1 sm:gap-2 py-2 overflow-x-auto">
             {tabs.map((tab) => {
