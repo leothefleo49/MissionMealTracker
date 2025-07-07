@@ -69,18 +69,6 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        purple: {
-          100: "#ede9fe",
-          800: "#6d28d9",
-        },
-        blue: {
-          100: "#dbeafe",
-          800: "#1e40af",
-        },
-        green: {
-          100: "#dcfce7",
-          800: "#166534",
-        }
       },
       keyframes: {
         "accordion-down": {

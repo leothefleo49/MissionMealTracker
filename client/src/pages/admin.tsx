@@ -10,9 +10,9 @@ import { WardManagement } from "@/components/ward-management";
 import { MessageStatsComponent } from "@/components/message-stats";
 import { TestMessageForm } from "@/components/test-message-form";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MealManagement } from "@/components/meal-management";
 
 export default function Admin() {
-  // Use selectedWard from the Auth context as the single source of truth.
   const { user, logoutMutation, selectedWard, isLoading: isAuthLoading, userWards } = useAuth();
   const [activeTab, setActiveTab] = useState("missionaries");
 
@@ -49,12 +49,10 @@ export default function Admin() {
   ];
 
   const renderContent = () => {
-    // SuperAdmins can always see the Ward Management tab
     if (activeTab === "wards" && user?.isSuperAdmin) {
       return <WardManagement />;
     }
 
-    // For other tabs, we need a selected ward.
     if (!selectedWard) {
       if (userWards && userWards.length > 0) {
         return (
@@ -81,49 +79,11 @@ export default function Admin() {
     switch (activeTab) {
       case "missionaries":
         return (
-          <>
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Missionary List</CardTitle>
-                <CardDescription>View and manage current missionaries in {selectedWard.name}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <MissionaryList wardId={selectedWard.id} />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Missionary Registration</CardTitle>
-                <CardDescription>How missionaries join the system</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm text-gray-600 space-y-2">
-                  <p>Missionaries must register themselves using the missionary portal with their @missionary.org email address.</p>
-                  <p>Share the ward access code with missionaries so they can:</p>
-                  <ul className="list-disc list-inside ml-4 space-y-1">
-                    <li>Register with their missionary email</li>
-                    <li>Verify their email address</li>
-                    <li>Set up their meal preferences</li>
-                    <li>Access their meal schedule</li>
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
-          </>
+          <MissionaryList wardId={selectedWard.id} />
         );
       case "meals":
         return (
-          <Card>
-            <CardHeader>
-              <CardTitle>Meal Management</CardTitle>
-              <CardDescription>View and manage upcoming meals for {selectedWard.name}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-500">
-                Meal management features coming soon. Ward members can schedule meals through the ward page.
-              </p>
-            </CardContent>
-          </Card>
+          <MealManagement wardId={selectedWard.id} />
         );
        case "settings":
         return (

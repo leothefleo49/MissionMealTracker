@@ -3,11 +3,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, Check, X, RefreshCw, MessageCircle } from "lucide-react";
+import { Pencil, Trash2, Check, X, RefreshCw, MessageCircle, Plus } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { EditMissionaryDialog } from "./edit-missionary-dialog";
+import { AddMissionaryDialog } from "./add-missionary-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -41,6 +42,7 @@ interface MissionaryListProps {
 
 export default function MissionaryList({ wardId }: MissionaryListProps) {
   const [editingMissionary, setEditingMissionary] = useState<Missionary | null>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -63,7 +65,7 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
       });
     },
   });
-  
+
   const { data: missionaries, isLoading, error } = useQuery({
     queryKey: ["/api/admin/missionaries/ward", wardId],
     queryFn: async () => {
@@ -77,7 +79,7 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
     },
     enabled: !!wardId,
   });
-  
+
   // Mutation to request consent from a missionary
   const requestConsentMutation = useMutation({
     mutationFn: async (missionaryId: number) => {
@@ -105,7 +107,7 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
       });
     }
   });
-  
+
   // Helper function to format date
   const formatDate = (dateString?: Date | null) => {
     if (!dateString) return "N/A";
@@ -141,26 +143,23 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
     );
   }
 
-  if (!missionaries || missionaries.length === 0) {
-    return (
-      <div className="p-6 bg-gray-50 border border-gray-200 rounded-md text-gray-500 text-center">
-        No missionaries found for this ward. Add your first missionary below.
-      </div>
-    );
-  }
-
   // Safe rendering function for the missionary list
   const renderMissionaryList = () => {
     try {
       return (
         <div className="space-y-4">
-          {Array.isArray(missionaries) && missionaries.map((missionary: Missionary) => {
+          <div className="flex justify-end">
+             <Button onClick={() => setIsAddDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" /> Add Missionary
+             </Button>
+          </div>
+          {Array.isArray(missionaries) && missionaries.length > 0 ? missionaries.map((missionary: Missionary) => {
             // Skip any invalid missionary data
             if (!missionary || typeof missionary !== 'object') {
               console.warn('Invalid missionary data:', missionary);
               return null;
             }
-            
+
             return (
               <Card key={missionary.id || 'unknown'} className="overflow-hidden">
                 <CardContent className="p-4">
@@ -195,13 +194,13 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
                         {missionary.notificationScheduleType === "before_meal" && missionary.hoursBefore && 
                           ` (${missionary.hoursBefore} hours before)`}
                       </div>
-                      
+
                       {missionary.dietaryRestrictions && (
                         <div className="text-xs text-amber-600 font-medium mt-1">
                           Dietary: {missionary.dietaryRestrictions}
                         </div>
                       )}
-                      
+
 
                     </div>
                     <div className="flex flex-col gap-2">
@@ -213,7 +212,7 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      
+
                       <Button 
                         variant="outline" 
                         size="sm" 
@@ -233,7 +232,11 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
                 </CardContent>
               </Card>
             );
-          })}
+          }) : (
+            <div className="p-6 bg-gray-50 border border-gray-200 rounded-md text-gray-500 text-center">
+              No missionaries found for this ward. Add your first missionary.
+            </div>
+          )}
         </div>
       );
     } catch (error) {
@@ -245,11 +248,19 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
       );
     }
   };
-  
+
   return (
     <>
       {renderMissionaryList()}
-      
+
+      {isAddDialogOpen && (
+        <AddMissionaryDialog
+          isOpen={isAddDialogOpen}
+          onClose={() => setIsAddDialogOpen(false)}
+          wardId={wardId}
+        />
+      )}
+
       {editingMissionary && (
         <EditMissionaryDialog
           isOpen={!!editingMissionary}
