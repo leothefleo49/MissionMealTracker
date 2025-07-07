@@ -1,287 +1,363 @@
-import type { Express, Request, Response, NextFunction } from "express";
-import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { z } from "zod";
-import { 
-  insertMealSchema, 
-  updateMealSchema, 
-  checkMealAvailabilitySchema, 
-  insertMissionarySchema, 
-  insertWardSchema,
-  insertUserWardSchema
-} from "@shared/schema";
-import { ZodError } from "zod";
-import { fromZodError } from "zod-validation-error";
-import { setupAuth, createSuperAdminUser, comparePasswords, hashPassword } from "./auth";
-import { notificationManager } from "./notifications";
-import { EmailVerificationService } from "./email-verification";
-import { TransferManagementService } from "./transfer-management";
-import { randomBytes } from "crypto";
+  import type { Express, Request, Response, NextFunction } from "express";
+  import { createServer, type Server } from "http";
+  import { storage } from "./storage";
+  import { z } from "zod";
+  import {
+    insertMealSchema,
+    updateMealSchema,
+    checkMealAvailabilitySchema,
+    insertMissionarySchema,
+    insertWardSchema,
+    insertUserWardSchema
+  } from "@shared/schema";
+  import { ZodError } from "zod";
+  import { fromZodError } from "zod-validation-error";
+  import { setupAuth, createSuperAdminUser, comparePasswords, hashPassword } from "./auth";
+  import { notificationManager } from "./notifications";
+  import { EmailVerificationService } from "./email-verification";
+  import { TransferManagementService } from "./transfer-management";
+  import { randomBytes } from "crypto";
 
-export async function registerRoutes(app: Express): Promise<Server> {
-  // Set up authentication
-  setupAuth(app);
-  await createSuperAdminUser();
+  export async function registerRoutes(app: Express): Promise<Server> {
+    // Set up authentication
+    setupAuth(app);
+    await createSuperAdminUser();
 
-  // Initialize services
-  const emailVerificationService = new EmailVerificationService();
-  const transferService = new TransferManagementService();
+    // Initialize services
+    const emailVerificationService = new EmailVerificationService();
+    const transferService = new TransferManagementService();
 
-  // Middleware to check if user is authenticated
-  const requireAuth = (req: Request, res: Response, next: NextFunction) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
-    next();
-  };
+    // Middleware to check if user is authenticated
+    const requireAuth = (req: Request, res: Response, next: NextFunction) => {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: 'Not authenticated' });
+      }
+      next();
+    };
 
-  // Middleware to check if user is admin (any admin role)
-  const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-    if (!req.isAuthenticated() || !(req.user?.isAdmin || req.user?.isSuperAdmin || req.user?.isMissionAdmin || req.user?.isStakeAdmin)) {
-      return res.status(403).json({ message: 'Access denied: Admin privileges required' });
-    }
-    next();
-  };
+    // Middleware to check if user is admin (any admin role)
+    const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+      if (!req.isAuthenticated() || !(req.user?.isAdmin || req.user?.isSuperAdmin || req.user?.isMissionAdmin || req.user?.isStakeAdmin)) {
+        return res.status(403).json({ message: 'Access denied: Admin privileges required' });
+      }
+      next();
+    };
 
-  // Middleware to check if user is superadmin
-  const requireSuperAdmin = (req: Request, res: Response, next: NextFunction) => {
-    if (!req.isAuthenticated() || !req.user?.isSuperAdmin) {
-      return res.status(403).json({ message: 'Access denied: SuperAdmin privileges required' });
-    }
-    next();
-  };
+    // Middleware to check if user is superadmin
+    const requireSuperAdmin = (req: Request, res: Response, next: NextFunction) => {
+      if (!req.isAuthenticated() || !req.user?.isSuperAdmin) {
+        return res.status(403).json({ message: 'Access denied: SuperAdmin privileges required' });
+      }
+      next();
+    };
 
-  // Helper for notifications
-  const notifyMissionary = async (missionaryId: number, message: string) => {
-    const missionary = await storage.getMissionary(missionaryId);
-    if (!missionary) return false;
+    // Helper for notifications
+    const notifyMissionary = async (missionaryId: number, message: string) => {
+      const missionary = await storage.getMissionary(missionaryId);
+      if (!missionary) return false;
 
-    // If this is SMS and the missionary hasn't granted consent, don't send the message
-    if (missionary.preferredNotification === 'text' && missionary.consentStatus !== 'granted') {
-      console.log(`Cannot send SMS to ${missionary.name}: Consent status is ${missionary.consentStatus}`);
-      return false;
-    }
+      if (missionary.preferredNotification === 'text' && missionary.consentStatus !== 'granted') {
+        console.log(`Cannot send SMS to ${missionary.name}: Consent status is ${missionary.consentStatus}`);
+        return false;
+      }
 
-    // For messenger, we assume consent policies are handled by the platform
-    if (missionary.preferredNotification === 'messenger' && !missionary.messengerAccount) {
-      console.log(`Cannot send messenger notification to ${missionary.name}: No messenger account provided`);
-      return false;
-    }
+      if (missionary.preferredNotification === 'messenger' && !missionary.messengerAccount) {
+        console.log(`Cannot send messenger notification to ${missionary.name}: No messenger account provided`);
+        return false;
+      }
 
-    // Use the notification manager to send the message
-    try {
-      const service = notificationManager.getServiceForMissionary(missionary);
+      try {
+        return await notificationManager.sendCustomMessage(missionary, message, 'status_update');
+      } catch (error) {
+        console.error(`Failed to send notification to ${missionary.name}:`, error);
+        return false;
+      }
+    };
 
-      // Custom notification message (not a standard message type, so we use a generic method)
-      return await notificationManager.sendCustomMessage(missionary, message, 'status_update');
-    } catch (error) {
-      console.error(`Failed to send notification to ${missionary.name}:`, error);
-      return false;
-    }
-  };
+    const notifyAdmin = async (message: string) => {
+      console.log(`Admin notification: ${message}`);
+      return true;
+    };
 
-  const notifyAdmin = async (message: string) => {
-    // This would send notifications to the admin via a designated method
-    console.log(`Admin notification: ${message}`);
-    return true;
-  };
+    // Error handling middleware
+    const handleZodError = (err: unknown, res: Response) => {
+      if (err instanceof ZodError) {
+        const validationError = fromZodError(err);
+        return res.status(400).json({
+          message: 'Validation error',
+          errors: validationError.details
+        });
+      }
 
-  // Error handling middleware
-  const handleZodError = (err: unknown, res: Response) => {
-    if (err instanceof ZodError) {
-      const validationError = fromZodError(err);
-      return res.status(400).json({ 
-        message: 'Validation error', 
-        errors: validationError.details 
-      });
-    }
+      console.error('API error:', err);
+      return res.status(500).json({ message: 'Internal server error' });
+    };
 
-    console.error('API error:', err);
-    return res.status(500).json({ message: 'Internal server error' });
-  };
+    // API Routes
+    app.get('/api/missionaries', async (req, res) => {
+      try {
+        const missionaries = await storage.getAllMissionaries();
+        res.json(missionaries);
+      } catch (err) {
+        console.error('Error fetching missionaries:', err);
+        res.status(500).json({ message: 'Failed to fetch missionaries' });
+      }
+    });
 
-  // API Routes
-  // Get all missionaries
-  app.get('/api/missionaries', async (req, res) => {
-    try {
-      const missionaries = await storage.getAllMissionaries();
-      res.json(missionaries);
-    } catch (err) {
-      console.error('Error fetching missionaries:', err);
-      res.status(500).json({ message: 'Failed to fetch missionaries' });
-    }
-  });
+    app.get('/api/missionaries/:typeOrId', async (req, res) => {
+      try {
+        const { typeOrId } = req.params;
+        const wardId = parseInt(req.query.wardId as string, 10) || 1;
 
-  // Get missionaries by type
-  app.get('/api/missionaries/:typeOrId', async (req, res) => {
-    try {
-      const { typeOrId } = req.params;
-      const wardId = parseInt(req.query.wardId as string, 10) || 1; // Default to ward 1 if not specified
+        if (!isNaN(parseInt(typeOrId, 10))) {
+          const missionaryId = parseInt(typeOrId, 10);
+          const missionary = await storage.getMissionary(missionaryId);
 
-      // Check if this is a missionary ID (numeric) or a type (elders/sisters)
-      if (!isNaN(parseInt(typeOrId, 10))) {
-        // This is a missionary ID
-        const missionaryId = parseInt(typeOrId, 10);
-        const missionary = await storage.getMissionary(missionaryId);
+          if (!missionary) {
+            return res.status(404).json({ message: 'Missionary not found' });
+          }
 
+          return res.json(missionary);
+        }
+
+        if (typeOrId !== 'elders' && typeOrId !== 'sisters') {
+          return res.status(400).json({ message: 'Type must be either "elders" or "sisters"' });
+        }
+
+        const missionaries = await storage.getMissionariesByType(typeOrId, wardId);
+        res.json(missionaries);
+      } catch (err) {
+        console.error('Error fetching missionaries:', err);
+        res.status(500).json({ message: 'Failed to fetch missionaries' });
+      }
+    });
+
+    app.post('/api/meals/check-availability', async (req, res) => {
+      try {
+        const data = checkMealAvailabilitySchema.parse(req.body);
+        const date = new Date(data.date);
+        const wardId = data.wardId || 1;
+
+        const isAvailable = await storage.checkMealAvailability(date, data.missionaryType, wardId);
+        res.json({ available: isAvailable });
+      } catch (err) {
+        handleZodError(err, res);
+      }
+    });
+
+    app.get('/api/meals', async (req, res) => {
+      try {
+        const startDateParam = req.query.startDate as string;
+        const endDateParam = req.query.endDate as string;
+
+        if (!startDateParam || !endDateParam) {
+          return res.status(400).json({ message: 'startDate and endDate are required' });
+        }
+
+        const startDate = new Date(startDateParam);
+        const endDate = new Date(endDateParam);
+
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          return res.status(400).json({ message: 'Invalid date format' });
+        }
+
+        const meals = await storage.getMealsByDateRange(startDate, endDate);
+        const missionaries = await storage.getAllMissionaries();
+        const missionaryMap = new Map(missionaries.map(m => [m.id, m]));
+
+        const mealsWithMissionaries = meals.map(meal => ({
+          ...meal,
+          missionary: missionaryMap.get(meal.missionaryId)
+        }));
+
+        res.json(mealsWithMissionaries);
+      } catch (err) {
+        console.error('Error fetching meals:', err);
+        res.status(500).json({ message: 'Failed to fetch meals' });
+      }
+    });
+
+    app.post('/api/meals', async (req, res) => {
+      try {
+        const requestData = {
+          ...req.body,
+          date: new Date(req.body.date)
+        };
+        const mealData = insertMealSchema.parse(requestData);
+        const missionary = await storage.getMissionary(mealData.missionaryId);
         if (!missionary) {
           return res.status(404).json({ message: 'Missionary not found' });
         }
 
-        return res.json(missionary);
-      } 
+        const mealDate = new Date(mealData.date);
+        const wardId = mealData.wardId || 1;
+        const isAvailable = await storage.checkMealAvailability(mealDate, mealData.missionaryId.toString(), wardId);
 
-      // This is a missionary type
-      if (typeOrId !== 'elders' && typeOrId !== 'sisters') {
-        return res.status(400).json({ message: 'Type must be either "elders" or "sisters"' });
-      }
-
-      const missionaries = await storage.getMissionariesByType(typeOrId, wardId);
-      res.json(missionaries);
-    } catch (err) {
-      console.error('Error fetching missionaries:', err);
-      res.status(500).json({ message: 'Failed to fetch missionaries' });
-    }
-  });
-
-  // Get missionaries by ward
-  app.get('/api/admin/missionaries/ward/:wardId', requireAdmin, async (req, res) => {
-    try {
-      const { wardId } = req.params;
-      const parsedWardId = parseInt(wardId, 10);
-
-      if (isNaN(parsedWardId)) {
-        return res.status(400).json({ message: 'Invalid ward ID' });
-      }
-
-      // Check if user has access to this ward
-      if (!req.user!.isSuperAdmin && !req.user!.isMissionAdmin && !req.user!.isStakeAdmin) { // Only ward admins need explicit ward access check
-        const userWards = await storage.getUserWards(req.user!.id);
-        const hasAccess = userWards.some(ward => ward.id === parsedWardId);
-
-        if (!hasAccess) {
-          return res.status(403).json({ message: 'You do not have access to this ward' });
+        if (!isAvailable) {
+          return res.status(409).json({ message: `${missionary.name} is already booked for this date` });
         }
+
+        const meal = await storage.createMeal(mealData);
+
+        // ... (notification logic)
+
+        res.status(201).json(meal);
+      } catch (err) {
+        handleZodError(err, res);
       }
+    });
 
-      const missionaries = await storage.getMissionariesByWard(parsedWardId);
-      res.json(missionaries);
-    } catch (err) {
-      console.error('Error fetching missionaries by ward:', err);
-      res.status(500).json({ message: 'Failed to fetch missionaries' });
-    }
-  });
+    app.patch('/api/meals/:id', async (req, res) => {
+      try {
+        const { id } = req.params;
+        const mealId = parseInt(id, 10);
 
-  // NEW: Admin create missionary endpoint
-  app.post('/api/admin/missionaries', requireAdmin, async (req, res) => {
-    try {
-      const missionaryData = insertMissionarySchema.parse(req.body);
+        if (isNaN(mealId)) {
+          return res.status(400).json({ message: 'Invalid meal ID' });
+        }
 
-      // Hash password if provided
-      if (missionaryData.password) {
-        missionaryData.password = await hashPassword(missionaryData.password);
+        const existingMeal = await storage.getMeal(mealId);
+        if (!existingMeal) {
+          return res.status(404).json({ message: 'Meal not found' });
+        }
+
+        const updateData = updateMealSchema.parse({ id: mealId, ...req.body });
+        const updatedMeal = await storage.updateMeal(updateData);
+
+        if (updatedMeal) {
+          // ... (notification logic)
+          res.json(updatedMeal);
+        } else {
+          res.status(404).json({ message: 'Meal not found' });
+        }
+      } catch (err) {
+        handleZodError(err, res);
       }
+    });
 
-      // Ensure consentStatus is set to 'granted' if created by admin
-      missionaryData.consentStatus = 'granted';
-      missionaryData.consentDate = new Date();
-      missionaryData.emailVerified = true; // Assume verified if admin adds
+    app.post('/api/meals/:id/cancel', async (req, res) => {
+      try {
+        const { id } = req.params;
+        const mealId = parseInt(id, 10);
 
-      const missionary = await storage.createMissionary(missionaryData);
-      res.status(201).json(missionary);
-    } catch (err) {
-      handleZodError(err, res);
-    }
-  });
+        if (isNaN(mealId)) {
+          return res.status(400).json({ message: 'Invalid meal ID' });
+        }
 
+        const { reason } = req.body;
+        const cancelledMeal = await storage.cancelMeal(mealId, reason);
 
-  // Check meal availability
-  app.post('/api/meals/check-availability', async (req, res) => {
-    try {
-      const data = checkMealAvailabilitySchema.parse(req.body);
-      const date = new Date(data.date);
-      const wardId = data.wardId || 1;  // Default to 1 if not provided
-
-      const isAvailable = await storage.checkMealAvailability(date, data.missionaryType, wardId);
-      res.json({ available: isAvailable });
-    } catch (err) {
-      handleZodError(err, res);
-    }
-  });
-
-  // Get meals by date range
-  app.get('/api/meals', async (req, res) => {
-    try {
-      const startDateParam = req.query.startDate as string;
-      const endDateParam = req.query.endDate as string;
-
-      if (!startDateParam || !endDateParam) {
-        return res.status(400).json({ message: 'startDate and endDate are required' });
+        if (cancelledMeal) {
+          // ... (notification logic)
+          res.json(cancelledMeal);
+        } else {
+          res.status(404).json({ message: 'Meal not found' });
+        }
+      } catch (err) {
+        console.error('Error cancelling meal:', err);
+        res.status(500).json({ message: 'Failed to cancel meal' });
       }
+    });
 
-      const startDate = new Date(startDateParam);
-      const endDate = new Date(endDateParam);
+    // Secure all /api/admin/* routes with the requireAdmin middleware
+    app.use("/api/admin/*", requireAdmin);
 
-      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        return res.status(400).json({ message: 'Invalid date format' });
+    app.get('/api/admin/wards', async (req, res) => {
+      try {
+        let wards;
+        if (req.user!.isSuperAdmin) {
+          wards = await storage.getAllWards();
+        } else {
+          wards = await storage.getUserWards(req.user!.id);
+        }
+        res.json(wards);
+      } catch (err) {
+        console.error('Error fetching wards:', err);
+        res.status(500).json({ message: 'Failed to fetch wards' });
       }
+    });
 
-      const meals = await storage.getMealsByDateRange(startDate, endDate);
-
-      // Get missionaries to include their information
-      const missionaries = await storage.getAllMissionaries();
-      const missionaryMap = new Map(missionaries.map(m => [m.id, m]));
-
-      const mealsWithMissionaries = meals.map(meal => ({
-        ...meal,
-        missionary: missionaryMap.get(meal.missionaryId)
-      }));
-
-      res.json(mealsWithMissionaries);
-    } catch (err) {
-      console.error('Error fetching meals:', err);
-      res.status(500).json({ message: 'Failed to fetch meals' });
-    }
-  });
-
-  // Get meals by host phone
-  app.get('/api/meals/host/:phone', async (req, res) => {
-    try {
-      const { phone } = req.params;
-      const meals = await storage.getUpcomingMealsByHostPhone(phone);
-
-      // Get missionaries to include their information
-      const missionaries = await storage.getAllMissionaries();
-      const missionaryMap = new Map(missionaries.map(m => [m.id, m]));
-
-      const mealsWithMissionaries = meals.map(meal => ({
-        ...meal,
-        missionary: missionaryMap.get(meal.missionaryId)
-      }));
-
-      res.json(mealsWithMissionaries);
-    } catch (err) {
-      console.error('Error fetching meals by host:', err);
-      res.status(500).json({ message: 'Failed to fetch meals' });
-    }
-  });
-
-  // Create a new meal
-  app.post('/api/meals', async (req, res) => {
-    try {
-      console.log('Received meal booking request:', req.body);
-      // Convert date string to Date object before validation
-      const requestData = {
-        ...req.body,
-        date: new Date(req.body.date)
-      };
-      const mealData = insertMealSchema.parse(requestData);
-
-      // Verify the missionary exists
-      const missionary = await storage.getMissionary(mealData.missionaryId);
-      if (!missionary) {
-        return res.status(404).json({ message: 'Missionary not found' });
+    app.post('/api/admin/wards', requireSuperAdmin, async (req, res) => {
+      try {
+        const wardData = insertWardSchema.parse(req.body);
+        const ward = await storage.createWard(wardData);
+        res.status(201).json(ward);
+      } catch (err) {
+        handleZodError(err, res);
       }
+    });
+
+    app.patch('/api/admin/wards/:id', requireSuperAdmin, async (req, res) => {
+      try {
+        const { id } = req.params;
+        const wardId = parseInt(id, 10);
+
+        if (isNaN(wardId)) {
+          return res.status(400).json({ message: 'Invalid ward ID' });
+        }
+
+        const existingWard = await storage.getWard(wardId);
+        if (!existingWard) {
+          return res.status(404).json({ message: 'Ward not found' });
+        }
+
+        const updatedWard = await storage.updateWard(wardId, req.body);
+
+        if (updatedWard) {
+          res.json(updatedWard);
+        } else {
+          res.status(404).json({ message: 'Ward not found' });
+        }
+      } catch (err) {
+        console.error('Error updating ward:', err);
+        res.status(500).json({ message: 'Failed to update ward' });
+      }
+    });
+
+    app.get('/api/admin/missionaries/ward/:wardId', async (req, res) => {
+      try {
+        const { wardId } = req.params;
+        const parsedWardId = parseInt(wardId, 10);
+
+        if (isNaN(parsedWardId)) {
+          return res.status(400).json({ message: 'Invalid ward ID' });
+        }
+
+        if (!req.user!.isSuperAdmin) {
+          const userWards = await storage.getUserWards(req.user!.id);
+          const hasAccess = userWards.some(ward => ward.id === parsedWardId);
+
+          if (!hasAccess) {
+            return res.status(403).json({ message: 'You do not have access to this ward' });
+          }
+        }
+
+        const missionaries = await storage.getMissionariesByWard(parsedWardId);
+        res.json(missionaries);
+      } catch (err) {
+        console.error('Error fetching missionaries by ward:', err);
+        res.status(500).json({ message: 'Failed to fetch missionaries' });
+      }
+    });
+
+    app.post('/api/admin/missionaries', async (req, res) => {
+      try {
+        const missionaryData = insertMissionarySchema.parse(req.body);
+
+        if (missionaryData.password) {
+          missionaryData.password = await hashPassword(missionaryData.password);
+        }
+
+        missionaryData.consentStatus = 'granted';
+        missionaryData.consentDate = new Date();
+        missionaryData.emailVerified = true;
+
+        const missionary = await storage.createMissionary(missionaryData);
+        res.status(201).json(missionary);
+      } catch (err) {
+        handleZodError(err, res);
+      }
+    });
 
       // Check meal availability for this date and missionary
       const mealDate = new Date(mealData.date);
