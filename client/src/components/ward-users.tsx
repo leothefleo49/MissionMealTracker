@@ -67,7 +67,7 @@ export function WardUsers({ wardId }: WardUsersProps) {
     queryFn: async () => {
       const response = await fetch(`/api/admin/wards/${wardId}/users`);
       if (!response.ok) {
-        throw new Error('Failed to fetch ward users');
+        throw new Error("Failed to fetch ward users");
       }
       return response.json();
     },
@@ -77,7 +77,9 @@ export function WardUsers({ wardId }: WardUsersProps) {
   // Add user mutation
   const addUserMutation = useMutation({
     mutationFn: async (username: string) => {
-      const res = await apiRequest("POST", `/api/admin/wards/${wardId}/users`, { username });
+      const res = await apiRequest("POST", `/api/admin/wards/${wardId}/users`, {
+        username,
+      });
       return await res.json();
     },
     onSuccess: () => {
@@ -87,12 +89,16 @@ export function WardUsers({ wardId }: WardUsersProps) {
       });
       setIsAddUserDialogOpen(false);
       setUsername("");
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/wards", wardId, "users"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/admin/wards", wardId, "users"],
+      });
     },
     onError: (error: Error) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to add user. User might not exist or is already added to this ward.",
+        description:
+          error.message ||
+          "Failed to add user. User might not exist or is already added to this ward.",
         variant: "destructive",
       });
     },
@@ -101,7 +107,10 @@ export function WardUsers({ wardId }: WardUsersProps) {
   // Remove user mutation
   const removeUserMutation = useMutation({
     mutationFn: async (userId: number) => {
-      const res = await apiRequest("DELETE", `/api/admin/wards/${wardId}/users/${userId}`);
+      const res = await apiRequest(
+        "DELETE",
+        `/api/admin/wards/${wardId}/users/${userId}`,
+      );
       return res.ok;
     },
     onSuccess: () => {
@@ -111,7 +120,9 @@ export function WardUsers({ wardId }: WardUsersProps) {
       });
       setIsRemoveDialogOpen(false);
       setUserToRemove(null);
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/wards", wardId, "users"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/admin/wards", wardId, "users"],
+      });
     },
     onError: (error: Error) => {
       toast({
@@ -143,9 +154,7 @@ export function WardUsers({ wardId }: WardUsersProps) {
 
   if (isLoading) {
     return (
-      <div className="py-2 text-sm text-gray-500">
-        Loading ward admins...
-      </div>
+      <div className="py-2 text-sm text-gray-500">Loading ward admins...</div>
     );
   }
 
@@ -164,7 +173,8 @@ export function WardUsers({ wardId }: WardUsersProps) {
             <DialogHeader>
               <DialogTitle>Add Admin to Ward</DialogTitle>
               <DialogDescription>
-                Enter the username of the user you want to add as an admin to this ward. The user must already exist in the system.
+                Enter the username of the user you want to add as an admin to this
+                ward. The user must already exist in the system.
               </DialogDescription>
             </DialogHeader>
 
@@ -183,8 +193,8 @@ export function WardUsers({ wardId }: WardUsersProps) {
             </div>
 
             <DialogFooter>
-              <Button 
-                disabled={!username.trim() || addUserMutation.isPending} 
+              <Button
+                disabled={!username.trim() || addUserMutation.isPending}
                 onClick={handleAddUser}
               >
                 {addUserMutation.isPending ? "Adding..." : "Add Admin"}
@@ -201,7 +211,9 @@ export function WardUsers({ wardId }: WardUsersProps) {
               <TableRow>
                 <TableHead className="whitespace-nowrap">Username</TableHead>
                 <TableHead className="whitespace-nowrap">Role</TableHead>
-                <TableHead className="w-16 text-right whitespace-nowrap">Actions</TableHead>
+                <TableHead className="w-16 text-right whitespace-nowrap">
+                  Actions
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -210,7 +222,9 @@ export function WardUsers({ wardId }: WardUsersProps) {
                   <TableCell className="font-medium whitespace-nowrap">
                     <div className="flex items-center">
                       <User className="h-4 w-4 mr-2 text-gray-500 flex-shrink-0" />
-                      <span className="truncate max-w-[120px] sm:max-w-none">{user.username}</span>
+                      <span className="truncate max-w-[120px] sm:max-w-none">
+                        {user.username}
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
@@ -223,9 +237,7 @@ export function WardUsers({ wardId }: WardUsersProps) {
                         Admin
                       </Badge>
                     ) : (
-                      <Badge variant="outline">
-                        User
-                      </Badge>
+                      <Badge variant="outline">User</Badge>
                     )}
                   </TableCell>
                   <TableCell className="text-right whitespace-nowrap">
@@ -252,17 +264,22 @@ export function WardUsers({ wardId }: WardUsersProps) {
       )}
 
       {/* Remove User Dialog */}
-      <AlertDialog open={isRemoveDialogOpen} onOpenChange={setIsRemoveDialogOpen}>
+      <AlertDialog
+        open={isRemoveDialogOpen}
+        onOpenChange={setIsRemoveDialogOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Admin</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove {userToRemove?.username} from this ward? 
-              They will no longer have admin access to this ward's data.
+              Are you sure you want to remove {userToRemove?.username} from this
+              ward? They will no longer have admin access to this ward's data.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setUserToRemove(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setUserToRemove(null)}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleRemoveUser}
               className="bg-red-500 text-white hover:bg-red-600"

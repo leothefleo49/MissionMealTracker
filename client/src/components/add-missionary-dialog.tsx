@@ -22,18 +22,25 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const missionaryFormSchema = z.object({
   name: z.string().min(2, "Name is required"),
   type: z.enum(["elders", "sisters"], { required_error: "Type is required" }),
   phoneNumber: z.string().min(10, "A valid phone number is required"),
-  emailAddress: z.string().email("A valid email is required").refine(
-    (email) => email.endsWith("@missionary.org"),
-    "Email must be a @missionary.org address"
-  ),
+  emailAddress: z
+    .string()
+    .email("A valid email is required")
+    .refine(
+      (email) => email.endsWith("@missionary.org"),
+      "Email must be a @missionary.org address",
+    ),
   password: z.string().min(6, "Password must be at least 6 characters"),
   wardId: z.number(),
 });
@@ -44,7 +51,11 @@ interface AddMissionaryDialogProps {
   wardId: number;
 }
 
-export function AddMissionaryDialog({ isOpen, onClose, wardId }: AddMissionaryDialogProps) {
+export function AddMissionaryDialog({
+  isOpen,
+  onClose,
+  wardId,
+}: AddMissionaryDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -62,13 +73,19 @@ export function AddMissionaryDialog({ isOpen, onClose, wardId }: AddMissionaryDi
 
   const createMissionaryMutation = useMutation({
     mutationFn: (data: z.infer<typeof missionaryFormSchema>) =>
-      apiRequest("POST", "/api/admin/missionaries", data),
+      apiRequest("POST", "/api/admin/missionaries", {
+        ...data,
+        emailVerified: true, // Auto-verify email
+        consentStatus: "granted", // Auto-grant consent
+      }),
     onSuccess: () => {
       toast({
         title: "Missionary Added",
         description: "The new missionary has been added successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/missionaries/ward", wardId] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/admin/missionaries/ward", wardId],
+      });
       onClose();
     },
     onError: (error: any) => {
@@ -90,7 +107,8 @@ export function AddMissionaryDialog({ isOpen, onClose, wardId }: AddMissionaryDi
         <DialogHeader>
           <DialogTitle>Add New Missionary</DialogTitle>
           <DialogDescription>
-            Enter the details for the new missionary.
+            Enter the details for the new missionary. Their email will be
+            automatically verified.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -102,7 +120,10 @@ export function AddMissionaryDialog({ isOpen, onClose, wardId }: AddMissionaryDi
                 <FormItem>
                   <FormLabel>Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Elder Smith & Elder Johnson" {...field} />
+                    <Input
+                      placeholder="Elder Smith & Elder Johnson"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -115,7 +136,10 @@ export function AddMissionaryDialog({ isOpen, onClose, wardId }: AddMissionaryDi
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select type" />
@@ -174,8 +198,13 @@ export function AddMissionaryDialog({ isOpen, onClose, wardId }: AddMissionaryDi
               <Button variant="outline" type="button" onClick={onClose}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createMissionaryMutation.isPending}>
-                {createMissionaryMutation.isPending ? "Adding..." : "Add Missionary"}
+              <Button
+                type="submit"
+                disabled={createMissionaryMutation.isPending}
+              >
+                {createMissionaryMutation.isPending
+                  ? "Adding..."
+                  : "Add Missionary"}
               </Button>
             </DialogFooter>
           </form>

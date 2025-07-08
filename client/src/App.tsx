@@ -21,12 +21,21 @@ function Router() {
       <Route path="/" component={HomePage} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/missionary-register" component={MissionaryRegister} />
-      <Route path="/missionary-register/:accessCode" component={MissionaryRegister} />
-      <Route path="/missionary-forgot-password/:accessCode" component={MissionaryForgotPassword} />
+      <Route
+        path="/missionary-register/:accessCode"
+        component={MissionaryRegister}
+      />
+      <Route
+        path="/missionary-forgot-password/:accessCode"
+        component={MissionaryForgotPassword}
+      />
       <Route path="/missionary-portal" component={MissionaryPortal} />
+      <Route
+        path="/missionary-portal/:accessCode"
+        component={MissionaryPortal}
+      />
       <ProtectedRoute path="/admin" component={Admin} />
       <Route path="/ward/:accessCode" component={WardPage} />
-      <Route path="/missionary-portal/:accessCode" component={MissionaryPortal} />
       <Route component={NotFound} />
     </Switch>
   );

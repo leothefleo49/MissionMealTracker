@@ -1,6 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Building, Users, Calendar, Settings, LogOut } from "lucide-react";
@@ -13,8 +19,26 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MealManagement } from "@/components/meal-management";
 
 export default function Admin() {
-  const { user, logoutMutation, selectedWard, isLoading: isAuthLoading, userWards } = useAuth();
+  const {
+    user,
+    logoutMutation,
+    selectedWard,
+    isLoading: isAuthLoading,
+    userWards,
+  } = useAuth();
   const [activeTab, setActiveTab] = useState("missionaries");
+
+  useEffect(() => {
+    // When the component mounts, or when the user or selected ward changes,
+    // ensure a valid tab is selected.
+    if (!selectedWard && activeTab !== "wards") {
+      setActiveTab("wards");
+    } else if (selectedWard && activeTab === "wards" && !user?.isSuperAdmin) {
+      // If a non-super-admin is on the wards tab and a ward is selected,
+      // switch to the missionaries tab.
+      setActiveTab("missionaries");
+    }
+  }, [selectedWard, user, activeTab]);
 
   if (isAuthLoading) {
     return (
@@ -59,33 +83,37 @@ export default function Admin() {
           <Card className="mt-6">
             <CardContent className="pt-6 text-center">
               <Building className="mx-auto h-12 w-12 text-gray-300" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No Ward Selected</h3>
-              <p className="mt-1 text-sm text-gray-500">Please select a ward from the dropdown above to continue.</p>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">
+                No Ward Selected
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Please select a ward from the dropdown above to continue.
+              </p>
             </CardContent>
           </Card>
-        )
+        );
       }
       return (
-         <Card className="mt-6">
-            <CardContent className="pt-6 text-center">
-              <Building className="mx-auto h-12 w-12 text-gray-300" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No Wards Found</h3>
-              <p className="mt-1 text-sm text-gray-500">Super Admins can create a new ward in the "Wards" tab.</p>
-            </CardContent>
-          </Card>
-      )
+        <Card className="mt-6">
+          <CardContent className="pt-6 text-center">
+            <Building className="mx-auto h-12 w-12 text-gray-300" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">
+              No Wards Found
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Super Admins can create a new ward in the "Wards" tab.
+            </p>
+          </CardContent>
+        </Card>
+      );
     }
 
     switch (activeTab) {
       case "missionaries":
-        return (
-          <MissionaryList wardId={selectedWard.id} />
-        );
+        return <MissionaryList wardId={selectedWard.id} />;
       case "meals":
-        return (
-          <MealManagement wardId={selectedWard.id} />
-        );
-       case "settings":
+        return <MealManagement wardId={selectedWard.id} />;
+      case "settings":
         return (
           <div className="space-y-6">
             <Card>
@@ -103,7 +131,8 @@ export default function Admin() {
               <CardHeader>
                 <CardTitle>Test Messages</CardTitle>
                 <CardDescription>
-                  Send test messages to verify your notification settings for {selectedWard.name}
+                  Send test messages to verify your notification settings for{" "}
+                  {selectedWard.name}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -117,7 +146,6 @@ export default function Admin() {
     }
   };
 
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
@@ -125,13 +153,45 @@ export default function Admin() {
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 space-y-3 sm:space-y-0">
             <div className="flex flex-col">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+                Admin Dashboard
+              </h1>
               <div className="flex flex-wrap items-center gap-2 mt-1">
-                <p className="text-sm text-gray-600">Welcome, {user?.username}</p>
-                 {user?.isSuperAdmin && <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">Super Admin</Badge>}
-                 {user?.isMissionAdmin && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">Mission Admin</Badge>}
-                 {user?.isStakeAdmin && <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">Stake Admin</Badge>}
-                 {user?.isAdmin && !user.isSuperAdmin && !user.isMissionAdmin && !user.isStakeAdmin && <Badge variant="outline" className="text-xs">Admin</Badge>}
+                <p className="text-sm text-gray-600">
+                  Welcome, {user?.username}
+                </p>
+                {user?.isSuperAdmin && (
+                  <Badge
+                    variant="secondary"
+                    className="text-xs bg-purple-100 text-purple-800"
+                  >
+                    Super Admin
+                  </Badge>
+                )}
+                {user?.isMissionAdmin && (
+                  <Badge
+                    variant="secondary"
+                    className="text-xs bg-blue-100 text-blue-800"
+                  >
+                    Mission Admin
+                  </Badge>
+                )}
+                {user?.isStakeAdmin && (
+                  <Badge
+                    variant="secondary"
+                    className="text-xs bg-green-100 text-green-800"
+                  >
+                    Stake Admin
+                  </Badge>
+                )}
+                {user?.isAdmin &&
+                  !user.isSuperAdmin &&
+                  !user.isMissionAdmin &&
+                  !user.isStakeAdmin && (
+                    <Badge variant="outline" className="text-xs">
+                      Admin
+                    </Badge>
+                  )}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -155,7 +215,7 @@ export default function Admin() {
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex flex-wrap gap-1 sm:gap-2 py-2 overflow-x-auto">
             {tabs.map((tab) => {
-              const isDisabled = tab.id !== 'wards' && !selectedWard;
+              const isDisabled = tab.id !== "wards" && !selectedWard;
               return (
                 <Button
                   key={tab.id}
