@@ -80,84 +80,30 @@
   width: 3px;
   height: 3px;
 }
-.dots-1 {
-  grid-template-areas: ". . ." ". a ." ". . .";
-}
-.dots-2 {
-  grid-template-areas: "a . ." ". . ." ". . b";
-}
-.dots-3 {
-  grid-template-areas: "a . ." ". b ." ". . c";
-}
-.dots-4 {
-  grid-template-areas: "a . b" ". . ." "c . d";
-}
-.dots-5 {
-  grid-template-areas: "a . b" ". c ." "d . e";
-}
-.dots-6 {
-  grid-template-areas: "a . b" "c . d" "e . f";
-}
-.dots-1 .dot-1 {
-  grid-area: a;
-}
-.dots-2 .dot-1 {
-  grid-area: a;
-}
-.dots-2 .dot-2 {
-  grid-area: b;
-}
-.dots-3 .dot-1 {
-  grid-area: a;
-}
-.dots-3 .dot-2 {
-  grid-area: b;
-}
-.dots-3 .dot-3 {
-  grid-area: c;
-}
-.dots-4 .dot-1 {
-  grid-area: a;
-}
-.dots-4 .dot-2 {
-  grid-area: b;
-}
-.dots-4 .dot-3 {
-  grid-area: c;
-}
-.dots-4 .dot-4 {
-  grid-area: d;
-}
-.dots-5 .dot-1 {
-  grid-area: a;
-}
-.dots-5 .dot-2 {
-  grid-area: b;
-}
-.dots-5 .dot-3 {
-  grid-area: c;
-}
-.dots-5 .dot-4 {
-  grid-area: d;
-}
-.dots-5 .dot-5 {
-  grid-area: e;
-}
-.dots-6 .dot-1 {
-  grid-area: a;
-}
-.dots-6 .dot-2 {
-  grid-area: b;
-}
-.dots-6 .dot-3 {
-  grid-area: c;
-}
-.dots-6 .dot-4 {
-  grid-area: d;
-}
-.dots-6 .dot-5 {
-  grid-area: e;
-}
-.dots-6 .dot-6 {
-  grid-area: f;
-}
+.dots-1 { grid-template-areas: ". . ." ". a ." ". . ."; }
+.dots-2 { grid-template-areas: "a . ." ". . ." ". . b"; }
+.dots-3 { grid-template-areas: "a . ." ". b ." ". . c"; }
+.dots-4 { grid-template-areas: "a . b" ". . ." "c . d"; }
+.dots-5 { grid-template-areas: "a . b" ". c ." "d . e"; }
+.dots-6 { grid-template-areas: "a . b" "c . d" "e . f"; }
+.dots-1 .dot-1 { grid-area: a; }
+.dots-2 .dot-1 { grid-area: a; }
+.dots-2 .dot-2 { grid-area: b; }
+.dots-3 .dot-1 { grid-area: a; }
+.dots-3 .dot-2 { grid-area: b; }
+.dots-3 .dot-3 { grid-area: c; }
+.dots-4 .dot-1 { grid-area: a; }
+.dots-4 .dot-2 { grid-area: b; }
+.dots-4 .dot-3 { grid-area: c; }
+.dots-4 .dot-4 { grid-area: d; }
+.dots-5 .dot-1 { grid-area: a; }
+.dots-5 .dot-2 { grid-area: b; }
+.dots-5 .dot-3 { grid-area: c; }
+.dots-5 .dot-4 { grid-area: d; }
+.dots-5 .dot-5 { grid-area: e; }
+.dots-6 .dot-1 { grid-area: a; }
+.dots-6 .dot-2 { grid-area: b; }
+.dots-6 .dot-3 { grid-area: c; }
+.dots-6 .dot-4 { grid-area: d; }
+.dots-6 .dot-5 { grid-area: e; }
+.dots-6 .dot-6 { grid-area: f; }

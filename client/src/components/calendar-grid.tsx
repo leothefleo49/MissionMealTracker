@@ -1,21 +1,22 @@
 import { useState, useEffect, useMemo } from "react";
-import {
-  add,
-  eachDayOfInterval,
-  endOfMonth,
-  endOfWeek,
-  format,
+import { 
+  add, 
+  eachDayOfInterval, 
+  endOfMonth, 
+  endOfWeek, 
+  format, 
+  getDay, 
   isBefore,
-  isEqual,
-  isSameDay,
-  isSameMonth,
-  isToday,
-  parse,
-  parseISO,
-  startOfToday,
-  startOfWeek,
+  isEqual, 
+  isSameDay, 
+  isSameMonth, 
+  isToday, 
+  parse, 
+  parseISO, 
+  startOfToday, 
+  startOfWeek 
 } from "date-fns";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, isWithinBookingRange } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -41,28 +42,26 @@ type CalendarGridProps = {
   autoSelectNextAvailable?: boolean;
 };
 
-export function CalendarGrid({
-  onSelectDate,
-  selectedDate,
+export function CalendarGrid({ 
+  onSelectDate, 
+  selectedDate, 
   missionaryType,
   startMonth = startOfToday(),
   maxMonths = 6,
   wardId,
-  autoSelectNextAvailable = false,
+  autoSelectNextAvailable = false
 }: CalendarGridProps) {
+
   const { data: wardMissionaries } = useQuery({
-    queryKey: ["/api/wards", wardId, "missionaries"],
-    queryFn: () =>
-      fetch(`/api/wards/${wardId}/missionaries`).then((res) => res.json()),
+    queryKey: ['/api/wards', wardId, 'missionaries'],
+    queryFn: () => fetch(`/api/wards/${wardId}/missionaries`).then(res => res.json()),
     enabled: !!wardId,
     staleTime: 5000,
-    refetchInterval: 5000,
+    refetchInterval: 5000
   });
 
   const today = startOfToday();
-  const [currentMonth, setCurrentMonth] = useState(
-    format(startMonth, "MMM-yyyy"),
-  );
+  const [currentMonth, setCurrentMonth] = useState(format(startMonth, "MMM-yyyy"));
   const firstDayCurrentMonth = parse(currentMonth, "MMM-yyyy", new Date());
 
   const days = eachDayOfInterval({
@@ -80,61 +79,46 @@ export function CalendarGrid({
     setCurrentMonth(format(firstDayNextMonth, "MMM-yyyy"));
   }
 
-  const isPrevMonthDisabled =
-    isEqual(
-      parse(currentMonth, "MMM-yyyy", new Date()).getMonth(),
-      today.getMonth(),
-    ) &&
-    parse(currentMonth, "MMM-yyyy", new Date()).getFullYear() ===
-      today.getFullYear();
+  const isPrevMonthDisabled = isEqual(
+    parse(currentMonth, "MMM-yyyy", new Date()).getMonth(),
+    today.getMonth()
+  ) && parse(currentMonth, "MMM-yyyy", new Date()).getFullYear() === today.getFullYear();
 
   const maxMonthsAhead = 3;
-  const isNextMonthDisabled =
-    isEqual(
-      parse(currentMonth, "MMM-yyyy", new Date()).getMonth(),
-      add(today, { months: maxMonthsAhead - 1 }).getMonth(),
-    ) &&
-    parse(currentMonth, "MMM-yyyy", new Date()).getFullYear() ===
-      add(today, { months: maxMonthsAhead - 1 }).getFullYear();
+  const isNextMonthDisabled = isEqual(
+    parse(currentMonth, "MMM-yyyy", new Date()).getMonth(),
+    add(today, { months: maxMonthsAhead - 1 }).getMonth()
+  ) && parse(currentMonth, "MMM-yyyy", new Date()).getFullYear() === add(today, { months: maxMonthsAhead - 1 }).getFullYear();
 
   const startDate = startOfWeek(firstDayCurrentMonth, { weekStartsOn: 0 });
-  const endDate = endOfWeek(endOfMonth(firstDayCurrentMonth), {
-    weekStartsOn: 0,
-  });
+  const endDate = endOfWeek(endOfMonth(firstDayCurrentMonth), { weekStartsOn: 0 });
 
   const { data: meals, isLoading } = useQuery({
-    queryKey: [
-      "/api/meals",
-      format(startDate, "yyyy-MM"),
-      format(endDate, "yyyy-MM"),
-    ],
-    queryFn: () =>
-      fetch(
-        `/api/meals?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
-      ).then((res) => res.json()),
+    queryKey: ['/api/meals', format(startDate, 'yyyy-MM'), format(endDate, 'yyyy-MM')],
+    queryFn: () => fetch(
+      `/api/meals?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
+    ).then(res => res.json()),
     staleTime: 1000,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
     refetchInterval: 1000,
-    gcTime: 5 * 60 * 1000,
+    gcTime: 5 * 60 * 1000
   });
 
   const mealStatusMap = useMemo(() => {
     const map = new Map<string, MealStatus>();
 
     if (meals && wardMissionaries) {
-      (meals as any[]).forEach((meal: any) => {
+      meals.forEach((meal: any) => {
         if (meal.cancelled) return;
 
         const mealDate = format(parseISO(meal.date), "yyyy-MM-dd");
         const mealStatus = map.get(mealDate) || { bookedMissionaries: [] };
 
-        const missionaryIndex = wardMissionaries.findIndex(
-          (m: any) => m.id === meal.missionary.id,
-        );
+        const missionaryIndex = wardMissionaries.findIndex((m:any) => m.id === meal.missionary.id);
 
         const missionaryExists = mealStatus.bookedMissionaries.some(
-          (m) => m.id === meal.missionary.id,
+          (m) => m.id === meal.missionary.id
         );
 
         if (!missionaryExists && missionaryIndex !== -1) {
@@ -144,7 +128,7 @@ export function CalendarGrid({
             name: meal.missionary.name,
             type: meal.missionary.type,
             color: `var(--missionary-${setNumber}-color)`,
-            dotClass: `dots-${mealStatus.bookedMissionaries.length + 1}`,
+            dotClass: `dots-${mealStatus.bookedMissionaries.length + 1}`
           });
         }
 
@@ -165,7 +149,7 @@ export function CalendarGrid({
           disabled={isPrevMonthDisabled}
           className={cn(
             "p-0.5 sm:p-2 rounded-full hover:bg-gray-200 focus:outline-none w-6 h-6 sm:w-10 sm:h-10 flex-shrink-0",
-            isPrevMonthDisabled && "opacity-50 cursor-not-allowed",
+            isPrevMonthDisabled && "opacity-50 cursor-not-allowed"
           )}
         >
           <ChevronLeft className="h-3 w-3 sm:h-5 sm:w-5" />
@@ -173,7 +157,7 @@ export function CalendarGrid({
         </Button>
 
         <h3 className="text-xs sm:text-base font-medium text-gray-900 truncate px-1 flex-grow text-center min-w-0">
-          {format(firstDayCurrentMonth, "MMMM yyyy")}
+          {format(firstDayCurrentMonth, "MMM yyyy")}
         </h3>
 
         <Button
@@ -183,7 +167,7 @@ export function CalendarGrid({
           disabled={isNextMonthDisabled}
           className={cn(
             "p-0.5 sm:p-2 rounded-full hover:bg-gray-200 focus:outline-none w-6 h-6 sm:w-10 sm:h-10 flex-shrink-0",
-            isNextMonthDisabled && "opacity-50 cursor-not-allowed",
+            isNextMonthDisabled && "opacity-50 cursor-not-allowed"
           )}
         >
           <ChevronRight className="h-3 w-3 sm:h-5 sm:w-5" />
@@ -211,29 +195,19 @@ export function CalendarGrid({
         ) : (
           days.map((day) => {
             const formattedDay = format(day, "yyyy-MM-dd");
-            const mealStatus = mealStatusMap.get(formattedDay) || {
-              bookedMissionaries: [],
-            };
-            const isSelected = selectedDate
-              ? isSameDay(day, selectedDate)
-              : false;
+            const mealStatus = mealStatusMap.get(formattedDay) || { bookedMissionaries: [] };
+            const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
 
             const isMissionaryId = !isNaN(parseInt(missionaryType, 10));
-            const isDayUnavailable = isMissionaryId
-              ? mealStatus.bookedMissionaries.some(
-                  (m: any) => m.id.toString() === missionaryType,
-                )
+            const isDayUnavailable = isMissionaryId 
+              ? mealStatus.bookedMissionaries.some((m: any) => m.id.toString() === missionaryType)
               : false;
 
             const isOutsideBookingRange = !isWithinBookingRange(day);
-            const isCompletelyBooked =
-              wardMissionaries?.length === mealStatus.bookedMissionaries.length;
+            const isCompletelyBooked = wardMissionaries?.length === mealStatus.bookedMissionaries.length;
             const isPastDate = isBefore(day, startOfToday()) && !isToday(day);
             const isDimmed = isPastDate || isCompletelyBooked;
-            const isDisabled =
-              !isSameMonth(day, firstDayCurrentMonth) ||
-              isOutsideBookingRange ||
-              isDayUnavailable;
+            const isDisabled = !isSameMonth(day, firstDayCurrentMonth) || isOutsideBookingRange || isDayUnavailable;
 
             return (
               <div
@@ -243,32 +217,21 @@ export function CalendarGrid({
                   !isDisabled && "hover:bg-gray-50 cursor-pointer",
                   isDisabled && "disabled opacity-30 pointer-events-none",
                   isDimmed && !isSelected && "opacity-60",
-                  isSelected && "border-2 border-primary",
+                  isSelected && "border-2 border-primary"
                 )}
                 onClick={() => !isDisabled && onSelectDate(day)}
               >
                 {mealStatus.bookedMissionaries.length > 0 && (
-                  <div
-                    className={cn(
-                      "calendar-dots",
-                      mealStatus.bookedMissionaries[0].dotClass,
-                    )}
-                  >
+                  <div className={cn("calendar-dots", mealStatus.bookedMissionaries[0].dotClass)}>
                     {mealStatus.bookedMissionaries.map((m, i) => (
-                      <div
-                        key={m.id}
-                        className={cn("calendar-dot", `dot-${i + 1}`)}
-                        style={{ backgroundColor: m.color }}
-                      ></div>
+                      <div key={m.id} className={cn("calendar-dot", `dot-${i+1}`)} style={{backgroundColor: m.color}}></div>
                     ))}
                   </div>
                 )}
-                <div
-                  className={cn(
-                    "rounded-full h-6 w-6 sm:h-8 sm:w-8 flex items-center justify-center relative z-10 bg-white",
-                    isToday(day) && "bg-blue-50 text-primary font-bold",
-                  )}
-                >
+                <div className={cn(
+                  "rounded-full h-6 w-6 sm:h-8 sm:w-8 flex items-center justify-center relative z-10 bg-white",
+                  isToday(day) && "bg-blue-50 text-primary font-bold"
+                )}>
                   <span className="text-xs sm:text-sm font-medium">
                     {format(day, "d")}
                   </span>
