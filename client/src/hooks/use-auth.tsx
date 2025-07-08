@@ -12,10 +12,8 @@ import { useLocation } from "wouter";
 interface AuthUser {
   id: number;
   username: string;
-  isAdmin: boolean;
-  isSuperAdmin: boolean;
-  isMissionAdmin: boolean;
-  isStakeAdmin: boolean;
+  role: 'ward' | 'stake' | 'mission' | 'region' | 'ultra';
+  homeWardId?: number;
 }
 
 type AuthContextType = {
@@ -24,10 +22,11 @@ type AuthContextType = {
   error: Error | null;
   loginMutation: UseMutationResult<AuthUser, Error, LoginData>;
   wardLoginMutation: UseMutationResult<AuthUser, Error, WardLoginData>;
-  logoutMutation: UseMutationResult<void, Error, void>;
+  logoutMutation: UseMutationResult<{ homeWardUrl?: string }, Error, void>;
   userWards: Ward[] | null;
   selectedWard: Ward | null;
   setSelectedWard: (ward: Ward | null) => void;
+  isUltraAdmin: boolean;
 };
 
 type LoginData = {
@@ -67,10 +66,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     enabled: authInitialized,
   });
 
+  const isUltraAdmin = user?.role === 'ultra';
+
   const { data: userWards } = useQuery<Ward[], Error>({
     queryKey: ["/api/admin/wards"],
     queryFn: getQueryFn({ on401: "returnNull" }),
-    enabled: !!user?.isAdmin,
+    enabled: !!user && user.role !== 'ward',
   });
 
   useEffect(() => {
@@ -94,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (loggedInUser: AuthUser) => {
       queryClient.setQueryData(["/api/user"], loggedInUser);
-      if (loggedInUser.isAdmin) {
+      if (loggedInUser.role !== 'ward') {
         queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
       }
       toast({
@@ -123,9 +124,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (loggedInUser: AuthUser) => {
       queryClient.setQueryData(["/api/user"], loggedInUser);
-      if (loggedInUser.isAdmin) {
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
-      }
       toast({
         title: "Ward login successful",
         description: "You've successfully logged in as a ward admin",
@@ -142,10 +140,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const logoutMutation = useMutation({
-    mutationFn: async () => {
-      await apiRequest("POST", "/api/logout");
+    mutationFn: async (): Promise<{ homeWardUrl?: string }> => {
+      const res = await apiRequest("POST", "/api/logout");
+      return await res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.setQueryData(["/api/user"], null);
       setSelectedWard(null);
       toast({
@@ -153,7 +152,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: "You have been successfully logged out.",
         variant: "default",
       });
-      setLocation("/");
+      if (data.homeWardUrl) {
+        setLocation(data.homeWardUrl);
+      } else {
+        setLocation("/");
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -176,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userWards: userWards ?? null,
         selectedWard,
         setSelectedWard,
+        isUltraAdmin,
       }}
     >
       {children}
