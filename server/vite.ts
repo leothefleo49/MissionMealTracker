@@ -73,24 +73,23 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  // FIX: Changed 'public' to 'dist/public' to match vite.config.ts output
-  // It resolves the path from the server directory to the client build output
-  const distPath = path.resolve(import.meta.dirname, "..", "dist/public");
+  // FIX: Now serves client assets directly from the 'dist' folder.
+  // We resolve to the root of the project where 'dist' is.
+  // process.cwd() typically returns /opt/render/project/src on Render.
+  const publicAssetsPath = path.resolve(process.cwd(), "dist");
 
-  if (!fs.existsSync(distPath)) {
+  if (!fs.existsSync(publicAssetsPath)) {
     throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
+      `Could not find the build directory: ${publicAssetsPath}, make sure to build the client first`,
     );
   }
 
-  // Serve static assets, but allow API requests to pass through
-  app.use(express.static(distPath));
+  app.use(express.static(publicAssetsPath));
 
-  // Fall through to index.html for non-API routes if the file doesn't exist
   app.use("*", (req, res, next) => {
     if (req.originalUrl.startsWith("/api")) {
-      return next(); // Skip to next middleware (API routes)
+      return next();
     }
-    res.sendFile(path.resolve(distPath, "index.html"));
+    res.sendFile(path.resolve(publicAssetsPath, "index.html"));
   });
 }
