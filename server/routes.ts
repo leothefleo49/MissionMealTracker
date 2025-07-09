@@ -12,7 +12,7 @@ import {
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
-import { setupAuth, createSuperAdminUser, comparePasswords, hashPassword } from "./auth";
+import { setupAuth, checkAndSetSetupMode, comparePasswords, hashPassword } from "./auth";
 import { notificationManager } from "./notifications";
 import { EmailVerificationService } from "./email-verification";
 import { TransferManagementService } from "./transfer-management";
@@ -21,7 +21,7 @@ import { randomBytes } from "crypto";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
   setupAuth(app);
-  await createSuperAdminUser();
+  await checkAndSetSetupMode();
 
   // Initialize services
   const emailVerificationService = new EmailVerificationService();
@@ -761,9 +761,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Missionary registration for portal access
   app.post('/api/missionaries/register', async (req, res) => {
     try {
-      const { name, type, emailAddress, wardAccessCode, password } = req.body;
+      const { name, type, emailAddress, congregationAccessCode, password } = req.body;
 
-      if (!name || !type || !emailAddress || !wardAccessCode || !password) {
+      if (!name || !type || !emailAddress || !congregationAccessCode || !password) {
         return res.status(400).json({ message: 'All fields are required' });
       }
 
@@ -772,9 +772,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get congregation by access code
-      const congregation = await storage.getCongregationByAccessCode(wardAccessCode);
+      const congregation = await storage.getCongregationByAccessCode(congregationAccessCode);
       if (!congregation) {
-        return res.status(404).json({ message: 'Invalid ward access code' });
+        return res.status(404).json({ message: 'Invalid congregation access code' });
       }
 
       // Check if missionary with this email already exists
@@ -861,7 +861,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Ward leave/rejoin functionality
+  // Congregation leave/rejoin functionality
   app.post('/api/congregations/:congregationId/leave', requireAuth, async (req, res) => {
     try {
       const { congregationId } = req.params;
