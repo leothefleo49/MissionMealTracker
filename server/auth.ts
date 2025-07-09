@@ -98,7 +98,8 @@ export function setupAuth(app: Express) {
         }
 
         // This is a placeholder for a real password check for ward-level users
-        if (password !== "password") { 
+        // TODO: Replace with a secure password for ward admins (e.g., from DB or configured)
+        if (password !== "password") {
             return done(null, false, { message: "Invalid password" });
         }
 
@@ -120,14 +121,24 @@ export function setupAuth(app: Express) {
   );
 
   passport.serializeUser((user, done) => {
+    console.log("--- serializeUser invoked ---");
+    console.log(`Serializing user ID: ${user.id}`);
     done(null, user.id);
   });
 
   passport.deserializeUser(async (id: number, done) => {
+    console.log("--- deserializeUser invoked ---");
+    console.log(`Deserializing user with ID: ${id}`);
     try {
       const user = await storage.getUser(id);
+      if (user) {
+        console.log(`User found in deserializeUser: ID=${user.id}, Username=${user.username}, Role=${user.role}`);
+      } else {
+        console.log(`User with ID ${id} NOT found in deserializeUser.`);
+      }
       done(null, user);
     } catch (error) {
+      console.error(`Error in deserializeUser for ID ${id}:`, error);
       done(error);
     }
   });
