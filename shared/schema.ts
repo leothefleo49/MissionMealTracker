@@ -1,141 +1,175 @@
 import { relations, sql } from "drizzle-orm";
-import { boolean, integer, pgTable, serial, text, timestamp, numeric } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, serial, text, timestamp, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Wards table
-export const wards = pgTable("wards", {
+// Enum for user roles
+export const userRoleEnum = pgEnum('user_role', ['ultra', 'region', 'mission', 'stake', 'ward']);
+
+// Regions table
+export const regions = pgTable("regions", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+});
+
+export const regionsRelations = relations(regions, ({ many }) => ({
+  missions: many(missions),
+  users: many(users),
+}));
+
+// Missions table
+export const missions = pgTable("missions", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  regionId: integer("region_id").references(() => regions.id, { onDelete: "cascade" }),
+});
+
+export const missionsRelations = relations(missions, ({ one, many }) => ({
+  region: one(regions, { fields: [missions.regionId], references: [regions.id] }),
+  stakes: many(stakes),
+  users: many(users),
+}));
+
+// Stakes table
+export const stakes = pgTable("stakes", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  missionId: integer("mission_id").references(() => missions.id, { onDelete: "cascade" }),
+});
+
+export const stakesRelations = relations(stakes, ({ one, many }) => ({
+  mission: one(missions, { fields: [stakes.missionId], references: [missions.id] }),
+  congregations: many(congregations),
+  users: many(users),
+}));
+
+// Congregations (formerly Wards) table
+export const congregations = pgTable("congregations", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   accessCode: text("access_code").notNull().unique(),
   description: text("description"),
+  stakeId: integer("stake_id").references(() => stakes.id, { onDelete: "cascade" }),
   allowCombinedBookings: boolean("allow_combined_bookings").default(false),
-  maxBookingsPerPeriod: integer("max_bookings_per_period").default(1), // Simplified control (0 means unlimited)
-  bookingPeriodDays: integer("booking_period_days").default(30), // Default 30 days for tracking limits
+  maxBookingsPerPeriod: integer("max_bookings_per_period").default(1),
+  bookingPeriodDays: integer("booking_period_days").default(30),
   active: boolean("active").default(true),
-  // Keeping these fields for database compatibility, but they won't be used in the UI
   maxBookingsPerAddress: integer("max_bookings_per_address").default(1),
   maxBookingsPerPhone: integer("max_bookings_per_phone").default(1),
 });
 
-export const wardsRelations = relations(wards, ({ many }) => ({
+export const congregationsRelations = relations(congregations, ({ one, many }) => ({
+  stake: one(stakes, { fields: [congregations.stakeId], references: [stakes.id] }),
   missionaries: many(missionaries),
-  userAccess: many(userWards),
+  userAccess: many(userCongregations),
 }));
 
-export const insertWardSchema = createInsertSchema(wards).pick({
+export const insertCongregationSchema = createInsertSchema(congregations).pick({
   name: true,
   accessCode: true,
+  stakeId: true,
 });
 
-export type InsertWard = z.infer<typeof insertWardSchema>;
-export type Ward = typeof wards.$inferSelect;
+export type InsertCongregation = z.infer<typeof insertCongregationSchema>;
+export type Congregation = typeof congregations.$inferSelect;
 
 // Users table
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
-  // New hierarchical roles
-  isUltraAdmin: boolean("is_ultra_admin").default(false).notNull(),
-  isRegionAdmin: boolean("is_region_admin").default(false).notNull(),
-  isMissionAdmin: boolean("is_mission_admin").default(false).notNull(),
-  isStakeAdmin: boolean("is_stake_admin").default(false).notNull(),
-  // Ward admin is implicitly true if any of the above are true OR if assigned to a ward
-  // No longer a direct 'isAdmin' flag
+  role: userRoleEnum('role').notNull().default('ward'),
+  regionId: integer("region_id").references(() => regions.id, { onDelete: "set null" }),
+  missionId: integer("mission_id").references(() => missions.id, { onDelete: "set null" }),
+  stakeId: integer("stake_id").references(() => stakes.id, { onDelete: "set null" }),
   canUsePaidNotifications: boolean("can_use_paid_notifications").default(false).notNull(),
 });
 
-export const userWards = pgTable("user_wards", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  wardId: integer("ward_id").notNull().references(() => wards.id, { onDelete: "cascade" }),
+export const userCongregations = pgTable("user_congregations", {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    congregationId: integer("congregation_id").notNull().references(() => congregations.id, { onDelete: "cascade" }),
 });
 
-export const userWardsRelations = relations(userWards, ({ one }) => ({
-  user: one(users, { fields: [userWards.userId], references: [users.id] }),
-  ward: one(wards, { fields: [userWards.wardId], references: [wards.id] }),
+export const userCongregationsRelations = relations(userCongregations, ({ one }) => ({
+    user: one(users, { fields: [userCongregations.userId], references: [users.id] }),
+    congregation: one(congregations, { fields: [userCongregations.congregationId], references: [congregations.id] }),
 }));
 
-export const usersRelations = relations(users, ({ many }) => ({
-  wardAccess: many(userWards),
+export const usersRelations = relations(users, ({ one, many }) => ({
+  region: one(regions, { fields: [users.regionId], references: [regions.id] }),
+  mission: one(missions, { fields: [users.missionId], references: [missions.id] }),
+  stake: one(stakes, { fields: [users.stakeId], references: [stakes.id] }),
+  congregationAccess: many(userCongregations),
 }));
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
-  isUltraAdmin: true,
-  isRegionAdmin: true,
-  isMissionAdmin: true,
-  isStakeAdmin: true,
+  role: true,
+  regionId: true,
+  missionId: true,
+  stakeId: true,
 });
 
-export const insertUserWardSchema = createInsertSchema(userWards).pick({
-  userId: true,
-  wardId: true,
+export const insertUserCongregationSchema = createInsertSchema(userCongregations).pick({
+    userId: true,
+    congregationId: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type InsertUserWard = z.infer<typeof insertUserWardSchema>;
+export type InsertUserCongregation = z.infer<typeof insertUserCongregationSchema>;
 export type User = typeof users.$inferSelect;
-export type UserWard = typeof userWards.$inferSelect;
+export type UserCongregation = typeof userCongregations.$inferSelect;
 
 // Missionaries table
 export const missionaries = pgTable("missionaries", {
   id: serial("id").primaryKey(),
-  wardId: integer("ward_id").notNull().references(() => wards.id, { onDelete: "cascade" }),
+  congregationId: integer("congregation_id").notNull().references(() => congregations.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   type: text("type").notNull(), // 'elders' or 'sisters'
+  isTrio: boolean("is_trio").default(false).notNull(),
   phoneNumber: text("phone_number").notNull(),
-  personalPhone: text("personal_phone"), // Personal contact phone
-  emailAddress: text("email_address"), // Must end with @missionary.org
+  personalPhone: text("personal_phone"),
+  emailAddress: text("email_address"),
   emailVerified: boolean("email_verified").default(false).notNull(),
-  emailVerificationCode: text("email_verification_code"), // 4-digit code
+  emailVerificationCode: text("email_verification_code"),
   emailVerificationSentAt: timestamp("email_verification_sent_at"),
-  whatsappNumber: text("whatsapp_number"), // WhatsApp number (can be same as phone)
+  whatsappNumber: text("whatsapp_number"),
   messengerAccount: text("messenger_account"),
-  preferredNotification: text("preferred_notification").default("email").notNull(), // 'email', 'whatsapp', 'text', 'messenger'
+  preferredNotification: text("preferred_notification").default("email").notNull(),
   active: boolean("active").default(true).notNull(),
-
-  // Enhanced dietary and preference information
-  foodAllergies: text("food_allergies"), // Specific food allergies
-  petAllergies: text("pet_allergies"), // Pet allergies
-  allergySeverity: text("allergy_severity").default("mild"), // 'mild', 'moderate', 'severe', 'life-threatening'
-  favoriteMeals: text("favorite_meals"), // Favorite meals/foods
-  dietaryRestrictions: text("dietary_restrictions"), // Other dietary restrictions
-
-  // Transfer management
-  transferDate: timestamp("transfer_date"), // Scheduled transfer date
+  foodAllergies: text("food_allergies"),
+  petAllergies: text("pet_allergies"),
+  allergySeverity: text("allergy_severity").default("mild"),
+  favoriteMeals: text("favorite_meals"),
+  dietaryRestrictions: text("dietary_restrictions"),
+  transferDate: timestamp("transfer_date"),
   transferNotificationSent: boolean("transfer_notification_sent").default(false),
-
-  // Notification settings
-  notificationScheduleType: text("notification_schedule_type").default("before_meal").notNull(), // 'before_meal', 'day_of', 'weekly_summary', 'multiple'
-  hoursBefore: integer("hours_before").default(3), // Hours before the meal to send notification
-  dayOfTime: text("day_of_time").default("09:00"), // Time of day to send notification for 'day_of' schedule
-  weeklySummaryDay: text("weekly_summary_day").default("sunday"), // Day of week to send weekly summary
-  weeklySummaryTime: text("weekly_summary_time").default("18:00"), // Time to send weekly summary
-  useMultipleNotifications: boolean("use_multiple_notifications").default(false), // True if using multiple notification types
-
-  // Authentication fields
-  password: text("password"), // For missionary portal access
-
-  // Consent management (mainly for WhatsApp and SMS)
-  consentStatus: text("consent_status").default("granted").notNull(), // 'pending', 'granted', 'denied' - email doesn't need explicit consent
-  consentDate: timestamp("consent_date"), // When consent was granted or denied
-  consentVerificationToken: text("consent_verification_token"), // Token used for verification
-  consentVerificationSentAt: timestamp("consent_verification_sent_at"), // When verification was sent
+  notificationScheduleType: text("notification_schedule_type").default("before_meal").notNull(),
+  hoursBefore: integer("hours_before").default(3),
+  dayOfTime: text("day_of_time").default("09:00"),
+  weeklySummaryDay: text("weekly_summary_day").default("sunday"),
+  weeklySummaryTime: text("weekly_summary_time").default("18:00"),
+  useMultipleNotifications: boolean("use_multiple_notifications").default(false),
+  password: text("password"),
+  consentStatus: text("consent_status").default("granted").notNull(),
+  consentDate: timestamp("consent_date"),
+  consentVerificationToken: text("consent_verification_token"),
+  consentVerificationSentAt: timestamp("consent_verification_sent_at"),
 });
 
 export const missionariesRelations = relations(missionaries, ({ one, many }) => ({
-  ward: one(wards, { fields: [missionaries.wardId], references: [wards.id] }),
+  congregation: one(congregations, { fields: [missionaries.congregationId], references: [congregations.id] }),
   meals: many(meals),
   messagesSent: many(messageLogs),
 }));
 
 export const insertMissionarySchema = createInsertSchema(missionaries).pick({
-  wardId: true,
+  congregationId: true,
   name: true,
   type: true,
+  isTrio: true,
   phoneNumber: true,
   personalPhone: true,
   emailAddress: true,
@@ -169,11 +203,12 @@ export type Missionary = typeof missionaries.$inferSelect;
 export const meals = pgTable("meals", {
   id: serial("id").primaryKey(),
   missionaryId: integer("missionary_id").notNull().references(() => missionaries.id),
-  wardId: integer("ward_id").notNull().references(() => wards.id, { onDelete: "cascade" }),
+  congregationId: integer("congregation_id").notNull().references(() => congregations.id, { onDelete: "cascade" }),
   date: timestamp("date").notNull(),
-  startTime: text("start_time").notNull(), // Format: "HH:MM" in 24h format
+  startTime: text("start_time").notNull(),
   hostName: text("host_name").notNull(),
-  hostPhone: text("host_phone").notNull(), 
+  hostPhone: text("host_phone").notNull(),
+  hostEmail: text("host_email"),
   mealDescription: text("meal_description"),
   specialNotes: text("special_notes"),
   cancelled: boolean("cancelled").default(false).notNull(),
@@ -182,16 +217,17 @@ export const meals = pgTable("meals", {
 
 export const mealsRelations = relations(meals, ({ one }) => ({
   missionary: one(missionaries, { fields: [meals.missionaryId], references: [missionaries.id] }),
-  ward: one(wards, { fields: [meals.wardId], references: [wards.id] }),
+  congregation: one(congregations, { fields: [meals.congregationId], references: [congregations.id] }),
 }));
 
 export const insertMealSchema = createInsertSchema(meals).pick({
   missionaryId: true,
-  wardId: true,
+  congregationId: true,
   date: true,
   startTime: true,
   hostName: true,
   hostPhone: true,
+  hostEmail: true,
   mealDescription: true,
   specialNotes: true,
 });
@@ -214,38 +250,38 @@ export type Meal = typeof meals.$inferSelect;
 // Schema for meal availability checking
 export const checkMealAvailabilitySchema = z.object({
   date: z.string(),
-  missionaryType: z.string(), // Can be "elders", "sisters", or a missionary ID
-  wardId: z.number(),
+  missionaryType: z.string(),
+  congregationId: z.number(),
 });
 
 export type CheckMealAvailability = z.infer<typeof checkMealAvailabilitySchema>;
 
-// Message Logs table - for tracking email/WhatsApp notifications
+// Message Logs table
 export const messageLogs = pgTable("message_logs", {
   id: serial("id").primaryKey(),
   missionaryId: integer("missionary_id").notNull().references(() => missionaries.id),
-  wardId: integer("ward_id").notNull().references(() => wards.id),
+  congregationId: integer("congregation_id").notNull().references(() => congregations.id),
   sentAt: timestamp("sent_at").notNull().defaultNow(),
-  messageType: text("message_type").notNull(), // 'before_meal', 'day_of', 'weekly_summary'
-  messageContent: text("message_content").notNull(), // Legacy column name
-  deliveryMethod: text("delivery_method").notNull(), // Legacy column name - 'email', 'whatsapp'
+  messageType: text("message_type").notNull(),
+  messageContent: text("message_content").notNull(),
+  deliveryMethod: text("delivery_method").notNull(),
   successful: boolean("successful").notNull(),
   failureReason: text("failure_reason"),
-  charCount: integer("char_count").notNull().default(0), // Legacy column
+  charCount: integer("char_count").notNull().default(0),
   segmentCount: integer("segment_count").notNull().default(1),
-  content: text("content").notNull(), // New column name
-  method: text("method").notNull(), // New column name - 'email', 'whatsapp'
+  content: text("content").notNull(),
+  method: text("method").notNull(),
   estimatedCost: text("estimated_cost").notNull().default("0"),
 });
 
 export const messageLogsRelations = relations(messageLogs, ({ one }) => ({
   missionary: one(missionaries, { fields: [messageLogs.missionaryId], references: [missionaries.id] }),
-  ward: one(wards, { fields: [messageLogs.wardId], references: [wards.id] }),
+  congregation: one(congregations, { fields: [messageLogs.congregationId], references: [congregations.id] }),
 }));
 
 export const insertMessageLogSchema = createInsertSchema(messageLogs).pick({
   missionaryId: true,
-  wardId: true,
+  congregationId: true,
   messageType: true,
   messageContent: true,
   deliveryMethod: true,
@@ -261,7 +297,7 @@ export const insertMessageLogSchema = createInsertSchema(messageLogs).pick({
 export type InsertMessageLog = z.infer<typeof insertMessageLogSchema>;
 export type MessageLog = typeof messageLogs.$inferSelect;
 
-// Message Stats schema for API responses
+// Message Stats schema
 export const messageStatsSchema = z.object({
   totalMessages: z.number(),
   totalSuccessful: z.number(),
@@ -275,9 +311,9 @@ export const messageStatsSchema = z.object({
     text: z.number(),
     messenger: z.number(),
   }).optional(),
-  byWard: z.array(z.object({
-    wardId: z.number(),
-    wardName: z.string(),
+  byCongregation: z.array(z.object({
+    congregationId: z.number(),
+    congregationName: z.string(),
     messageCount: z.number(),
     successRate: z.number(),
     characters: z.number(),
@@ -294,7 +330,7 @@ export const messageStatsSchema = z.object({
     estimatedCost: z.number(),
   })),
   byPeriod: z.array(z.object({
-    period: z.string(), // 'today', 'this_week', 'this_month', 'last_month'
+    period: z.string(),
     messageCount: z.number(),
     segments: z.number(),
     estimatedCost: z.number(),

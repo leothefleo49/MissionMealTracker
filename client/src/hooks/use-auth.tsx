@@ -4,33 +4,21 @@ import {
   useMutation,
   UseMutationResult,
 } from "@tanstack/react-query";
-import { Ward } from "@shared/schema";
+import { Congregation, User } from "@shared/schema";
 import { apiRequest, queryClient, getQueryFn } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
-interface AuthUser {
-  id: number;
-  username: string;
-  // New hierarchical roles
-  isUltraAdmin: boolean;
-  isRegionAdmin: boolean;
-  isMissionAdmin: boolean;
-  isStakeAdmin: boolean;
-  // isAdmin is a convenience flag, true if any higher-tier admin role is true or if a ward admin
-  isAdmin: boolean;
-}
-
 type AuthContextType = {
-  user: AuthUser | null;
+  user: User | null;
   isLoading: boolean;
   error: Error | null;
-  loginMutation: UseMutationResult<AuthUser, Error, LoginData>;
-  wardLoginMutation: UseMutationResult<AuthUser, Error, WardLoginData>;
+  loginMutation: UseMutationResult<User, Error, LoginData>;
+  wardLoginMutation: UseMutationResult<User, Error, WardLoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
-  userWards: Ward[] | null;
-  selectedWard: Ward | null;
-  setSelectedWard: (ward: Ward | null) => void;
+  userCongregations: Congregation[] | null;
+  selectedCongregation: Congregation | null;
+  setSelectedCongregation: (congregation: Congregation | null) => void;
 };
 
 type LoginData = {
@@ -49,23 +37,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [authInitialized, setAuthInitialized] = useState(false);
-  const [selectedWard, setSelectedWard] = useState<Ward | null>(null);
+  const [selectedCongregation, setSelectedCongregation] = useState<Congregation | null>(null);
 
   const {
     data: user,
     error,
     isLoading,
-  } = useQuery<AuthUser | null, Error>({
+  } = useQuery<User | null, Error>({
     queryKey: ["/api/user"],
     queryFn: async () => {
       try {
         const res = await fetch("/api/user");
         if (res.status === 401) return null;
         if (!res.ok) throw new Error("Failed to fetch user");
-        const userData = await res.json();
-        // Manually set isAdmin based on the new roles received from the server
-        const isAdmin = userData.isUltraAdmin || userData.isRegionAdmin || userData.isMissionAdmin || userData.isStakeAdmin || (userData.wardAccessCode && userData.username.startsWith('ward_admin_'));
-        return { ...userData, isAdmin };
+        return await res.json();
       } catch (error) {
         return null;
       }
@@ -73,11 +58,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     enabled: authInitialized,
   });
 
-  const { data: userWards } = useQuery<Ward[], Error>({
-    queryKey: ["/api/admin/wards"],
+  const { data: userCongregations } = useQuery<Congregation[], Error>({
+    queryKey: ["/api/admin/congregations"],
     queryFn: getQueryFn({ on401: "returnNull" }),
-    // Only enable if user is authenticated and has any admin role
-    enabled: !!user && (user.isUltraAdmin || user.isRegionAdmin || user.isMissionAdmin || user.isStakeAdmin || user.isAdmin),
+    enabled: !!user,
   });
 
   useEffect(() => {
@@ -85,10 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (userWards && userWards.length > 0 && !selectedWard) {
-      setSelectedWard(userWards[0]);
+    if (userCongregations && userCongregations.length > 0 && !selectedCongregation) {
+      setSelectedCongregation(userCongregations[0]);
     }
-  }, [userWards, selectedWard]);
+  }, [userCongregations, selectedCongregation]);
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
@@ -99,13 +83,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return await res.json();
     },
-    onSuccess: (loggedInUser: AuthUser) => {
-      // Ensure the isAdmin flag is correctly set on the client side based on new roles
-      const isAdmin = loggedInUser.isUltraAdmin || loggedInUser.isRegionAdmin || loggedInUser.isMissionAdmin || loggedInUser.isStakeAdmin;
-      queryClient.setQueryData(["/api/user"], { ...loggedInUser, isAdmin });
-
-      if (isAdmin) {
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
+    onSuccess: (loggedInUser: User) => {
+      queryClient.setQueryData(["/api/user"], loggedInUser);
+      if (loggedInUser.role !== 'ward') {
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/congregations"] });
       }
       toast({
         title: "Login successful",
@@ -131,10 +112,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return await res.json();
     },
-    onSuccess: (loggedInUser: AuthUser & { wardAccessCode: string }) => {
-      // For ward admins, isAdmin is always true
-      queryClient.setQueryData(["/api/user"], { ...loggedInUser, isAdmin: true });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
+    onSuccess: (loggedInUser: User) => {
+      queryClient.setQueryData(["/api/user"], loggedInUser);
+      if (loggedInUser.role !== 'ward') {
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/congregations"] });
+      }
       toast({
         title: "Ward login successful",
         description: "You've successfully logged in as a ward admin",
@@ -156,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
-      setSelectedWard(null);
+      setSelectedCongregation(null);
       toast({
         title: "Logged out",
         description: "You have been successfully logged out.",
@@ -182,9 +164,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginMutation,
         wardLoginMutation,
         logoutMutation,
-        userWards: userWards ?? null,
-        selectedWard,
-        setSelectedWard,
+        userCongregations: userCongregations ?? null,
+        selectedCongregation,
+        setSelectedCongregation,
       }}
     >
       {children}

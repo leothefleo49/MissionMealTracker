@@ -2,13 +2,13 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { 
-  insertMealSchema, 
-  updateMealSchema, 
-  checkMealAvailabilitySchema, 
+import {
+  insertMealSchema,
+  updateMealSchema,
+  checkMealAvailabilitySchema,
   insertMissionarySchema,
-  insertWardSchema,
-  insertUserWardSchema
+  insertCongregationSchema,
+  insertUserCongregationSchema
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -35,17 +35,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
-  // Middleware to check if user is admin
+  // Middleware to check if user is an admin (any level)
   const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-    if (!req.isAuthenticated() || !req.user?.isAdmin) {
+    if (!req.isAuthenticated() || !['ultra', 'region', 'mission', 'stake', 'ward'].includes(req.user.role)) {
       return res.status(403).json({ message: 'Access denied: Admin privileges required' });
     }
     next();
   };
 
-  // Middleware to check if user is superadmin
+  // Middleware to check if user is superadmin (ultra, region, mission, stake)
   const requireSuperAdmin = (req: Request, res: Response, next: NextFunction) => {
-    if (!req.isAuthenticated() || !req.user?.isSuperAdmin) {
+    if (!req.isAuthenticated() || !['ultra', 'region', 'mission', 'stake'].includes(req.user.role)) {
       return res.status(403).json({ message: 'Access denied: SuperAdmin privileges required' });
     }
     next();
@@ -90,9 +90,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const handleZodError = (err: unknown, res: Response) => {
     if (err instanceof ZodError) {
       const validationError = fromZodError(err);
-      return res.status(400).json({ 
-        message: 'Validation error', 
-        errors: validationError.details 
+      return res.status(400).json({
+        message: 'Validation error',
+        errors: validationError.details
       });
     }
 
@@ -116,7 +116,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/missionaries/:typeOrId', async (req, res) => {
     try {
       const { typeOrId } = req.params;
-      const wardId = parseInt(req.query.wardId as string, 10) || 1; // Default to ward 1 if not specified
+      const congregationId = parseInt(req.query.congregationId as string, 10) || 1; // Default to congregation 1 if not specified
 
       // Check if this is a missionary ID (numeric) or a type (elders/sisters)
       if (!isNaN(parseInt(typeOrId, 10))) {
@@ -129,14 +129,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         return res.json(missionary);
-      } 
+      }
 
       // This is a missionary type
       if (typeOrId !== 'elders' && typeOrId !== 'sisters') {
         return res.status(400).json({ message: 'Type must be either "elders" or "sisters"' });
       }
 
-      const missionaries = await storage.getMissionariesByType(typeOrId, wardId);
+      const missionaries = await storage.getMissionariesByType(typeOrId, congregationId);
       res.json(missionaries);
     } catch (err) {
       console.error('Error fetching missionaries:', err);
@@ -144,30 +144,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get missionaries by ward
-  app.get('/api/admin/missionaries/ward/:wardId', requireAdmin, async (req, res) => {
+  // Get missionaries by congregation
+  app.get('/api/admin/missionaries/congregation/:congregationId', requireAdmin, async (req, res) => {
     try {
-      const { wardId } = req.params;
-      const parsedWardId = parseInt(wardId, 10);
+      const { congregationId } = req.params;
+      const parsedCongregationId = parseInt(congregationId, 10);
 
-      if (isNaN(parsedWardId)) {
-        return res.status(400).json({ message: 'Invalid ward ID' });
+      if (isNaN(parsedCongregationId)) {
+        return res.status(400).json({ message: 'Invalid congregation ID' });
       }
 
-      // Check if user has access to this ward
-      if (!req.user!.isSuperAdmin) {
-        const userWards = await storage.getUserWards(req.user!.id);
-        const hasAccess = userWards.some(ward => ward.id === parsedWardId);
+      // Check if user has access to this congregation
+      if (req.user!.role !== 'ultra') {
+        const userCongregations = await storage.getUserCongregations(req.user!.id);
+        const hasAccess = userCongregations.some(congregation => congregation.id === parsedCongregationId);
 
         if (!hasAccess) {
-          return res.status(403).json({ message: 'You do not have access to this ward' });
+          return res.status(403).json({ message: 'You do not have access to this congregation' });
         }
       }
 
-      const missionaries = await storage.getMissionariesByWard(parsedWardId);
+      const missionaries = await storage.getMissionariesByCongregation(parsedCongregationId);
       res.json(missionaries);
     } catch (err) {
-      console.error('Error fetching missionaries by ward:', err);
+      console.error('Error fetching missionaries by congregation:', err);
       res.status(500).json({ message: 'Failed to fetch missionaries' });
     }
   });
@@ -177,9 +177,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = checkMealAvailabilitySchema.parse(req.body);
       const date = new Date(data.date);
-      const wardId = data.wardId || 1;  // Default to 1 if not provided
+      const congregationId = data.congregationId || 1;  // Default to 1 if not provided
 
-      const isAvailable = await storage.checkMealAvailability(date, data.missionaryType, wardId);
+      const isAvailable = await storage.checkMealAvailability(date, data.missionaryType, congregationId);
       res.json({ available: isAvailable });
     } catch (err) {
       handleZodError(err, res);
@@ -262,25 +262,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check meal availability for this date and missionary
       const mealDate = new Date(mealData.date);
-      const wardId = mealData.wardId || 1;
-      const isAvailable = await storage.checkMealAvailability(mealDate, mealData.missionaryId.toString(), wardId);
+      const congregationId = mealData.congregationId || 1;
+      const isAvailable = await storage.checkMealAvailability(mealDate, mealData.missionaryId.toString(), congregationId);
 
       if (!isAvailable) {
-        return res.status(409).json({ 
-          message: `${missionary.name} is already booked for this date` 
+        return res.status(409).json({
+          message: `${missionary.name} is already booked for this date`
         });
       }
 
       const meal = await storage.createMeal(mealData);
 
       // Format notification message
-      const formattedDate = mealDate.toLocaleDateString(undefined, { 
-        weekday: 'long', 
-        month: 'long', 
-        day: 'numeric' 
+      const formattedDate = mealDate.toLocaleDateString(undefined, {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric'
       });
 
-      const notificationMessage = `New meal scheduled: ${formattedDate} at ${meal.startTime} with ${meal.hostName}. ` + 
+      const notificationMessage = `New meal scheduled: ${formattedDate} at ${meal.startTime} with ${meal.hostName}. ` +
         (meal.mealDescription ? `Menu: ${meal.mealDescription}` : '') +
         (meal.specialNotes ? ` Notes: ${meal.specialNotes}` : '');
 
@@ -292,7 +292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else if (missionary.consentStatus === 'pending') {
           // If consent is pending but verification token hasn't been sent OR was sent more than 24 hours ago
           // resend the verification request
-          const shouldResendVerification = !missionary.consentVerificationSentAt || 
+          const shouldResendVerification = !missionary.consentVerificationSentAt ||
             (new Date().getTime() - new Date(missionary.consentVerificationSentAt).getTime() > 24 * 60 * 60 * 1000);
 
           if (shouldResendVerification) {
@@ -306,7 +306,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
 
             // Prepare consent message
-            const consentMessage = 
+            const consentMessage =
               `This is the Ward Missionary Meal Scheduler. To receive meal notifications, reply with YES ${verificationCode}. ` +
               "Reply STOP at any time to opt out of messages. Msg & data rates may apply.";
 
@@ -337,7 +337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           // Prepare consent message
-          const consentMessage = 
+          const consentMessage =
             `This is the Ward Missionary Meal Scheduler. To receive meal notifications, reply with YES ${verificationCode}. ` +
             "Reply STOP at any time to opt out of messages. Msg & data rates may apply.";
 
@@ -364,9 +364,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err) {
       console.error('Meal booking error:', err);
       if (err instanceof ZodError) {
-        return res.status(400).json({ 
-          message: 'Validation error', 
-          errors: err.errors 
+        return res.status(400).json({
+          message: 'Validation error',
+          errors: err.errors
         });
       }
       res.status(500).json({ message: 'Failed to create meal' });
@@ -398,10 +398,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (updateData.cancelled) {
           // Send cancellation notification
           const mealDate = new Date(updatedMeal.date);
-          const formattedDate = mealDate.toLocaleDateString(undefined, { 
-            weekday: 'long', 
-            month: 'long', 
-            day: 'numeric' 
+          const formattedDate = mealDate.toLocaleDateString(undefined, {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric'
           });
 
           // Try to notify the missionary (the function will check consent status)
@@ -420,10 +420,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           // Notify about the update
           const mealDate = new Date(updatedMeal.date);
-          const formattedDate = mealDate.toLocaleDateString(undefined, { 
-            weekday: 'long', 
-            month: 'long', 
-            day: 'numeric' 
+          const formattedDate = mealDate.toLocaleDateString(undefined, {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric'
           });
 
           // Try to notify the missionary (the function will check consent status)
@@ -436,10 +436,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // If missionary exists and doesn't have consent, request it
-        if (missionary && missionary.preferredNotification === 'text' && 
+        if (missionary && missionary.preferredNotification === 'text' &&
             missionary.phoneNumber && missionary.consentStatus !== 'granted') {
           // Only resend if consent verification hasn't been sent or was sent more than 24 hours ago
-          const shouldResendVerification = !missionary.consentVerificationSentAt || 
+          const shouldResendVerification = !missionary.consentVerificationSentAt ||
             (new Date().getTime() - new Date(missionary.consentVerificationSentAt).getTime() > 24 * 60 * 60 * 1000);
 
           if (shouldResendVerification) {
@@ -454,7 +454,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
 
             // Prepare consent message
-            const consentMessage = 
+            const consentMessage =
               `This is the Ward Missionary Meal Scheduler. To receive meal notifications, reply with YES ${verificationCode}. ` +
               "Reply STOP at any time to opt out of messages. Msg & data rates may apply.";
 
@@ -502,10 +502,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Send cancellation notification
         const mealDate = new Date(cancelledMeal.date);
-        const formattedDate = mealDate.toLocaleDateString(undefined, { 
-          weekday: 'long', 
-          month: 'long', 
-          day: 'numeric' 
+        const formattedDate = mealDate.toLocaleDateString(undefined, {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric'
         });
 
         // Try to notify the missionary (the function will check consent status)
@@ -523,10 +523,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
 
         // If missionary exists and doesn't have consent, request it
-        if (missionary && missionary.preferredNotification === 'text' && 
+        if (missionary && missionary.preferredNotification === 'text' &&
             missionary.phoneNumber && missionary.consentStatus !== 'granted') {
           // Only resend if consent verification hasn't been sent or was sent more than 24 hours ago
-          const shouldResendVerification = !missionary.consentVerificationSentAt || 
+          const shouldResendVerification = !missionary.consentVerificationSentAt ||
             (new Date().getTime() - new Date(missionary.consentVerificationSentAt).getTime() > 24 * 60 * 60 * 1000);
 
           if (shouldResendVerification) {
@@ -541,7 +541,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
 
             // Prepare consent message
-            const consentMessage = 
+            const consentMessage =
               `This is the Ward Missionary Meal Scheduler. To receive meal notifications, reply with YES ${verificationCode}. ` +
               "Reply STOP at any time to opt out of messages. Msg & data rates may apply.";
 
@@ -728,15 +728,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Missing required fields' });
       }
 
-      // Get ward by access code
-      const ward = await storage.getWardByAccessCode(accessCode);
-      if (!ward) {
+      // Get congregation by access code
+      const congregation = await storage.getCongregationByAccessCode(accessCode);
+      if (!congregation) {
         return res.status(404).json({ message: 'Invalid access code' });
       }
 
       // Get missionary by email
       const missionary = await storage.getMissionaryByEmail(emailAddress);
-      if (!missionary || missionary.wardId !== ward.id) {
+      if (!missionary || missionary.congregationId !== congregation.id) {
         return res.status(401).json({ authenticated: false });
       }
 
@@ -771,9 +771,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Email must be a @missionary.org address' });
       }
 
-      // Get ward by access code
-      const ward = await storage.getWardByAccessCode(wardAccessCode);
-      if (!ward) {
+      // Get congregation by access code
+      const congregation = await storage.getCongregationByAccessCode(wardAccessCode);
+      if (!congregation) {
         return res.status(404).json({ message: 'Invalid ward access code' });
       }
 
@@ -794,9 +794,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
 
           if (success) {
-            res.json({ 
+            res.json({
               message: 'Registration successful. Verification email sent.',
-              missionaryId: existingMissionary.id 
+              missionaryId: existingMissionary.id
             });
           } else {
             res.status(500).json({ message: 'Failed to send verification email' });
@@ -811,7 +811,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name,
           type,
           emailAddress,
-          wardId: ward.id,
+          congregationId: congregation.id,
           phoneNumber: '', // Will be updated later
           password: hashedPassword,
           active: true,
@@ -825,9 +825,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
 
         if (success) {
-          res.json({ 
+          res.json({
             message: 'Registration successful. Verification email sent.',
-            missionaryId: missionary.id 
+            missionaryId: missionary.id
           });
         } else {
           res.status(500).json({ message: 'Failed to send verification email' });
@@ -862,52 +862,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Ward leave/rejoin functionality
-  app.post('/api/wards/:wardId/leave', requireAuth, async (req, res) => {
+  app.post('/api/congregations/:congregationId/leave', requireAuth, async (req, res) => {
     try {
-      const { wardId } = req.params;
+      const { congregationId } = req.params;
       const userId = req.user!.id;
-      const parsedWardId = parseInt(wardId, 10);
+      const parsedCongregationId = parseInt(congregationId, 10);
 
-      if (isNaN(parsedWardId)) {
-        return res.status(400).json({ message: 'Invalid ward ID' });
+      if (isNaN(parsedCongregationId)) {
+        return res.status(400).json({ message: 'Invalid congregation ID' });
       }
 
-      const success = await storage.removeUserFromWard(userId, parsedWardId);
+      const success = await storage.removeUserFromCongregation(userId, parsedCongregationId);
 
       if (success) {
-        res.json({ message: 'Successfully left the ward' });
+        res.json({ message: 'Successfully left the congregation' });
       } else {
-        res.status(404).json({ message: 'Ward not found or user not a member' });
+        res.status(404).json({ message: 'Congregation not found or user not a member' });
       }
     } catch (error) {
-      console.error('Error leaving ward:', error);
-      res.status(500).json({ message: 'Failed to leave ward' });
+      console.error('Error leaving congregation:', error);
+      res.status(500).json({ message: 'Failed to leave congregation' });
     }
   });
 
-  app.post('/api/wards/:accessCode/rejoin', requireAuth, async (req, res) => {
+  app.post('/api/congregations/:accessCode/rejoin', requireAuth, async (req, res) => {
     try {
       const { accessCode } = req.params;
       const userId = req.user!.id;
 
-      const ward = await storage.getWardByAccessCode(accessCode);
-      if (!ward) {
+      const congregation = await storage.getCongregationByAccessCode(accessCode);
+      if (!congregation) {
         return res.status(404).json({ message: 'Invalid access code' });
       }
 
       // Check if user is already a member
-      const userWards = await storage.getUserWards(userId);
-      const isAlreadyMember = userWards.some(uw => uw.id === ward.id);
+      const userCongregations = await storage.getUserCongregations(userId);
+      const isAlreadyMember = userCongregations.some(uc => uc.id === congregation.id);
 
       if (isAlreadyMember) {
-        return res.status(400).json({ message: 'Already a member of this ward' });
+        return res.status(400).json({ message: 'Already a member of this congregation' });
       }
 
-      await storage.addUserToWard({ userId, wardId: ward.id });
-      res.json({ message: 'Successfully rejoined the ward', ward });
+      await storage.addUserToCongregation({ userId, congregationId: congregation.id });
+      res.json({ message: 'Successfully rejoined the congregation', congregation });
     } catch (error) {
-      console.error('Error rejoining ward:', error);
-      res.status(500).json({ message: 'Failed to rejoin ward' });
+      console.error('Error rejoining congregation:', error);
+      res.status(500).json({ message: 'Failed to rejoin congregation' });
     }
   });
 
@@ -918,27 +918,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-      // Get wardId from query parameter, defaults to user's wards if not provided
-      const wardId = req.query.wardId ? parseInt(req.query.wardId as string, 10) : undefined;
+      // Get congregationId from query parameter, defaults to user's congregations if not provided
+      const congregationId = req.query.congregationId ? parseInt(req.query.congregationId as string, 10) : undefined;
 
-      // Validate ward access if wardId is provided
-      if (wardId) {
-        // Get user's wards
-        const userWards = await storage.getUserWards(req.user!.id);
-        const userWardIds = userWards.map(ward => ward.id);
+      // Validate congregation access if congregationId is provided
+      if (congregationId) {
+        // Get user's congregations
+        const userCongregations = await storage.getUserCongregations(req.user!.id);
+        const userCongregationIds = userCongregations.map(congregation => congregation.id);
 
-        // Check if user has access to this ward or is superadmin
-        if (!req.user!.isSuperAdmin && !userWardIds.includes(wardId)) {
-          return res.status(403).json({ message: 'You do not have access to this ward' });
+        // Check if user has access to this congregation or is superadmin
+        if (req.user!.role !== 'ultra' && !userCongregationIds.includes(congregationId)) {
+          return res.status(403).json({ message: 'You do not have access to this congregation' });
         }
       }
 
-      // Get meals for this month and optionally filtered by ward
-      const meals = await storage.getMealsByDateRange(startOfMonth, endOfMonth, wardId);
+      // Get meals for this month and optionally filtered by congregation
+      const meals = await storage.getMealsByDateRange(startOfMonth, endOfMonth, congregationId);
 
-      // Get all missionaries, optionally filtered by ward
-      const missionaries = wardId 
-        ? await storage.getMissionariesByWard(wardId)
+      // Get all missionaries, optionally filtered by congregation
+      const missionaries = congregationId
+        ? await storage.getMissionariesByCongregation(congregationId)
         : await storage.getAllMissionaries();
 
       const stats = {
@@ -963,82 +963,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Ward Management Routes (SuperAdmin only)
-  app.get('/api/admin/wards', requireAdmin, async (req, res) => {
+  // Congregation Management Routes (SuperAdmin only)
+  app.get('/api/admin/congregations', requireAdmin, async (req, res) => {
     try {
-      let wards;
+      let congregations;
 
-      // If super admin, get all wards
-      if (req.user!.isSuperAdmin) {
-        wards = await storage.getAllWards();
+      if (req.user!.role === 'ultra') {
+        congregations = await storage.getAllCongregations();
       } else {
-        // Regular admin can only see their wards
-        wards = await storage.getUserWards(req.user!.id);
+        congregations = await storage.getUserCongregations(req.user!.id);
       }
 
-      res.json(wards);
+      res.json(congregations);
     } catch (err) {
-      console.error('Error fetching wards:', err);
-      res.status(500).json({ message: 'Failed to fetch wards' });
+      console.error('Error fetching congregations:', err);
+      res.status(500).json({ message: 'Failed to fetch congregations' });
     }
   });
 
-  // Create new ward (SuperAdmin only)
-  app.post('/api/admin/wards', requireSuperAdmin, async (req, res) => {
+  // Create new congregation (SuperAdmin only)
+  app.post('/api/admin/congregations', requireSuperAdmin, async (req, res) => {
     try {
-      const wardData = insertWardSchema.parse(req.body);
-      const ward = await storage.createWard(wardData);
-      res.status(201).json(ward);
+      const congregationData = insertCongregationSchema.parse(req.body);
+      const congregation = await storage.createCongregation(congregationData);
+      res.status(201).json(congregation);
     } catch (err) {
       handleZodError(err, res);
     }
   });
 
-  // Update ward (SuperAdmin only)
-  app.patch('/api/admin/wards/:id', requireSuperAdmin, async (req, res) => {
+  // Update congregation (SuperAdmin only)
+  app.patch('/api/admin/congregations/:id', requireSuperAdmin, async (req, res) => {
     try {
       const { id } = req.params;
-      const wardId = parseInt(id, 10);
+      const congregationId = parseInt(id, 10);
 
-      if (isNaN(wardId)) {
-        return res.status(400).json({ message: 'Invalid ward ID' });
+      if (isNaN(congregationId)) {
+        return res.status(400).json({ message: 'Invalid congregation ID' });
       }
 
-      const existingWard = await storage.getWard(wardId);
-      if (!existingWard) {
-        return res.status(404).json({ message: 'Ward not found' });
+      const existingCongregation = await storage.getCongregation(congregationId);
+      if (!existingCongregation) {
+        return res.status(404).json({ message: 'Congregation not found' });
       }
 
-      const updatedWard = await storage.updateWard(wardId, req.body);
+      const updatedCongregation = await storage.updateCongregation(congregationId, req.body);
 
-      if (updatedWard) {
-        res.json(updatedWard);
+      if (updatedCongregation) {
+        res.json(updatedCongregation);
       } else {
-        res.status(404).json({ message: 'Ward not found' });
+        res.status(404).json({ message: 'Congregation not found' });
       }
     } catch (err) {
-      console.error('Error updating ward:', err);
-      res.status(500).json({ message: 'Failed to update ward' });
+      console.error('Error updating congregation:', err);
+      res.status(500).json({ message: 'Failed to update congregation' });
     }
   });
 
-  // Add user to ward (Admin only)
-  app.post('/api/admin/wards/:wardId/users', requireAdmin, async (req, res) => {
+  // Add user to congregation (Admin only)
+  app.post('/api/admin/congregations/:congregationId/users', requireAdmin, async (req, res) => {
     try {
-      const { wardId } = req.params;
-      const parsedWardId = parseInt(wardId, 10);
+      const { congregationId } = req.params;
+      const parsedCongregationId = parseInt(congregationId, 10);
 
-      if (isNaN(parsedWardId)) {
-        return res.status(400).json({ message: 'Invalid ward ID' });
+      if (isNaN(parsedCongregationId)) {
+        return res.status(400).json({ message: 'Invalid congregation ID' });
       }
 
-      // Check if user is superadmin or has access to this ward
-      if (!req.user!.isSuperAdmin) {
-        const userWards = await storage.getUserWards(req.user!.id);
-        const userWardIds = userWards.map(ward => ward.id);
+      // Check if user is superadmin or has access to this congregation
+      if (req.user!.role !== 'ultra') {
+        const userCongregations = await storage.getUserCongregations(req.user!.id);
+        const userCongregationIds = userCongregations.map(congregation => congregation.id);
 
-        if (!userWardIds.includes(parsedWardId)) {
-          return res.status(403).json({ message: 'You do not have access to this ward' });
+        if (!userCongregationIds.includes(parsedCongregationId)) {
+          return res.status(403).json({ message: 'You do not have access to this congregation' });
         }
       }
 
@@ -1048,56 +1046,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Valid userId is required' });
       }
 
-      // Add user to ward
-      const userWard = await storage.addUserToWard({ 
-        userId: parseInt(userId, 10), 
-        wardId: parsedWardId 
+      // Add user to congregation
+      const userCongregation = await storage.addUserToCongregation({
+        userId: parseInt(userId, 10),
+        congregationId: parsedCongregationId
       });
 
-      res.status(201).json(userWard);
+      res.status(201).json(userCongregation);
     } catch (err) {
-      console.error('Error adding user to ward:', err);
-      res.status(500).json({ message: 'Failed to add user to ward' });
+      console.error('Error adding user to congregation:', err);
+      res.status(500).json({ message: 'Failed to add user to congregation' });
     }
   });
 
-  // Remove user from ward (Admin only)
-  app.delete('/api/admin/wards/:wardId/users/:userId', requireAdmin, async (req, res) => {
+  // Remove user from congregation (Admin only)
+  app.delete('/api/admin/congregations/:congregationId/users/:userId', requireAdmin, async (req, res) => {
     try {
-      const { wardId, userId } = req.params;
-      const parsedWardId = parseInt(wardId, 10);
+      const { congregationId, userId } = req.params;
+      const parsedCongregationId = parseInt(congregationId, 10);
       const parsedUserId = parseInt(userId, 10);
 
-      if (isNaN(parsedWardId) || isNaN(parsedUserId)) {
-        return res.status(400).json({ message: 'Invalid ward ID or user ID' });
+      if (isNaN(parsedCongregationId) || isNaN(parsedUserId)) {
+        return res.status(400).json({ message: 'Invalid congregation ID or user ID' });
       }
 
-      // Check if user is superadmin or has access to this ward
-      if (!req.user!.isSuperAdmin) {
-        const userWards = await storage.getUserWards(req.user!.id);
-        const userWardIds = userWards.map(ward => ward.id);
+      // Check if user is superadmin or has access to this congregation
+      if (req.user!.role !== 'ultra') {
+        const userCongregations = await storage.getUserCongregations(req.user!.id);
+        const userCongregationIds = userCongregations.map(congregation => congregation.id);
 
-        if (!userWardIds.includes(parsedWardId)) {
-          return res.status(403).json({ message: 'You do not have access to this ward' });
+        if (!userCongregationIds.includes(parsedCongregationId)) {
+          return res.status(403).json({ message: 'You do not have access to this congregation' });
         }
       }
 
-      // Remove user from ward
-      const success = await storage.removeUserFromWard(parsedUserId, parsedWardId);
+      // Remove user from congregation
+      const success = await storage.removeUserFromCongregation(parsedUserId, parsedCongregationId);
 
       if (success) {
         res.status(204).end();
       } else {
-        res.status(404).json({ message: 'User-ward relationship not found' });
+        res.status(404).json({ message: 'User-congregation relationship not found' });
       }
     } catch (err) {
-      console.error('Error removing user from ward:', err);
-      res.status(500).json({ message: 'Failed to remove user from ward' });
+      console.error('Error removing user from congregation:', err);
+      res.status(500).json({ message: 'Failed to remove user from congregation' });
     }
   });
 
-  // Public access to ward by access code
-  app.get('/api/wards/:accessCode', async (req, res) => {
+  // Public access to congregation by access code
+  app.get('/api/congregations/:accessCode', async (req, res) => {
     try {
       const { accessCode } = req.params;
 
@@ -1105,85 +1103,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid access code' });
       }
 
-      const ward = await storage.getWardByAccessCode(accessCode);
+      const congregation = await storage.getCongregationByAccessCode(accessCode);
 
-      if (!ward) {
-        return res.status(404).json({ message: 'Ward not found' });
+      if (!congregation) {
+        return res.status(404).json({ message: 'Congregation not found' });
       }
 
-      if (!ward.active) {
-        return res.status(403).json({ message: 'This ward is no longer active' });
+      if (!congregation.active) {
+        return res.status(403).json({ message: 'This congregation is no longer active' });
       }
 
-      // Return basic ward info without sensitive data
+      // Return basic congregation info without sensitive data
       res.json({
-        id: ward.id,
-        name: ward.name,
-        accessCode: ward.accessCode
+        id: congregation.id,
+        name: congregation.name,
+        accessCode: congregation.accessCode
       });
     } catch (err) {
-      console.error('Error accessing ward by code:', err);
-      res.status(500).json({ message: 'Failed to access ward' });
+      console.error('Error accessing congregation by code:', err);
+      res.status(500).json({ message: 'Failed to access congregation' });
     }
   });
 
-  // Get all missionaries for a specific ward
-  app.get('/api/wards/:wardId/missionaries', async (req, res) => {
+  // Get all missionaries for a specific congregation
+  app.get('/api/congregations/:congregationId/missionaries', async (req, res) => {
     try {
-      const { wardId } = req.params;
-      const parsedWardId = parseInt(wardId, 10);
+      const { congregationId } = req.params;
+      const parsedCongregationId = parseInt(congregationId, 10);
 
-      if (isNaN(parsedWardId)) {
-        return res.status(400).json({ message: 'Invalid ward ID' });
+      if (isNaN(parsedCongregationId)) {
+        return res.status(400).json({ message: 'Invalid congregation ID' });
       }
 
-      const ward = await storage.getWard(parsedWardId);
-      if (!ward) {
-        return res.status(404).json({ message: 'Ward not found' });
+      const congregation = await storage.getCongregation(parsedCongregationId);
+      if (!congregation) {
+        return res.status(404).json({ message: 'Congregation not found' });
       }
 
-      if (!ward.active) {
-        return res.status(403).json({ message: 'This ward is no longer active' });
+      if (!congregation.active) {
+        return res.status(403).json({ message: 'This congregation is no longer active' });
       }
 
-      const missionaries = await storage.getMissionariesByWard(parsedWardId);
+      const missionaries = await storage.getMissionariesByCongregation(parsedCongregationId);
       res.json(missionaries);
     } catch (err) {
-      console.error('Error fetching missionaries for ward:', err);
+      console.error('Error fetching missionaries for congregation:', err);
       res.status(500).json({ message: 'Failed to fetch missionaries' });
     }
   });
 
-  // Get missionaries by ward and type for the meal calendar
-  app.get('/api/wards/:wardId/missionaries/:type', async (req, res) => {
+  // Get missionaries by congregation and type for the meal calendar
+  app.get('/api/congregations/:congregationId/missionaries/:type', async (req, res) => {
     try {
-      const { wardId, type } = req.params;
-      const parsedWardId = parseInt(wardId, 10);
+      const { congregationId, type } = req.params;
+      const parsedCongregationId = parseInt(congregationId, 10);
 
-      if (isNaN(parsedWardId)) {
-        return res.status(400).json({ message: 'Invalid ward ID' });
+      if (isNaN(parsedCongregationId)) {
+        return res.status(400).json({ message: 'Invalid congregation ID' });
       }
 
       if (type !== 'elders' && type !== 'sisters') {
         return res.status(400).json({ message: 'Type must be either "elders" or "sisters"' });
       }
 
-      const missionaries = await storage.getMissionariesByType(type, parsedWardId);
+      const missionaries = await storage.getMissionariesByType(type, parsedCongregationId);
       res.json(missionaries);
     } catch (err) {
-      console.error('Error fetching missionaries by ward and type:', err);
+      console.error('Error fetching missionaries by congregation and type:', err);
       res.status(500).json({ message: 'Failed to fetch missionaries' });
     }
   });
 
-  // Get all meals for a specific ward
-  app.get('/api/wards/:wardId/meals', async (req, res) => {
+  // Get all meals for a specific congregation
+  app.get('/api/congregations/:congregationId/meals', async (req, res) => {
     try {
-      const { wardId } = req.params;
-      const parsedWardId = parseInt(wardId, 10);
+      const { congregationId } = req.params;
+      const parsedCongregationId = parseInt(congregationId, 10);
 
-      if (isNaN(parsedWardId)) {
-        return res.status(400).json({ message: 'Invalid ward ID' });
+      if (isNaN(parsedCongregationId)) {
+        return res.status(400).json({ message: 'Invalid congregation ID' });
       }
 
       const startDateParam = req.query.startDate as string;
@@ -1200,10 +1198,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid date format' });
       }
 
-      const meals = await storage.getMealsByDateRange(startDate, endDate, parsedWardId);
+      const meals = await storage.getMealsByDateRange(startDate, endDate, parsedCongregationId);
 
       // Get missionaries to include their information
-      const missionaries = await storage.getMissionariesByWard(parsedWardId);
+      const missionaries = await storage.getMissionariesByCongregation(parsedCongregationId);
       const missionaryMap = new Map(missionaries.map(m => [m.id, m]));
 
       const mealsWithMissionaries = meals.map(meal => ({
@@ -1213,28 +1211,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(mealsWithMissionaries);
     } catch (err) {
-      console.error('Error fetching meals by ward:', err);
+      console.error('Error fetching meals by congregation:', err);
       res.status(500).json({ message: 'Failed to fetch meals' });
     }
   });
 
-  // Check meal availability for a specific ward
-  app.post('/api/wards/:wardId/meals/check-availability', async (req, res) => {
+  // Check meal availability for a specific congregation
+  app.post('/api/congregations/:congregationId/meals/check-availability', async (req, res) => {
     try {
-      const { wardId } = req.params;
-      const parsedWardId = parseInt(wardId, 10);
+      const { congregationId } = req.params;
+      const parsedCongregationId = parseInt(congregationId, 10);
 
-      if (isNaN(parsedWardId)) {
-        return res.status(400).json({ message: 'Invalid ward ID' });
+      if (isNaN(parsedCongregationId)) {
+        return res.status(400).json({ message: 'Invalid congregation ID' });
       }
 
       const data = checkMealAvailabilitySchema.parse({
         ...req.body,
-        wardId: parsedWardId
+        congregationId: parsedCongregationId
       });
 
       const date = new Date(data.date);
-      const isAvailable = await storage.checkMealAvailability(date, data.missionaryType, parsedWardId);
+      const isAvailable = await storage.checkMealAvailability(date, data.missionaryType, parsedCongregationId);
 
       res.json({ available: isAvailable });
     } catch (err) {
@@ -1245,24 +1243,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Message statistics API route
   app.get('/api/message-stats', requireAdmin, async (req, res) => {
     try {
-      const wardId = req.query.wardId ? parseInt(req.query.wardId as string) : undefined;
+      const congregationId = req.query.congregationId ? parseInt(req.query.congregationId as string) : undefined;
 
       let stats;
-      if (wardId) {
-        // If user is not super admin, verify they have access to this ward
-        if (!req.user!.isSuperAdmin) {
-          const userWards = await storage.getUserWards(req.user!.id);
-          const hasAccess = userWards.some(ward => ward.id === wardId);
+      if (congregationId) {
+        // If user is not super admin, verify they have access to this congregation
+        if (req.user!.role !== 'ultra') {
+          const userCongregations = await storage.getUserCongregations(req.user!.id);
+          const hasAccess = userCongregations.some(congregation => congregation.id === congregationId);
 
           if (!hasAccess) {
-            return res.status(403).json({ message: 'You do not have access to this ward' });
+            return res.status(403).json({ message: 'You do not have access to this congregation' });
           }
         }
 
-        stats = await notificationManager.getWardMessageStats(wardId);
+        stats = await notificationManager.getCongregationMessageStats(congregationId);
       } else {
-        // If not super admin, return error since regular admins can only see their wards
-        if (!req.user!.isSuperAdmin) {
+        // If not super admin, return error since regular admins can only see their congregations
+        if (req.user!.role !== 'ultra') {
           return res.status(403).json({ message: 'Access to all stats requires super admin privileges' });
         }
 
@@ -1288,7 +1286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         schedulingOption,
         scheduledDate,
         scheduledTime,
-        wardId
+        congregationId
       } = req.body;
 
       // Basic validation
@@ -1309,29 +1307,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Date and time are required for scheduled messages" });
       }
 
-      // Get the target ward
-      const ward = await storage.getWard(wardId);
-      if (!ward) {
-        return res.status(404).json({ message: "Ward not found" });
+      // Get the target congregation
+      const congregation = await storage.getCongregation(congregationId);
+      if (!congregation) {
+        return res.status(404).json({ message: "Congregation not found" });
       }
 
-      // Check if user is admin of this ward
-      if (!req.user!.isSuperAdmin) {
-        const userWards = await storage.getUserWards(req.user!.id);
-        const hasAccess = userWards.some(w => w.id === wardId);
+      // Check if user is admin of this congregation
+      if (req.user!.role !== 'ultra') {
+        const userCongregations = await storage.getUserCongregations(req.user!.id);
+        const hasAccess = userCongregations.some(c => c.id === congregationId);
 
         if (!hasAccess) {
-          return res.status(403).json({ message: 'Access denied for this ward' });
+          return res.status(403).json({ message: 'Access denied for this congregation' });
         }
       }
 
       // Set up test missionary data for notification tracking
       console.log(`Test message: using contact info ${contactInfo}`);
 
-      // First try to find an existing test missionary for this ward
-      let testMissionary = await storage.getMissionaryByName(wardId, "Test Missionary");
+      // First try to find an existing test missionary for this congregation
+      let testMissionary = await storage.getMissionaryByName(congregationId, "Test Missionary");
 
-      // If no test missionary exists for this ward, create one
+      // If no test missionary exists for this congregation, create one
       if (!testMissionary) {
         try {
           const insertTestMissionary = {
@@ -1347,7 +1345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             dayOfTime: "08:00",
             weeklySummaryDay: "monday",
             weeklySummaryTime: "08:00",
-            wardId,
+            congregationId,
             consentStatus: 'granted',
             consentDate: new Date(),
             consentVerificationToken: null,
@@ -1382,7 +1380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         missionaryId: testMissionary.id, // Use the actual missionary ID for proper logging
         missionary: { type: "elders", name: "Test Missionary" },
         status: "confirmed",
-        wardId,
+        congregationId,
         createdAt: new Date(),
         updatedAt: new Date()
       } : null;
@@ -1497,7 +1495,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const testMissionary = missionary;
 
       // Prepare consent message
-      const consentMessage = 
+      const consentMessage =
         `This is the Ward Missionary Meal Scheduler. To receive meal notifications, reply with YES ${verificationCode} (example: YES ${verificationCode}). ` +
         "Reply STOP at any time to opt out of messages. Msg & data rates may apply.";
 
@@ -1574,8 +1572,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Try without the + prefix
         const numberWithoutPlus = phoneNumber.startsWith('+') ? phoneNumber.substring(1) : phoneNumber;
-        missionary = missionaries.find(m => 
-          m.phoneNumber === numberWithoutPlus || 
+        missionary = missionaries.find(m =>
+          m.phoneNumber === numberWithoutPlus ||
           (m.phoneNumber.startsWith('+') && m.phoneNumber.substring(1) === numberWithoutPlus)
         );
 
@@ -1639,7 +1637,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return res.status(200).send("<Response></Response>");
           }
         }
-      } 
+      }
       else if (message === "stop" || message === "unsubscribe" || message === "cancel") {
         // Handle opt-out requests
         await storage.updateMissionary(missionary.id, {
@@ -1682,18 +1680,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (err) {
       console.error("Error fetching consent status:", err);
-      res.status(500).json({ message: "Failed to fetch consent status" });
+      res.status(500).json({ message: 'Failed to fetch consent status' });
     }
   });
 
   // Meal statistics API endpoint
-  app.get('/api/meal-stats/:wardId', async (req, res) => {
+  app.get('/api/meal-stats/:congregationId', async (req, res) => {
     try {
-      const { wardId } = req.params;
-      const parsedWardId = parseInt(wardId, 10);
+      const { congregationId } = req.params;
+      const parsedCongregationId = parseInt(congregationId, 10);
 
-      if (isNaN(parsedWardId)) {
-        return res.status(400).json({ message: 'Invalid ward ID' });
+      if (isNaN(parsedCongregationId)) {
+        return res.status(400).json({ message: 'Invalid congregation ID' });
       }
 
       const startDateParam = req.query.startDate as string;
@@ -1710,12 +1708,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid date format' });
       }
 
-      // Get all meals for the ward in the date range
-      const meals = await storage.getMealsByDateRange(startDate, endDate, parsedWardId);
+      // Get all meals for the congregation in the date range
+      const meals = await storage.getMealsByDateRange(startDate, endDate, parsedCongregationId);
       const activeMeals = meals.filter(meal => !meal.cancelled);
 
-      // Get all missionaries for the ward
-      const missionaries = await storage.getMissionariesByWard(parsedWardId);
+      // Get all missionaries for the congregation
+      const missionaries = await storage.getMissionariesByCongregation(parsedCongregationId);
       const missionaryMap = new Map(missionaries.map(m => [m.id, m]));
 
       // Calculate statistics
@@ -1789,16 +1787,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Please use your @missionary.org email address' });
       }
 
-      // Find the ward by access code
-      const ward = await storage.getWardByAccessCode(accessCode);
-      if (!ward) {
-        return res.status(404).json({ message: 'Invalid ward access code' });
+      // Find the congregation by access code
+      const congregation = await storage.getCongregationByAccessCode(accessCode);
+      if (!congregation) {
+        return res.status(404).json({ message: 'Invalid congregation access code' });
       }
 
       // Find the missionary by email
       const missionary = await storage.getMissionaryByEmail(emailAddress);
-      if (!missionary || missionary.wardId !== ward.id) {
-        return res.status(404).json({ message: 'Missionary not found in this ward' });
+      if (!missionary || missionary.congregationId !== congregation.id) {
+        return res.status(404).json({ message: 'Missionary not found in this congregation' });
       }
 
       // Generate a new temporary password
@@ -1843,15 +1841,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'New password must be at least 6 characters long' });
       }
 
-      // Get ward by access code
-      const ward = await storage.getWardByAccessCode(accessCode);
-      if (!ward) {
+      // Get congregation by access code
+      const congregation = await storage.getCongregationByAccessCode(accessCode);
+      if (!congregation) {
         return res.status(404).json({ message: 'Invalid access code' });
       }
 
       // Get missionary by email
       const missionary = await storage.getMissionaryByEmail(emailAddress);
-      if (!missionary || missionary.wardId !== ward.id) {
+      if (!missionary || missionary.congregationId !== congregation.id) {
         return res.status(404).json({ message: 'Missionary not found' });
       }
 

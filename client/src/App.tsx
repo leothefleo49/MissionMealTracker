@@ -13,7 +13,7 @@ import MissionaryPortal from "@/pages/missionary-portal";
 import MissionaryRegister from "@/pages/missionary-register";
 import MissionaryForgotPassword from "@/pages/missionary-forgot-password";
 import AuthPage from "@/pages/auth-page";
-import WardPage from "@/pages/ward-page";
+import CongregationPage from "@/pages/congregation-page";
 
 function Router() {
   return (
@@ -25,7 +25,7 @@ function Router() {
       <Route path="/missionary-forgot-password/:accessCode" component={MissionaryForgotPassword} />
       <Route path="/missionary-portal" component={MissionaryPortal} />
       <ProtectedRoute path="/admin" component={Admin} />
-      <Route path="/ward/:accessCode" component={WardPage} />
+      <Route path="/congregation/:accessCode" component={CongregationPage} />
       <Route path="/missionary-portal/:accessCode" component={MissionaryPortal} />
       <Route component={NotFound} />
     </Switch>

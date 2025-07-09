@@ -9,42 +9,42 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function HomePage() {
   const [, setLocation] = useLocation();
-  const [wardCode, setWardCode] = useState("");
+  const [congregationCode, setCongregationCode] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleWardAccess = async () => {
-    if (!wardCode.trim()) {
+  const handleCongregationAccess = async () => {
+    if (!congregationCode.trim()) {
       toast({
-        title: "Ward Code Required",
-        description: "Please enter your ward access code",
+        title: "Congregation Code Required",
+        description: "Please enter your congregation access code",
         variant: "destructive",
       });
       return;
     }
 
     setLoading(true);
-    
+
     try {
-      // Validate ward access code
-      const response = await fetch(`/api/wards/${wardCode}`);
-      
+      // Validate congregation access code
+      const response = await fetch(`/api/congregations/${congregationCode}`);
+
       if (response.ok) {
-        const ward = await response.json();
-        
-        // Store ward access in localStorage for persistence
-        localStorage.setItem('wardAccess', JSON.stringify({
-          wardId: ward.id,
-          accessCode: wardCode,
-          wardName: ward.name,
+        const congregation = await response.json();
+
+        // Store congregation access in localStorage for persistence
+        localStorage.setItem('congregationAccess', JSON.stringify({
+          congregationId: congregation.id,
+          accessCode: congregationCode,
+          congregationName: congregation.name,
           accessTime: new Date().toISOString()
         }));
-        
-        setLocation(`/ward/${wardCode}`);
+
+        setLocation(`/congregation/${congregationCode}`);
       } else {
         toast({
-          title: "Invalid Ward Code",
-          description: "Please check your ward access code and try again",
+          title: "Invalid Congregation Code",
+          description: "Please check your congregation access code and try again",
           variant: "destructive",
         });
       }
@@ -88,45 +88,45 @@ export default function HomePage() {
               Welcome to the Missionary Meal System
             </h2>
             <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-              Coordinate meals with missionaries in your ward. Schedule appointments, 
+              Coordinate meals with missionaries in your congregation. Schedule appointments,
               manage notifications, and strengthen community bonds.
             </p>
           </div>
 
           {/* Access Cards */}
           <div className="grid md:grid-cols-2 gap-8 mb-12">
-            {/* Ward Member Access */}
+            {/* Congregation Member Access */}
             <Card className="border-2 border-blue-200 bg-white shadow-lg hover:shadow-xl transition-shadow">
               <CardHeader>
                 <CardTitle className="flex items-center text-blue-700">
                   <MapPin className="h-6 w-6 mr-2" />
-                  Ward Member Access
+                  Congregation Member Access
                 </CardTitle>
                 <CardDescription>
-                  Enter your ward access code to view and schedule missionary meals
+                  Enter your congregation access code to view and schedule missionary meals
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="ward-code" className="text-sm font-medium">
-                    Ward Access Code
+                  <Label htmlFor="congregation-code" className="text-sm font-medium">
+                    Congregation Access Code
                   </Label>
                   <Input
-                    id="ward-code"
+                    id="congregation-code"
                     type="text"
-                    placeholder="Enter your ward code"
-                    value={wardCode}
-                    onChange={(e) => setWardCode(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleWardAccess()}
+                    placeholder="Enter your congregation code"
+                    value={congregationCode}
+                    onChange={(e) => setCongregationCode(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleCongregationAccess()}
                     className="mt-1"
                   />
                 </div>
-                <Button 
-                  onClick={handleWardAccess}
+                <Button
+                  onClick={handleCongregationAccess}
                   disabled={loading}
                   className="w-full bg-blue-600 hover:bg-blue-700"
                 >
-                  {loading ? "Validating..." : "Access Ward Calendar"}
+                  {loading ? "Validating..." : "Access Congregation Calendar"}
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               </CardContent>
@@ -152,7 +152,7 @@ export default function HomePage() {
                     <li>Manage notification preferences</li>
                   </ul>
                 </div>
-                <Button 
+                <Button
                   onClick={handleMissionaryPortal}
                   variant="outline"
                   className="w-full border-amber-600 text-amber-700 hover:bg-amber-50"
@@ -173,7 +173,7 @@ export default function HomePage() {
                 View availability and schedule meals up to 3 months in advance
               </p>
             </div>
-            
+
             <div className="text-center p-6 bg-white rounded-lg shadow-sm">
               <Bell className="h-12 w-12 text-green-600 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">Email Notifications</h3>
@@ -181,7 +181,7 @@ export default function HomePage() {
                 Automatic reminders and confirmations via Gmail
               </p>
             </div>
-            
+
             <div className="text-center p-6 bg-white rounded-lg shadow-sm">
               <Phone className="h-12 w-12 text-purple-600 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">Contact Information</h3>
@@ -197,7 +197,7 @@ export default function HomePage() {
       <footer className="bg-white border-t">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center text-gray-500 text-sm">
-            <p>&copy; 2025 Missionary Meal Calendar System</p>
+            <p>&copy; {new Date().getFullYear()} Missionary Meal Calendar System</p>
             <p className="mt-1">Strengthening communities through shared meals</p>
           </div>
         </div>

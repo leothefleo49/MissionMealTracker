@@ -1,0 +1,265 @@
+import { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Plus, Trash, User, UserPlus } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+
+interface CongregationUsersProps {
+  congregationId: number;
+}
+
+interface User {
+  id: number;
+  username: string;
+  role: string;
+}
+
+interface CongregationUser {
+  userId: number;
+  congregationId: number;
+  username: string;
+  role: string;
+}
+
+export function CongregationUsers({ congregationId }: CongregationUsersProps) {
+  const { toast } = useToast();
+  const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
+  const [username, setUsername] = useState("");
+  const [userToRemove, setUserToRemove] = useState<CongregationUser | null>(null);
+  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
+
+  // Fetch congregation users
+  const { data: congregationUsers, isLoading } = useQuery<CongregationUser[]>({
+    queryKey: ["/api/admin/congregations", congregationId, "users"],
+    queryFn: async () => {
+      const response = await fetch(`/api/admin/congregations/${congregationId}/users`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch congregation users');
+      }
+      return response.json();
+    },
+    enabled: !!congregationId,
+  });
+
+  // Add user mutation
+  const addUserMutation = useMutation({
+    mutationFn: async (username: string) => {
+      const res = await apiRequest("POST", `/api/admin/congregations/${congregationId}/users`, { username });
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Admin added",
+        description: "User has been successfully added to the congregation.",
+      });
+      setIsAddUserDialogOpen(false);
+      setUsername("");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/congregations", congregationId, "users"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add user. User might not exist or is already added to this congregation.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Remove user mutation
+  const removeUserMutation = useMutation({
+    mutationFn: async (userId: number) => {
+      const res = await apiRequest("DELETE", `/api/admin/congregations/${congregationId}/users/${userId}`);
+      return res.ok;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Admin removed",
+        description: "User has been successfully removed from the congregation.",
+      });
+      setIsRemoveDialogOpen(false);
+      setUserToRemove(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/congregations", congregationId, "users"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove user. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle add user submission
+  function handleAddUser() {
+    if (username.trim()) {
+      addUserMutation.mutate(username);
+    }
+  }
+
+  // Handle user removal confirmation
+  function handleRemoveUser() {
+    if (userToRemove) {
+      removeUserMutation.mutate(userToRemove.userId);
+    }
+  }
+
+  function openRemoveDialog(user: CongregationUser) {
+    setUserToRemove(user);
+    setIsRemoveDialogOpen(true);
+  }
+
+  if (isLoading) {
+    return (
+      <div className="py-2 text-sm text-gray-500">
+        Loading congregation admins...
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-sm font-medium">Congregation Admins</h3>
+        <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm">
+              <UserPlus className="h-4 w-4 mr-1" />
+              Add Admin
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Admin to Congregation</DialogTitle>
+              <DialogDescription>
+                Enter the username of the user you want to add as an admin to this congregation. The user must already exist in the system.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor="username">
+                  Username
+                </label>
+                <Input
+                  id="username"
+                  placeholder="Enter username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                disabled={!username.trim() || addUserMutation.isPending}
+                onClick={handleAddUser}
+              >
+                {addUserMutation.isPending ? "Adding..." : "Add Admin"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {congregationUsers && congregationUsers.length > 0 ? (
+        <div className="border rounded-md overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="whitespace-nowrap">Username</TableHead>
+                <TableHead className="whitespace-nowrap">Role</TableHead>
+                <TableHead className="w-16 text-right whitespace-nowrap">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {congregationUsers.map((user) => (
+                <TableRow key={user.userId}>
+                  <TableCell className="font-medium whitespace-nowrap">
+                    <div className="flex items-center">
+                      <User className="h-4 w-4 mr-2 text-gray-500 flex-shrink-0" />
+                      <span className="truncate max-w-[120px] sm:max-w-none">{user.username}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <Badge variant="outline" className="text-xs">
+                        {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right whitespace-nowrap">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => openRemoveDialog(user)}
+                    >
+                      <Trash className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <div className="text-center py-4 border rounded-md bg-slate-50">
+          <p className="text-sm text-gray-500">
+            No admins have access to this congregation yet.
+          </p>
+        </div>
+      )}
+
+      {/* Remove User Dialog */}
+      <AlertDialog open={isRemoveDialogOpen} onOpenChange={setIsRemoveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Admin</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove {userToRemove?.username} from this congregation?
+              They will no longer have admin access to this congregation's data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setUserToRemove(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRemoveUser}
+              className="bg-red-500 text-white hover:bg-red-600"
+            >
+              {removeUserMutation.isPending ? "Removing..." : "Remove Admin"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

@@ -4,16 +4,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Building, Users, Calendar, Settings, LogOut } from "lucide-react";
-import { WardSelector } from "@/components/ward-selector";
+import { CongregationSelector } from "@/components/congregation-selector";
 import MissionaryList from "@/components/missionary-list";
-import { WardManagement } from "@/components/ward-management";
+import { CongregationManagement } from "@/components/congregation-management";
 import { MessageStatsComponent } from "@/components/message-stats";
 import { TestMessageForm } from "@/components/test-message-form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MealManagement } from "@/components/meal-management";
 
 export default function Admin() {
-  const { user, logoutMutation, selectedWard, isLoading: isAuthLoading, userWards } = useAuth();
+  const { user, logoutMutation, selectedCongregation, isLoading: isAuthLoading, userCongregations } = useAuth();
   const [activeTab, setActiveTab] = useState("missionaries");
 
   if (isAuthLoading) {
@@ -24,9 +24,7 @@ export default function Admin() {
     );
   }
 
-  // Check if the user has any admin role to access this dashboard
-  // isAdmin from useAuth now derives from isUltraAdmin, isRegionAdmin, isMissionAdmin, isStakeAdmin, or ward admin status
-  if (!user?.isAdmin) {
+  if (!user || !['ultra', 'region', 'mission', 'stake', 'ward'].includes(user.role)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md">
@@ -46,62 +44,46 @@ export default function Admin() {
   const tabs = [
     { id: "missionaries", label: "Missionaries", icon: Users },
     { id: "meals", label: "Meals", icon: Calendar },
-    // Only Ultra Admins can see the 'Wards' tab for now (full hierarchy management is not yet implemented beyond this point)
-    ...(user?.isUltraAdmin ? [{ id: "wards", label: "Wards", icon: Building }] : []),
+    { id: "congregations", label: "Congregations", icon: Building },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
   const renderContent = () => {
-    // Only Ultra Admins can manage wards
-    if (activeTab === "wards" && user?.isUltraAdmin) {
-      return <WardManagement />;
+    if (activeTab === "congregations" && ['ultra', 'region', 'mission', 'stake'].includes(user.role)) {
+      return <CongregationManagement />;
     }
 
-    // This block handles cases where a ward needs to be selected
-    if (!selectedWard) {
-      if (userWards && userWards.length > 0) {
+    if (!selectedCongregation) {
+      if (userCongregations && userCongregations.length > 0) {
         return (
           <Card className="mt-6">
             <CardContent className="pt-6 text-center">
               <Building className="mx-auto h-12 w-12 text-gray-300" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No Ward Selected</h3>
-              <p className="mt-1 text-sm text-gray-500">Please select a ward from the dropdown above to continue.</p>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No Congregation Selected</h3>
+              <p className="mt-1 text-sm text-gray-500">Please select a congregation from the dropdown above to continue.</p>
             </CardContent>
           </Card>
         )
       }
-      // If no wards are found at all, and not an Ultra Admin who can create them
-      if (!user?.isUltraAdmin) {
-        return (
-           <Card className="mt-6">
-              <CardContent className="pt-6 text-center">
-                <Building className="mx-auto h-12 w-12 text-gray-300" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No Wards Found</h3>
-                <p className="mt-1 text-sm text-gray-500">Please contact a higher-level administrator to assign you to a ward or create one.</p>
-              </CardContent>
-            </Card>
-        )
-      }
-      // If no wards are found, but it's an Ultra Admin
       return (
-        <Card className="mt-6">
+         <Card className="mt-6">
             <CardContent className="pt-6 text-center">
               <Building className="mx-auto h-12 w-12 text-gray-300" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No Wards Found</h3>
-              <p className="mt-1 text-sm text-gray-500">You are an Ultra Admin. You can create a new ward in the "Wards" tab.</p>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No Congregations Found</h3>
+              <p className="mt-1 text-sm text-gray-500">Admins with appropriate permissions can create a new congregation in the "Congregations" tab.</p>
             </CardContent>
-        </Card>
+          </Card>
       )
     }
 
     switch (activeTab) {
       case "missionaries":
         return (
-          <MissionaryList wardId={selectedWard.id} />
+          <MissionaryList congregationId={selectedCongregation.id} />
         );
       case "meals":
         return (
-          <MealManagement wardId={selectedWard.id} />
+          <MealManagement congregationId={selectedCongregation.id} />
         );
        case "settings":
         return (
@@ -110,22 +92,22 @@ export default function Admin() {
               <CardHeader>
                 <CardTitle>Message Statistics</CardTitle>
                 <CardDescription>
-                  View message statistics for {selectedWard.name}
+                  View message statistics for {selectedCongregation.name}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <MessageStatsComponent wardId={selectedWard.id} />
+                <MessageStatsComponent congregationId={selectedCongregation.id} />
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
                 <CardTitle>Test Messages</CardTitle>
                 <CardDescription>
-                  Send test messages to verify your notification settings for {selectedWard.name}
+                  Send test messages to verify your notification settings for {selectedCongregation.name}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <TestMessageForm wardId={selectedWard.id} />
+                <TestMessageForm congregationId={selectedCongregation.id} />
               </CardContent>
             </Card>
           </div>
@@ -146,16 +128,15 @@ export default function Admin() {
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Admin Dashboard</h1>
               <div className="flex flex-wrap items-center gap-2 mt-1">
                 <p className="text-sm text-gray-600">Welcome, {user?.username}</p>
-                 {user?.isUltraAdmin && <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">Ultra Admin</Badge>}
-                 {user?.isRegionAdmin && <Badge variant="secondary" className="text-xs bg-indigo-100 text-indigo-800">Region Admin</Badge>}
-                 {user?.isMissionAdmin && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">Mission Admin</Badge>}
-                 {user?.isStakeAdmin && <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">Stake Admin</Badge>}
-                 {/* Display 'Ward Admin' if the user is not a higher-tier admin but has admin access (via ward assignment) */}
-                 {user?.isAdmin && !user.isUltraAdmin && !user.isRegionAdmin && !user.isMissionAdmin && !user.isStakeAdmin && <Badge variant="outline" className="text-xs">Ward Admin</Badge>}
+                 {user?.role === 'ultra' && <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">Ultra Admin</Badge>}
+                 {user?.role === 'region' && <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">Region Admin</Badge>}
+                 {user?.role === 'mission' && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">Mission Admin</Badge>}
+                 {user?.role === 'stake' && <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">Stake Admin</Badge>}
+                 {user?.role === 'ward' && <Badge variant="outline" className="text-xs">Ward Admin</Badge>}
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <WardSelector className="w-full sm:w-56" />
+              <CongregationSelector className="w-full sm:w-56" />
               <Button
                 variant="outline"
                 size="sm"
@@ -175,8 +156,10 @@ export default function Admin() {
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex flex-wrap gap-1 sm:gap-2 py-2 overflow-x-auto">
             {tabs.map((tab) => {
-              // The 'wards' tab is only enabled for Ultra Admins, other tabs require a selected ward
-              const isDisabled = tab.id !== 'wards' && !selectedWard;
+              const isDisabled = tab.id !== 'congregations' && !selectedCongregation;
+              if (user.role === 'ward' && tab.id === 'congregations') {
+                return null;
+              }
               return (
                 <Button
                   key={tab.id}
@@ -207,7 +190,7 @@ export default function Admin() {
       <footer className="bg-white border-t mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <p className="text-center text-sm text-gray-500">
-            Ward Missionary Meal Scheduler - Admin Dashboard
+            Missionary Meal Scheduler - Admin Dashboard
           </p>
         </div>
       </footer>

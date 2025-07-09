@@ -1,11 +1,13 @@
 import { IStorage } from './storage';
-import { 
+import {
   users, type User, type InsertUser,
   missionaries, type Missionary, type InsertMissionary,
   meals, type Meal, type InsertMeal, type UpdateMeal,
-  wards, type Ward, type InsertWard,
-  userWards, type UserWard, type InsertUserWard,
-  messageLogs, type MessageLog, type InsertMessageLog
+  congregations, type Congregation, type InsertCongregation,
+  userCongregations, type UserCongregation, type InsertUserCongregation,
+  regions, type Region,
+  missions, type Mission,
+  stakes, type Stake
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
@@ -19,9 +21,9 @@ export class DatabaseStorage implements IStorage {
   public sessionStore: session.Store;
 
   constructor() {
-    this.sessionStore = new PostgresSessionStore({ 
-      pool, 
-      createTableIfMissing: true 
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true
     });
   }
 
@@ -44,66 +46,83 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  // Ward methods
-  async getWard(id: number): Promise<Ward | undefined> {
-    const [ward] = await db.select().from(wards).where(eq(wards.id, id));
-    return ward || undefined;
+  // Congregation Hierarchy methods
+  async getAllRegions(): Promise<Region[]> {
+    return await db.select().from(regions);
   }
 
-  async getWardByAccessCode(accessCode: string): Promise<Ward | undefined> {
-    const [ward] = await db.select().from(wards).where(eq(wards.accessCode, accessCode));
-    return ward || undefined;
+  async getMissionsByRegion(regionId: number): Promise<Mission[]> {
+    return await db.select().from(missions).where(eq(missions.regionId, regionId));
   }
 
-  async getAllWards(): Promise<Ward[]> {
-    return await db.select().from(wards);
+  async getStakesByMission(missionId: number): Promise<Stake[]> {
+    return await db.select().from(stakes).where(eq(stakes.missionId, missionId));
   }
 
-  async createWard(ward: InsertWard): Promise<Ward> {
-    const [newWard] = await db
-      .insert(wards)
-      .values(ward)
+  async getCongregationsByStake(stakeId: number): Promise<Congregation[]> {
+    return await db.select().from(congregations).where(eq(congregations.stakeId, stakeId));
+  }
+
+  // Congregation methods
+  async getCongregation(id: number): Promise<Congregation | undefined> {
+    const [congregation] = await db.select().from(congregations).where(eq(congregations.id, id));
+    return congregation || undefined;
+  }
+
+  async getCongregationByAccessCode(accessCode: string): Promise<Congregation | undefined> {
+    const [congregation] = await db.select().from(congregations).where(eq(congregations.accessCode, accessCode));
+    return congregation || undefined;
+  }
+
+  async getAllCongregations(): Promise<Congregation[]> {
+    return await db.select().from(congregations);
+  }
+
+  async createCongregation(congregation: InsertCongregation): Promise<Congregation> {
+    const [newCongregation] = await db
+      .insert(congregations)
+      .values(congregation)
       .returning();
-    return newWard;
+    return newCongregation;
   }
 
-  async updateWard(id: number, data: Partial<Ward>): Promise<Ward | undefined> {
-    const [updatedWard] = await db
-      .update(wards)
+  async updateCongregation(id: number, data: Partial<Congregation>): Promise<Congregation | undefined> {
+    const [updatedCongregation] = await db
+      .update(congregations)
       .set(data)
-      .where(eq(wards.id, id))
+      .where(eq(congregations.id, id))
       .returning();
-    return updatedWard || undefined;
+    return updatedCongregation || undefined;
   }
 
-  // User-Ward relationship methods
-  async getUserWards(userId: number): Promise<Ward[]> {
-    const userWardsResult = await db
+  // User-Congregation relationship methods
+  async getUserCongregations(userId: number): Promise<Congregation[]> {
+    const userCongregationResult = await db
       .select({
-        ward: wards,
+        congregation: congregations,
       })
-      .from(userWards)
-      .innerJoin(wards, eq(userWards.wardId, wards.id))
-      .where(eq(userWards.userId, userId));
-    
-    return userWardsResult.map(result => result.ward);
+      .from(userCongregations)
+      .innerJoin(congregations, eq(userCongregations.congregationId, congregations.id))
+      .where(eq(userCongregations.userId, userId));
+
+    return userCongregationResult.map(result => result.congregation);
   }
 
-  async addUserToWard(userWard: InsertUserWard): Promise<UserWard> {
-    const [newUserWard] = await db
-      .insert(userWards)
-      .values(userWard)
+  async addUserToCongregation(userCongregation: InsertUserCongregation): Promise<UserCongregation> {
+    const [newUserCongregation] = await db
+      .insert(userCongregations)
+      .values(userCongregation)
       .returning();
-    return newUserWard;
+    return newUserCongregation;
   }
 
-  async removeUserFromWard(userId: number, wardId: number): Promise<boolean> {
-    const result = await db
-      .delete(userWards)
+  async removeUserFromCongregation(userId: number, congregationId: number): Promise<boolean> {
+    await db
+      .delete(userCongregations)
       .where(
         and(
-          eq(userWards.userId, userId),
-          eq(userWards.wardId, wardId)
+          eq(userCongregations.userId, userId),
+          eq(userCongregations.congregationId, congregationId)
         )
       );
     return true;
@@ -114,14 +133,14 @@ export class DatabaseStorage implements IStorage {
     const [missionary] = await db.select().from(missionaries).where(eq(missionaries.id, id));
     return missionary || undefined;
   }
-  
-  async getMissionaryByName(wardId: number, name: string): Promise<Missionary | undefined> {
+
+  async getMissionaryByName(congregationId: number, name: string): Promise<Missionary | undefined> {
     const [missionary] = await db
       .select()
       .from(missionaries)
       .where(
         and(
-          eq(missionaries.wardId, wardId),
+          eq(missionaries.congregationId, congregationId),
           eq(missionaries.name, name)
         )
       );
@@ -133,28 +152,28 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(missionaries)
       .where(eq(missionaries.emailAddress, emailAddress))
-      .orderBy(missionaries.id); // Ensure consistent ordering to get the same record every time
+      .orderBy(missionaries.id);
     return missionary || undefined;
   }
 
-  async getMissionariesByType(type: string, wardId: number): Promise<Missionary[]> {
+  async getMissionariesByType(type: string, congregationId: number): Promise<Missionary[]> {
     return await db
       .select()
       .from(missionaries)
       .where(
         and(
           eq(missionaries.type, type),
-          eq(missionaries.wardId, wardId),
+          eq(missionaries.congregationId, congregationId),
           eq(missionaries.active, true)
         )
       );
   }
 
-  async getMissionariesByWard(wardId: number): Promise<Missionary[]> {
+  async getMissionariesByCongregation(congregationId: number): Promise<Missionary[]> {
     return await db
       .select()
       .from(missionaries)
-      .where(eq(missionaries.wardId, wardId));
+      .where(eq(missionaries.congregationId, congregationId));
   }
 
   async getAllMissionaries(): Promise<Missionary[]> {
@@ -162,17 +181,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMissionary(insertMissionary: InsertMissionary): Promise<Missionary> {
-    // Ensure consent fields have default values if not explicitly provided
     const missionaryData = {
       ...insertMissionary,
-      // Set explicit default for consent status if not provided
       consentStatus: insertMissionary.consentStatus || 'pending',
-      // Make sure other consent fields are null if not provided
       consentDate: insertMissionary.consentDate || null,
       consentVerificationToken: insertMissionary.consentVerificationToken || null,
       consentVerificationSentAt: insertMissionary.consentVerificationSentAt || null
     };
-    
+
     const [missionary] = await db
       .insert(missionaries)
       .values(missionaryData)
@@ -190,7 +206,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteMissionary(id: number): Promise<boolean> {
-    const result = await db
+    await db
       .delete(missionaries)
       .where(eq(missionaries.id, id));
     return true;
@@ -202,39 +218,38 @@ export class DatabaseStorage implements IStorage {
     return meal || undefined;
   }
 
-  async getMealsByDate(date: Date, wardId?: number): Promise<Meal[]> {
-    // Set the time to the beginning of the day for comparison
+  async getMealsByDate(date: Date, congregationId?: number): Promise<Meal[]> {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
-    
+
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
-    
+
     let conditions = [
       gte(meals.date, startOfDay),
       lte(meals.date, endOfDay)
     ];
-    
-    if (wardId !== undefined) {
-      conditions.push(eq(meals.wardId, wardId));
+
+    if (congregationId !== undefined) {
+      conditions.push(eq(meals.congregationId, congregationId));
     }
-    
+
     return await db
       .select()
       .from(meals)
       .where(and(...conditions));
   }
 
-  async getMealsByDateRange(startDate: Date, endDate: Date, wardId?: number): Promise<Meal[]> {
+  async getMealsByDateRange(startDate: Date, endDate: Date, congregationId?: number): Promise<Meal[]> {
     let conditions = [
       gte(meals.date, startDate),
       lte(meals.date, endDate)
     ];
-    
-    if (wardId !== undefined) {
-      conditions.push(eq(meals.wardId, wardId));
+
+    if (congregationId !== undefined) {
+      conditions.push(eq(meals.congregationId, congregationId));
     }
-    
+
     return await db
       .select()
       .from(meals)
@@ -248,60 +263,49 @@ export class DatabaseStorage implements IStorage {
       .where(eq(meals.missionaryId, missionaryId));
   }
 
-  async getUpcomingMealsByHostPhone(hostPhone: string, wardId?: number): Promise<Meal[]> {
+  async getUpcomingMealsByHostPhone(hostPhone: string, congregationId?: number): Promise<Meal[]> {
     const now = new Date();
-    
+
     let conditions = [
       eq(meals.hostPhone, hostPhone),
       gte(meals.date, now),
       eq(meals.cancelled, false)
     ];
-    
-    if (wardId !== undefined) {
-      conditions.push(eq(meals.wardId, wardId));
+
+    if (congregationId !== undefined) {
+      conditions.push(eq(meals.congregationId, congregationId));
     }
-    
+
     return await db
       .select()
       .from(meals)
       .where(and(...conditions));
   }
 
-  async checkMealAvailability(date: Date, missionaryTypeOrId: string, wardId: number): Promise<boolean> {
-    const mealsOnDate = await this.getMealsByDate(date, wardId);
-    
-    // Check if missionaryTypeOrId is a numeric ID
+  async checkMealAvailability(date: Date, missionaryTypeOrId: string, congregationId: number): Promise<boolean> {
+    const mealsOnDate = await this.getMealsByDate(date, congregationId);
     const missionaryId = parseInt(missionaryTypeOrId, 10);
-    
+
     if (!isNaN(missionaryId)) {
-      // This is a missionary ID, check if this specific missionary has a meal on this date
       const missionary = await this.getMissionary(missionaryId);
-      if (!missionary || missionary.wardId !== wardId) return false;
-      
+      if (!missionary || missionary.congregationId !== congregationId) return false;
+
       const existingMeal = mealsOnDate.find(
         meal => meal.missionaryId === missionaryId && !meal.cancelled
       );
-      
-      // Return true if the missionary doesn't have a meal on this date
       return !existingMeal;
     } else {
-      // This is a missionary type, get missionaries of the requested type in this ward
-      const missionaries = await this.getMissionariesByType(missionaryTypeOrId, wardId);
+      const missionaries = await this.getMissionariesByType(missionaryTypeOrId, congregationId);
       if (missionaries.length === 0) return false;
-      
-      // Check if any of these missionaries already has a meal on this date
+
       for (const missionary of missionaries) {
         const existingMeal = mealsOnDate.find(
           meal => meal.missionaryId === missionary.id && !meal.cancelled
         );
-        
         if (!existingMeal) {
-          // This missionary doesn't have a meal on this date, so it's available
           return true;
         }
       }
-      
-      // All missionaries of this type already have meals on this date
       return false;
     }
   }
@@ -326,9 +330,9 @@ export class DatabaseStorage implements IStorage {
   async cancelMeal(id: number, reason?: string): Promise<Meal | undefined> {
     const [cancelledMeal] = await db
       .update(meals)
-      .set({ 
-        cancelled: true, 
-        cancellationReason: reason || null 
+      .set({
+        cancelled: true,
+        cancellationReason: reason || null
       })
       .where(eq(meals.id, id))
       .returning();
