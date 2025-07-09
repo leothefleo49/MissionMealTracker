@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Building, Users, Calendar, Settings, LogOut, Globe, Flag, Landmark } from "lucide-react";
+import { Building, Users, Calendar, Settings, LogOut } from "lucide-react";
 import { WardSelector } from "@/components/ward-selector";
 import MissionaryList from "@/components/missionary-list";
 import { WardManagement } from "@/components/ward-management";
@@ -12,15 +12,6 @@ import { TestMessageForm } from "@/components/test-message-form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MealManagement } from "@/components/meal-management";
 
-// Define roles for clarity
-const ROLES = {
-  ULTRA_ADMIN: 'ultra_admin',
-  REGION_ADMIN: 'region_admin',
-  MISSION_ADMIN: 'mission_admin',
-  STAKE_ADMIN: 'stake_admin',
-  WARD_ADMIN: 'ward_admin'
-};
-
 export default function Admin() {
   const { user, logoutMutation, selectedWard, isLoading: isAuthLoading, userWards } = useAuth();
   const [activeTab, setActiveTab] = useState("missionaries");
@@ -28,12 +19,12 @@ export default function Admin() {
   if (isAuthLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Skeleton className="h-screen w-full" />
+        <Skeleton className="h-64 w-full max-w-4xl" />
       </div>
     );
   }
 
-  if (!user || !user.role || user.role === 'missionary') {
+  if (!user?.isAdmin && !user?.isSuperAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md">
@@ -42,7 +33,7 @@ export default function Admin() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-gray-600">
-              You do not have permission to access this page.
+              You don't have permission to access the admin dashboard.
             </p>
           </CardContent>
         </Card>
@@ -50,48 +41,18 @@ export default function Admin() {
     );
   }
 
-  // Define tabs based on user role
-  const getTabsForRole = (role: string) => {
-      let tabs = [
-        { id: "missionaries", label: "Missionaries", icon: Users },
-        { id: "meals", label: "Meals", icon: Calendar },
-        { id: "settings", label: "Settings", icon: Settings },
-      ];
-
-      if ([ROLES.ULTRA_ADMIN, ROLES.REGION_ADMIN, ROLES.STAKE_ADMIN].includes(role)) {
-          tabs.splice(2, 0, { id: "wards", label: "Wards", icon: Building });
-      }
-       if ([ROLES.ULTRA_ADMIN, ROLES.REGION_ADMIN].includes(role)) {
-          tabs.splice(2, 0, { id: "stakes", label: "Stakes", icon: Landmark });
-      }
-      if (role === ROLES.ULTRA_ADMIN) {
-          tabs.splice(2, 0, { id: "missions", label: "Missions", icon: Flag });
-          tabs.splice(2, 0, { id: "regions", label: "Regions", icon: Globe });
-      }
-      return tabs;
-  }
-
-  const tabs = getTabsForRole(user.role);
+  const tabs = [
+    { id: "missionaries", label: "Missionaries", icon: Users },
+    { id: "meals", label: "Meals", icon: Calendar },
+    { id: "wards", label: "Wards", icon: Building },
+    { id: "settings", label: "Settings", icon: Settings },
+  ];
 
   const renderContent = () => {
-    // Show management tabs only to appropriate admins
-    if (activeTab === "regions" && user.role === ROLES.ULTRA_ADMIN) {
-        // return <RegionManagement />;
-        return <Card><CardContent className="pt-6">Region Management UI not yet implemented.</CardContent></Card>;
-    }
-    if (activeTab === "missions" && [ROLES.ULTRA_ADMIN, ROLES.REGION_ADMIN].includes(user.role)) {
-        // return <MissionManagement />;
-        return <Card><CardContent className="pt-6">Mission Management UI not yet implemented.</CardContent></Card>;
-    }
-    if (activeTab === "stakes" && [ROLES.ULTRA_ADMIN, ROLES.REGION_ADMIN, ROLES.MISSION_ADMIN].includes(user.role)) {
-        // return <StakeManagement />;
-        return <Card><CardContent className="pt-6">Stake Management UI not yet implemented.</CardContent></Card>;
-    }
-    if (activeTab === "wards" && [ROLES.ULTRA_ADMIN, ROLES.REGION_ADMIN, ROLES.STAKE_ADMIN].includes(user.role)) {
-        return <WardManagement />;
+    if (activeTab === "wards" && user?.isSuperAdmin) {
+      return <WardManagement />;
     }
 
-    // For ward-level tabs, check if a ward is selected
     if (!selectedWard) {
       if (userWards && userWards.length > 0) {
         return (
@@ -99,7 +60,7 @@ export default function Admin() {
             <CardContent className="pt-6 text-center">
               <Building className="mx-auto h-12 w-12 text-gray-300" />
               <h3 className="mt-2 text-sm font-medium text-gray-900">No Ward Selected</h3>
-              <p className="mt-1 text-sm text-gray-500">Please select a ward from the dropdown to manage its details.</p>
+              <p className="mt-1 text-sm text-gray-500">Please select a ward from the dropdown above to continue.</p>
             </CardContent>
           </Card>
         )
@@ -109,7 +70,7 @@ export default function Admin() {
             <CardContent className="pt-6 text-center">
               <Building className="mx-auto h-12 w-12 text-gray-300" />
               <h3 className="mt-2 text-sm font-medium text-gray-900">No Wards Found</h3>
-              <p className="mt-1 text-sm text-gray-500">Admins with appropriate permissions can create new wards, stakes, missions, or regions.</p>
+              <p className="mt-1 text-sm text-gray-500">Super Admins can create a new ward in the "Wards" tab.</p>
             </CardContent>
           </Card>
       )
@@ -117,14 +78,38 @@ export default function Admin() {
 
     switch (activeTab) {
       case "missionaries":
-        return <MissionaryList wardId={selectedWard.id} />;
+        return (
+          <MissionaryList wardId={selectedWard.id} />
+        );
       case "meals":
-        return <MealManagement wardId={selectedWard.id} />;
-      case "settings":
+        return (
+          <MealManagement wardId={selectedWard.id} />
+        );
+       case "settings":
         return (
           <div className="space-y-6">
-            <MessageStatsComponent wardId={selectedWard.id} />
-            <TestMessageForm wardId={selectedWard.id} />
+            <Card>
+              <CardHeader>
+                <CardTitle>Message Statistics</CardTitle>
+                <CardDescription>
+                  View message statistics for {selectedWard.name}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <MessageStatsComponent wardId={selectedWard.id} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Test Messages</CardTitle>
+                <CardDescription>
+                  Send test messages to verify your notification settings for {selectedWard.name}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <TestMessageForm wardId={selectedWard.id} />
+              </CardContent>
+            </Card>
           </div>
         );
       default:
@@ -143,7 +128,10 @@ export default function Admin() {
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Admin Dashboard</h1>
               <div className="flex flex-wrap items-center gap-2 mt-1">
                 <p className="text-sm text-gray-600">Welcome, {user?.username}</p>
-                 <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">{user.role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</Badge>
+                 {user?.isSuperAdmin && <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">Super Admin</Badge>}
+                 {user?.isMissionAdmin && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">Mission Admin</Badge>}
+                 {user?.isStakeAdmin && <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">Stake Admin</Badge>}
+                 {user?.isAdmin && !user.isSuperAdmin && !user.isMissionAdmin && !user.isStakeAdmin && <Badge variant="outline" className="text-xs">Admin</Badge>}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -167,9 +155,7 @@ export default function Admin() {
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex flex-wrap gap-1 sm:gap-2 py-2 overflow-x-auto">
             {tabs.map((tab) => {
-              const isHierarchicalTab = ["regions", "missions", "stakes", "wards"].includes(tab.id);
-              const isDisabled = !isHierarchicalTab && !selectedWard;
-
+              const isDisabled = tab.id !== 'wards' && !selectedWard;
               return (
                 <Button
                   key={tab.id}
@@ -181,7 +167,7 @@ export default function Admin() {
                 >
                   <tab.icon className="h-4 w-4" />
                   <span className="hidden sm:inline">{tab.label}</span>
-                  <span className="sm:hidden">{tab.label}</span>
+                  <span className="sm:hidden">{tab.label.slice(0, 4)}</span>
                 </Button>
               );
             })}
@@ -200,7 +186,7 @@ export default function Admin() {
       <footer className="bg-white border-t mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <p className="text-center text-sm text-gray-500">
-            Missionary Meal Scheduler - Admin Dashboard
+            Ward Missionary Meal Scheduler - Admin Dashboard
           </p>
         </div>
       </footer>

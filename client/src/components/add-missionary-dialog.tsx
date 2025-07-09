@@ -15,7 +15,6 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -36,7 +35,6 @@ const missionaryFormSchema = z.object({
     "Email must be a @missionary.org address"
   ),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  isTrio: z.boolean().default(false), // New "Is a Trio" field
   wardId: z.number(),
 });
 
@@ -58,7 +56,6 @@ export function AddMissionaryDialog({ isOpen, onClose, wardId }: AddMissionaryDi
       phoneNumber: "",
       emailAddress: "",
       password: "",
-      isTrio: false, // Default to false
       wardId,
     },
   });
@@ -93,17 +90,17 @@ export function AddMissionaryDialog({ isOpen, onClose, wardId }: AddMissionaryDi
         <DialogHeader>
           <DialogTitle>Add New Missionary</DialogTitle>
           <DialogDescription>
-            Enter the details for the new missionary companionship.
+            Enter the details for the new missionary.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Companionship Name</FormLabel>
+                  <FormLabel>Name</FormLabel>
                   <FormControl>
                     <Input placeholder="Elder Smith & Elder Johnson" {...field} />
                   </FormControl>
@@ -165,31 +162,11 @@ export function AddMissionaryDialog({ isOpen, onClose, wardId }: AddMissionaryDi
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Initial Portal Password</FormLabel>
+                  <FormLabel>Initial Password</FormLabel>
                   <FormControl>
                     <Input type="password" {...field} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="isTrio"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                  <div className="space-y-0.5">
-                    <FormLabel>Is this a Trio?</FormLabel>
-                    <FormDescription>
-                      Enable this if there are three missionaries in this companionship.
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
                 </FormItem>
               )}
             />
