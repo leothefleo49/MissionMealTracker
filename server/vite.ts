@@ -1,9 +1,10 @@
+// server/vite.ts
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
-import viteConfig from "../vite.config";
+import viteConfig from "../vite.config"; // This import path will need to change
 import { nanoid } from "nanoid";
 
 const viteLogger = createLogger();
@@ -26,9 +27,10 @@ export async function setupVite(app: Express, server: Server) {
     allowedHosts: true,
   };
 
+  // FIX: Adjust path to vite.config.ts since it moved
+  const viteConfigPath = path.resolve(import.meta.dirname, "../client/vite.config.ts");
   const vite = await createViteServer({
-    ...viteConfig,
-    configFile: false,
+    configFile: viteConfigPath, // Use the adjusted path
     customLogger: {
       ...viteLogger,
       error: (msg, options) => {
@@ -50,10 +52,10 @@ export async function setupVite(app: Express, server: Server) {
     }
 
     try {
+      // FIX: Adjust path to index.html since vite.config.ts moved
       const clientTemplate = path.resolve(
         import.meta.dirname,
-        "..",
-        "client",
+        "../client", // Go up to project root, then down to client
         "index.html",
       );
 
@@ -73,9 +75,7 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  // FIX: Now serves client assets directly from the 'dist' folder.
-  // We resolve to the root of the project where 'dist' is.
-  // process.cwd() typically returns /opt/render/project/src on Render.
+  // This path should still be correct: from project root (process.cwd()) to 'dist'
   const publicAssetsPath = path.resolve(process.cwd(), "dist");
 
   if (!fs.existsSync(publicAssetsPath)) {
