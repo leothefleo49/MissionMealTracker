@@ -107,18 +107,3 @@
 .dots-6 .dot-4 { grid-area: d; }
 .dots-6 .dot-5 { grid-area: e; }
 .dots-6 .dot-6 { grid-area: f; }
-
-.calendar-day-lines {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.calendar-day-line {
-  flex-grow: 1;
-  border-bottom: 1px solid transparent; /* Make lines invisible by default */
-}

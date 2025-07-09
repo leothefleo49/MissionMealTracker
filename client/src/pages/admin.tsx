@@ -16,8 +16,6 @@ export default function Admin() {
   const { user, logoutMutation, selectedWard, isLoading: isAuthLoading, userWards } = useAuth();
   const [activeTab, setActiveTab] = useState("missionaries");
 
-  const isSuperAdmin = user?.role && ['stake', 'mission', 'region', 'ultra'].includes(user.role);
-
   if (isAuthLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -26,8 +24,7 @@ export default function Admin() {
     );
   }
 
-  // This check is for users who might somehow get to this page without a valid admin role.
-  if (!user || user.role === 'ward') {
+  if (!user?.isAdmin && !user?.isSuperAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md">
@@ -36,7 +33,7 @@ export default function Admin() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-gray-600">
-              You do not have permission to access the admin dashboard.
+              You don't have permission to access the admin dashboard.
             </p>
           </CardContent>
         </Card>
@@ -47,16 +44,13 @@ export default function Admin() {
   const tabs = [
     { id: "missionaries", label: "Missionaries", icon: Users },
     { id: "meals", label: "Meals", icon: Calendar },
-    { id: "wards", label: "Wards", icon: Building, adminOnly: true },
+    { id: "wards", label: "Wards", icon: Building },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
   const renderContent = () => {
-    if (activeTab === "wards") {
-      if (isSuperAdmin) {
-        return <WardManagement />;
-      }
-      return null;
+    if (activeTab === "wards" && user?.isSuperAdmin) {
+      return <WardManagement />;
     }
 
     if (!selectedWard) {
@@ -84,10 +78,14 @@ export default function Admin() {
 
     switch (activeTab) {
       case "missionaries":
-        return <MissionaryList wardId={selectedWard.id} />;
+        return (
+          <MissionaryList wardId={selectedWard.id} />
+        );
       case "meals":
-        return <MealManagement wardId={selectedWard.id} />;
-      case "settings":
+        return (
+          <MealManagement wardId={selectedWard.id} />
+        );
+       case "settings":
         return (
           <div className="space-y-6">
             <Card>
@@ -119,8 +117,10 @@ export default function Admin() {
     }
   };
 
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 space-y-3 sm:space-y-0">
@@ -128,10 +128,10 @@ export default function Admin() {
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Admin Dashboard</h1>
               <div className="flex flex-wrap items-center gap-2 mt-1">
                 <p className="text-sm text-gray-600">Welcome, {user?.username}</p>
-                 {user?.role === 'ultra' && <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">Ultra Admin</Badge>}
-                 {user?.role === 'region' && <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">Region Admin</Badge>}
-                 {user?.role === 'mission' && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">Mission Admin</Badge>}
-                 {user?.role === 'stake' && <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">Stake Admin</Badge>}
+                 {user?.isSuperAdmin && <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">Super Admin</Badge>}
+                 {user?.isMissionAdmin && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">Mission Admin</Badge>}
+                 {user?.isStakeAdmin && <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">Stake Admin</Badge>}
+                 {user?.isAdmin && !user.isSuperAdmin && !user.isMissionAdmin && !user.isStakeAdmin && <Badge variant="outline" className="text-xs">Admin</Badge>}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -150,14 +150,12 @@ export default function Admin() {
         </div>
       </header>
 
+      {/* Navigation Tabs */}
       <nav className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex flex-wrap gap-1 sm:gap-2 py-2 overflow-x-auto">
             {tabs.map((tab) => {
-              if (tab.adminOnly && !isSuperAdmin) {
-                return null;
-              }
-              const isDisabled = !isSuperAdmin && !selectedWard;
+              const isDisabled = tab.id !== 'wards' && !selectedWard;
               return (
                 <Button
                   key={tab.id}
@@ -177,12 +175,14 @@ export default function Admin() {
         </div>
       </nav>
 
+      {/* Main Content */}
       <main className="flex-grow">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 overflow-x-hidden">
           {renderContent()}
         </div>
       </main>
 
+      {/* Footer */}
       <footer className="bg-white border-t mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <p className="text-center text-sm text-gray-500">
