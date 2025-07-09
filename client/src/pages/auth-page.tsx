@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Calendar, Lock } from "lucide-react";
+import { Calendar, Lock, Eye, EyeOff } from "lucide-react";
 
 // Admin login schema
 const adminLoginSchema = z.object({
@@ -27,6 +27,9 @@ export default function AuthPage() {
   const { user, loginMutation, wardLoginMutation } = useAuth();
   const [location] = useLocation();
   const [authTab, setAuthTab] = useState<"admin" | "congregation">("admin");
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
+  const [showCongregationPassword, setShowCongregationPassword] = useState(false);
+
 
   // Get the congregation access code from URL if present
   const congregationAccessCodeFromUrl = new URLSearchParams(window.location.search).get('congregation');
@@ -116,9 +119,14 @@ export default function AuthPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Password</FormLabel>
-                          <FormControl>
-                            <Input type="password" placeholder="••••••••" {...field} />
-                          </FormControl>
+                          <div className="relative">
+                            <FormControl>
+                              <Input type={showAdminPassword ? "text" : "password"} placeholder="••••••••" {...field} />
+                            </FormControl>
+                            <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3" onClick={() => setShowAdminPassword(!showAdminPassword)}>
+                                {showAdminPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -164,9 +172,14 @@ export default function AuthPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Congregation Admin Password</FormLabel>
-                          <FormControl>
-                            <Input type="password" placeholder="••••••••" {...field} />
-                          </FormControl>
+                          <div className="relative">
+                            <FormControl>
+                              <Input type={showCongregationPassword ? "text" : "password"} placeholder="••••••••" {...field} />
+                            </FormControl>
+                            <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3" onClick={() => setShowCongregationPassword(!showCongregationPassword)}>
+                                {showCongregationPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
                           <FormMessage />
                         </FormItem>
                       )}

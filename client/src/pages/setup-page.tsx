@@ -10,11 +10,15 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Eye, EyeOff } from "lucide-react";
 
 const setupSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string()
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
 });
 
 type SetupForm = z.infer<typeof setupSchema>;
@@ -22,12 +26,15 @@ type SetupForm = z.infer<typeof setupSchema>;
 export default function SetupPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const form = useForm<SetupForm>({
     resolver: zodResolver(setupSchema),
     defaultValues: {
       username: "",
       password: "",
+      confirmPassword: "",
     },
   });
 
@@ -88,9 +95,32 @@ export default function SetupPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Admin Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="Choose a strong password" {...field} />
-                    </FormControl>
+                    <div className="relative">
+                      <FormControl>
+                        <Input type={showPassword ? "text" : "password"} placeholder="Choose a strong password" {...field} />
+                      </FormControl>
+                      <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3" onClick={() => setShowPassword(!showPassword)}>
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm Password</FormLabel>
+                     <div className="relative">
+                        <FormControl>
+                          <Input type={showConfirmPassword ? "text" : "password"} placeholder="Confirm your password" {...field} />
+                        </FormControl>
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                            {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
                     <FormMessage />
                   </FormItem>
                 )}

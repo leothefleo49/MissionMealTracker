@@ -9,7 +9,7 @@ import {
   insertMissionarySchema,
   insertCongregationSchema,
   insertUserCongregationSchema,
-  insertUserSchema
+  InsertUser
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -69,11 +69,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
 
             const hashedPassword = await hashPassword(password);
-            const user = await storage.createUser({
+            const userToInsert: InsertUser = {
                 username,
                 password: hashedPassword,
                 role: 'ultra',
-            });
+            };
+
+            const user = await storage.createUser(userToInsert);
 
             // Exit setup mode
             setSetupMode(false);
