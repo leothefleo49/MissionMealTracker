@@ -1,20 +1,20 @@
 import { useState, useEffect, useMemo } from "react";
-import { 
-  add, 
-  eachDayOfInterval, 
-  endOfMonth, 
-  endOfWeek, 
-  format, 
-  getDay, 
+import {
+  add,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  getDay,
   isBefore,
-  isEqual, 
-  isSameDay, 
-  isSameMonth, 
-  isToday, 
-  parse, 
-  parseISO, 
-  startOfToday, 
-  startOfWeek 
+  isEqual,
+  isSameDay,
+  isSameMonth,
+  isToday,
+  parse,
+  parseISO,
+  startOfToday,
+  startOfWeek
 } from "date-fns";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,24 +38,24 @@ type CalendarGridProps = {
   missionaryType: string;
   startMonth?: Date;
   maxMonths?: number;
-  wardId?: number;
+  congregationId?: number;
   autoSelectNextAvailable?: boolean;
 };
 
-export function CalendarGrid({ 
-  onSelectDate, 
-  selectedDate, 
+export function CalendarGrid({
+  onSelectDate,
+  selectedDate,
   missionaryType,
   startMonth = startOfToday(),
   maxMonths = 6,
-  wardId,
+  congregationId,
   autoSelectNextAvailable = false
 }: CalendarGridProps) {
 
-  const { data: wardMissionaries } = useQuery({
-    queryKey: ['/api/wards', wardId, 'missionaries'],
-    queryFn: () => fetch(`/api/wards/${wardId}/missionaries`).then(res => res.json()),
-    enabled: !!wardId,
+  const { data: congregationMissionaries } = useQuery({
+    queryKey: ['/api/congregations', congregationId, 'missionaries'],
+    queryFn: () => fetch(`/api/congregations/${congregationId}/missionaries`).then(res => res.json()),
+    enabled: !!congregationId,
     staleTime: 5000,
     refetchInterval: 5000
   });
@@ -94,10 +94,11 @@ export function CalendarGrid({
   const endDate = endOfWeek(endOfMonth(firstDayCurrentMonth), { weekStartsOn: 0 });
 
   const { data: meals, isLoading } = useQuery({
-    queryKey: ['/api/meals', format(startDate, 'yyyy-MM'), format(endDate, 'yyyy-MM')],
+    queryKey: ['/api/meals', format(startDate, 'yyyy-MM'), format(endDate, 'yyyy-MM'), congregationId],
     queryFn: () => fetch(
-      `/api/meals?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
+      `/api/meals?congregationId=${congregationId}&startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`
     ).then(res => res.json()),
+    enabled: !!congregationId,
     staleTime: 1000,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
@@ -108,14 +109,14 @@ export function CalendarGrid({
   const mealStatusMap = useMemo(() => {
     const map = new Map<string, MealStatus>();
 
-    if (meals && wardMissionaries) {
+    if (meals && congregationMissionaries) {
       meals.forEach((meal: any) => {
         if (meal.cancelled) return;
 
         const mealDate = format(parseISO(meal.date), "yyyy-MM-dd");
         const mealStatus = map.get(mealDate) || { bookedMissionaries: [] };
 
-        const missionaryIndex = wardMissionaries.findIndex((m:any) => m.id === meal.missionary.id);
+        const missionaryIndex = congregationMissionaries.findIndex((m:any) => m.id === meal.missionary.id);
 
         const missionaryExists = mealStatus.bookedMissionaries.some(
           (m) => m.id === meal.missionary.id
@@ -137,7 +138,7 @@ export function CalendarGrid({
     }
 
     return map;
-  }, [meals, wardMissionaries]);
+  }, [meals, congregationMissionaries]);
 
   return (
     <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden bg-white max-w-full calendar-container">
@@ -157,7 +158,7 @@ export function CalendarGrid({
         </Button>
 
         <h3 className="text-xs sm:text-base font-medium text-gray-900 truncate px-1 flex-grow text-center min-w-0">
-          {format(firstDayCurrentMonth, "MMM yyyy")}
+          {format(firstDayCurrentMonth, "MMMM yyyy")}
         </h3>
 
         <Button
@@ -199,15 +200,15 @@ export function CalendarGrid({
             const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
 
             const isMissionaryId = !isNaN(parseInt(missionaryType, 10));
-            const isDayUnavailable = isMissionaryId 
+            const isDayUnavailable = isMissionaryId
               ? mealStatus.bookedMissionaries.some((m: any) => m.id.toString() === missionaryType)
               : false;
 
             const isOutsideBookingRange = !isWithinBookingRange(day);
-            const isCompletelyBooked = wardMissionaries?.length === mealStatus.bookedMissionaries.length;
+            const isCompletelyBooked = congregationMissionaries?.length === mealStatus.bookedMissionaries.length;
             const isPastDate = isBefore(day, startOfToday()) && !isToday(day);
             const isDimmed = isPastDate || isCompletelyBooked;
-            const isDisabled = !isSameMonth(day, firstDayCurrentMonth) || isOutsideBookingRange || isDayUnavailable;
+            const isDisabled = !isSameMonth(day, firstDayCurrentMonth) || isOutsideBookingRange || isDayUnavailable || isPastDate;
 
             return (
               <div

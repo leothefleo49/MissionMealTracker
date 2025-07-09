@@ -15,10 +15,10 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 interface MealManagementProps {
-  wardId: number;
+  congregationId: number;
 }
 
-export function MealManagement({ wardId }: MealManagementProps) {
+export function MealManagement({ congregationId }: MealManagementProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -28,13 +28,13 @@ export function MealManagement({ wardId }: MealManagementProps) {
   const [filter, setFilter] = useState("upcoming");
 
   const { data: meals = [], isLoading: isLoadingMeals } = useQuery<any[]>({
-    queryKey: ['/api/wards', wardId, 'meals'],
+    queryKey: ['/api/congregations', congregationId, 'meals'],
     queryFn: async () => {
-      const response = await fetch(`/api/wards/${wardId}/meals?startDate=1970-01-01&endDate=2100-01-01`);
+      const response = await fetch(`/api/congregations/${congregationId}/meals?startDate=1970-01-01&endDate=2100-01-01`);
       if (!response.ok) throw new Error("Failed to fetch meals");
       return response.json();
     },
-    enabled: !!wardId,
+    enabled: !!congregationId,
   });
 
   const cancelMealMutation = useMutation({
@@ -43,7 +43,7 @@ export function MealManagement({ wardId }: MealManagementProps) {
     },
     onSuccess: () => {
       toast({ title: "Meal Cancelled", description: "The meal has been successfully cancelled." });
-      queryClient.invalidateQueries({ queryKey: ['/api/wards', wardId, 'meals'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/congregations', congregationId, 'meals'] });
       setIsCancelDialogOpen(false);
       setSelectedMeal(null);
     },
@@ -181,7 +181,7 @@ export function MealManagement({ wardId }: MealManagementProps) {
           isOpen={isEditDialogOpen}
           onClose={() => setIsEditDialogOpen(false)}
           meal={selectedMeal}
-          wardId={wardId}
+          congregationId={congregationId}
         />
       )}
 

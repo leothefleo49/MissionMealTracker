@@ -28,18 +28,18 @@ interface MealEditDialogProps {
   isOpen: boolean;
   onClose: () => void;
   meal: any | null;
-  wardId: number;
+  congregationId: number;
 }
 
-export function MealEditDialog({ isOpen, onClose, meal, wardId }: MealEditDialogProps) {
+export function MealEditDialog({ isOpen, onClose, meal, congregationId }: MealEditDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEditing = !!meal;
 
   const { data: missionaries = [] } = useQuery<any[]>({
-    queryKey: ['/api/wards', wardId, 'missionaries'],
-    queryFn: () => fetch(`/api/wards/${wardId}/missionaries`).then(res => res.json()),
-    enabled: !!wardId,
+    queryKey: ['/api/congregations', congregationId, 'missionaries'],
+    queryFn: () => fetch(`/api/congregations/${congregationId}/missionaries`).then(res => res.json()),
+    enabled: !!congregationId,
   });
 
   const form = useForm<MealFormValues>({
@@ -81,7 +81,7 @@ export function MealEditDialog({ isOpen, onClose, meal, wardId }: MealEditDialog
 
   const mealMutation = useMutation({
     mutationFn: (data: MealFormValues) => {
-      const payload = { ...data, wardId };
+      const payload = { ...data, congregationId };
       if (isEditing) {
         return apiRequest("PATCH", `/api/meals/${meal.id}`, payload);
       }
@@ -89,7 +89,7 @@ export function MealEditDialog({ isOpen, onClose, meal, wardId }: MealEditDialog
     },
     onSuccess: () => {
       toast({ title: `Meal ${isEditing ? 'Updated' : 'Created'}`, description: `The meal has been successfully ${isEditing ? 'updated' : 'created'}.` });
-      queryClient.invalidateQueries({ queryKey: ['/api/wards', wardId, 'meals'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/congregations', congregationId, 'meals'] });
       onClose();
     },
     onError: (error: any) => {

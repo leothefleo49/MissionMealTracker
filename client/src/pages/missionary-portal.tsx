@@ -21,7 +21,7 @@ export default function MissionaryPortal() {
   const [authPassword, setAuthPassword] = useState("");
   const [authenticating, setAuthenticating] = useState(false);
   const [authError, setAuthError] = useState("");
-  const [wardCodeInput, setWardCodeInput] = useState("");
+  const [congregationCodeInput, setCongregationCodeInput] = useState("");
   const [selectedMissionaryId, setSelectedMissionaryId] = useState<string>("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -33,13 +33,13 @@ export default function MissionaryPortal() {
   const [authenticatedMissionary, setAuthenticatedMissionary] = useState<any>(null);
   const isMobile = useIsMobile();
   const { toast } = useToast();
-  
-  // Fetch ward data
-  const { data: ward } = useQuery<any>({
-    queryKey: ['/api/wards', accessCode],
-    queryFn: () => fetch(`/api/wards/${accessCode}`).then(res => {
+
+  // Fetch congregation data
+  const { data: congregation } = useQuery<any>({
+    queryKey: ['/api/congregations', accessCode],
+    queryFn: () => fetch(`/api/congregations/${accessCode}`).then(res => {
       if (!res.ok) {
-        throw new Error("Invalid ward access code");
+        throw new Error("Invalid congregation access code");
       }
       return res.json();
     }),
@@ -47,13 +47,13 @@ export default function MissionaryPortal() {
     enabled: !!accessCode
   });
 
-  const wardId = ward?.id;
-  
+  const congregationId = congregation?.id;
+
   // Fetch missionaries data
   const { data: missionaries } = useQuery<any[]>({
-    queryKey: ['/api/wards', wardId, 'missionaries'],
-    queryFn: () => fetch(`/api/wards/${wardId}/missionaries`).then(res => res.json()),
-    enabled: !!wardId && isAuthenticated,
+    queryKey: ['/api/congregations', congregationId, 'missionaries'],
+    queryFn: () => fetch(`/api/congregations/${congregationId}/missionaries`).then(res => res.json()),
+    enabled: !!congregationId && isAuthenticated,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchInterval: false,
     refetchOnWindowFocus: false
@@ -84,18 +84,18 @@ export default function MissionaryPortal() {
   const handleAuthentication = async () => {
     setAuthenticating(true);
     setAuthError("");
-    
+
     try {
       const response = await fetch(`/api/missionary-portal/authenticate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          accessCode, 
-          emailAddress: authEmail, 
-          password: authPassword 
+        body: JSON.stringify({
+          accessCode,
+          emailAddress: authEmail,
+          password: authPassword
         }),
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         if (data.authenticated) {
@@ -118,7 +118,7 @@ export default function MissionaryPortal() {
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast({
         title: "Error",
@@ -127,7 +127,7 @@ export default function MissionaryPortal() {
       });
       return;
     }
-    
+
     if (newPassword !== confirmPassword) {
       toast({
         title: "Error",
@@ -136,7 +136,7 @@ export default function MissionaryPortal() {
       });
       return;
     }
-    
+
     if (newPassword.length < 6) {
       toast({
         title: "Error",
@@ -145,9 +145,9 @@ export default function MissionaryPortal() {
       });
       return;
     }
-    
+
     setChangingPassword(true);
-    
+
     try {
       const response = await fetch('/api/missionary-change-password', {
         method: 'POST',
@@ -159,7 +159,7 @@ export default function MissionaryPortal() {
           newPassword
         }),
       });
-      
+
       if (response.ok) {
         toast({
           title: "Success",
@@ -190,7 +190,7 @@ export default function MissionaryPortal() {
   // Get missionary ID based on selection
   const missionary = missionaries?.find(m => m.id.toString() === selectedMissionaryId);
   const missionaryId = missionary?.id;
-  
+
   // Show access code prompt if no access code provided
   if (!accessCode) {
     return (
@@ -199,30 +199,30 @@ export default function MissionaryPortal() {
           <CardContent className="p-6">
             <div className="text-center mb-6">
               <h1 className="text-2xl font-bold text-gray-900 mb-2">Missionary Portal</h1>
-              <p className="text-gray-600">Enter your ward access code to continue</p>
+              <p className="text-gray-600">Enter your congregation access code to continue</p>
             </div>
-            
+
             <div className="space-y-4">
               <input
                 type="text"
-                placeholder="Enter ward access code"
-                value={wardCodeInput}
-                onChange={(e) => setWardCodeInput(e.target.value)}
+                placeholder="Enter congregation access code"
+                value={congregationCodeInput}
+                onChange={(e) => setCongregationCodeInput(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              
-              <Button 
+
+              <Button
                 onClick={() => {
-                  if (wardCodeInput.trim()) {
-                    setLocation(`/missionary-portal/${wardCodeInput.trim()}`);
+                  if (congregationCodeInput.trim()) {
+                    setLocation(`/missionary-portal/${congregationCodeInput.trim()}`);
                   }
                 }}
-                disabled={!wardCodeInput.trim()}
+                disabled={!congregationCodeInput.trim()}
                 className="w-full bg-blue-600 hover:bg-blue-700"
               >
                 Continue
               </Button>
-              
+
               <div className="text-center">
                 <button
                   onClick={() => setLocation("/")}
@@ -247,7 +247,7 @@ export default function MissionaryPortal() {
               <h1 className="text-2xl font-bold text-gray-900 mb-2">Missionary Portal Access</h1>
               <p className="text-gray-600">Sign in or register to access your meal schedule</p>
             </div>
-            
+
             <div className="space-y-4">
               <div className="space-y-3">
                 <input
@@ -257,7 +257,7 @@ export default function MissionaryPortal() {
                   onChange={(e) => setAuthEmail(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                
+
                 <input
                   type="password"
                   placeholder="Enter your password"
@@ -265,12 +265,12 @@ export default function MissionaryPortal() {
                   onChange={(e) => setAuthPassword(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                
+
                 {authError && (
                   <div className="text-red-600 text-sm text-center">{authError}</div>
                 )}
-                
-                <Button 
+
+                <Button
                   onClick={handleAuthentication}
                   disabled={authenticating || !authEmail || !authPassword}
                   className="w-full bg-blue-600 hover:bg-blue-700"
@@ -278,7 +278,7 @@ export default function MissionaryPortal() {
                   {authenticating ? "Signing In..." : "Sign In"}
                 </Button>
               </div>
-              
+
               <div className="text-center space-y-2">
                 <button
                   onClick={() => setLocation(`/missionary-register/${accessCode}`)}
@@ -286,7 +286,7 @@ export default function MissionaryPortal() {
                 >
                   Don't have an account? Register here
                 </button>
-                
+
                 <button
                   onClick={() => setLocation(`/missionary-forgot-password/${accessCode}`)}
                   className="block w-full text-sm text-gray-600 hover:text-gray-700 underline"
@@ -313,20 +313,20 @@ export default function MissionaryPortal() {
                 {isMobile ? "Portal" : "Missionary Portal"}
               </h1>
             </div>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="sm"
               className="flex items-center flex-shrink-0 px-2 py-1"
-              onClick={() => setLocation(`/ward/${accessCode}`)}
+              onClick={() => setLocation(`/congregation/${accessCode}`)}
             >
               <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />
               {isMobile && <span className="ml-1 text-xs">Back</span>}
-              {!isMobile && <span className="ml-2 text-base">Back to Ward</span>}
+              {!isMobile && <span className="ml-2 text-base">Back to Congregation</span>}
             </Button>
           </div>
         </div>
       </header>
-      
+
       {/* Main Content */}
       <main className="flex-grow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -334,10 +334,10 @@ export default function MissionaryPortal() {
             <CardHeader>
               <CardTitle>Missionary Meal Schedule</CardTitle>
               <CardDescription>
-                View your upcoming meal appointments with ward members.
+                View your upcoming meal appointments with congregation members.
               </CardDescription>
             </CardHeader>
-            
+
             <CardContent>
               {/* Missionary Selector */}
               <div className="mb-6 flex justify-center">
@@ -363,13 +363,13 @@ export default function MissionaryPortal() {
                       </div>
                     ) : (
                       <div className="text-center text-sm text-gray-500">
-                        No missionaries found for this ward
+                        No missionaries found for this congregation
                       </div>
                     )}
                   </div>
                 </div>
               </div>
-              
+
               <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="mb-6 w-full grid grid-cols-3">
                   <TabsTrigger value="upcoming" className="flex items-center justify-center text-xs sm:text-sm">
@@ -388,11 +388,11 @@ export default function MissionaryPortal() {
                     <span className="xs:hidden">Settings</span>
                   </TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="upcoming">
                   {missionary ? (
-                    <MissionaryUpcomingMeals 
-                      missionaryId={missionaryId} 
+                    <MissionaryUpcomingMeals
+                      missionaryId={missionaryId}
                       missionaryType={missionary.type}
                     />
                   ) : (
@@ -401,7 +401,7 @@ export default function MissionaryPortal() {
                     </div>
                   )}
                 </TabsContent>
-                
+
                 <TabsContent value="calendar">
                   <div className="space-y-4">
                     <div>
@@ -410,12 +410,13 @@ export default function MissionaryPortal() {
                         View all scheduled meals on the calendar. The highlighted dates show when you have meal appointments.
                       </p>
                     </div>
-                    
+
                     {missionary ? (
                       <CalendarGrid
                         missionaryType={missionary.id.toString()}
                         onSelectDate={() => {}}
                         selectedDate={null}
+                        congregationId={congregationId}
                       />
                     ) : (
                       <div className="text-center p-6">
@@ -424,7 +425,7 @@ export default function MissionaryPortal() {
                     )}
                   </div>
                 </TabsContent>
-                
+
                 <TabsContent value="settings">
                   <div className="space-y-6">
                     <div>
@@ -433,7 +434,7 @@ export default function MissionaryPortal() {
                         Manage your missionary portal account settings and preferences.
                       </p>
                     </div>
-                    
+
                     {authenticatedMissionary && (
                       <Card>
                         <CardHeader>
@@ -456,7 +457,7 @@ export default function MissionaryPortal() {
                         </CardContent>
                       </Card>
                     )}
-                    
+
                     <Card>
                       <CardHeader>
                         <CardTitle className="flex items-center">
@@ -491,7 +492,7 @@ export default function MissionaryPortal() {
                               </button>
                             </div>
                           </div>
-                          
+
                           <div className="space-y-2">
                             <label htmlFor="new-password" className="text-sm font-medium text-gray-700">
                               New Password
@@ -515,7 +516,7 @@ export default function MissionaryPortal() {
                               </button>
                             </div>
                           </div>
-                          
+
                           <div className="space-y-2">
                             <label htmlFor="confirm-password" className="text-sm font-medium text-gray-700">
                               Confirm New Password
@@ -539,9 +540,9 @@ export default function MissionaryPortal() {
                               </button>
                             </div>
                           </div>
-                          
-                          <Button 
-                            type="submit" 
+
+                          <Button
+                            type="submit"
                             disabled={changingPassword}
                             className="w-full"
                           >

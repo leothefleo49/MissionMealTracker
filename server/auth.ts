@@ -6,11 +6,19 @@ import createMemoryStore from "memorystore";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User, userRoleEnum } from "@shared/schema";
+import { User, userRoleEnum, InsertUser } from "@shared/schema";
 
 const MemoryStore = createMemoryStore(session);
 
 const scryptAsync = promisify(scrypt);
+
+// This flag will determine if the application is in "setup" mode.
+export let isSetupMode = false;
+
+// Function to update the setup mode status
+export function setSetupMode(status: boolean) {
+  isSetupMode = status;
+}
 
 declare global {
   namespace Express {
@@ -32,10 +40,20 @@ export async function hashPassword(password: string) {
 }
 
 export async function comparePasswords(supplied: string, stored: string) {
-  const [hashed, salt] = stored.split(".");
-  const hashedBuf = Buffer.from(hashed, "hex");
-  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  return timingSafeEqual(hashedBuf, suppliedBuf);
+  try {
+    const [hashed, salt] = stored.split(".");
+    if (!hashed || !salt) {
+      return false;
+    }
+    const hashedBuf = Buffer.from(hashed, "hex");
+    const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+    if (hashedBuf.length !== suppliedBuf.length) {
+      return false;
+    }
+    return timingSafeEqual(hashedBuf, suppliedBuf);
+  } catch (e) {
+    return false;
+  }
 }
 
 export function setupAuth(app: Express) {
@@ -62,7 +80,7 @@ export function setupAuth(app: Express) {
   passport.use('local-regular', new LocalStrategy(async (username, password, done) => {
     try {
       const user = await storage.getUserByUsername(username);
-      if (!user || !(await comparePasswords(password, user.password))) {
+      if (!user || !user.password || !(await comparePasswords(password, user.password))) {
         return done(null, false, { message: "Invalid username or password" });
       }
       return done(null, user);
@@ -76,7 +94,7 @@ export function setupAuth(app: Express) {
       try {
         const congregation = await storage.getCongregationByAccessCode(wardAccessCode);
         if (!congregation) {
-          return done(null, false, { message: "Invalid ward access code" });
+          return done(null, false, { message: "Invalid congregation access code" });
         }
 
         // This is a placeholder for a real password check for ward-level users
@@ -115,6 +133,10 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
+    // If in setup mode, don't allow login
+    if (isSetupMode) {
+        return res.status(403).json({ message: "Application is in setup mode. Please create an admin account first." });
+    }
     passport.authenticate("local-regular", (err: Error, user: User) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: "Invalid credentials" });
@@ -144,7 +166,7 @@ export function setupAuth(app: Express) {
             });
         });
     })(req, res, next);
-});
+  });
 
 
   app.post("/api/logout", (req, res, next) => {
@@ -174,19 +196,22 @@ export function setupAuth(app: Express) {
   });
 }
 
-export async function createSuperAdminUser() {
-    try {
-      const existingSuperAdmin = await storage.getUserByUsername("ultraadmin");
-      if (!existingSuperAdmin) {
-        const superAdminUser: InsertUser = {
-          username: "ultraadmin",
-          password: await hashPassword("password"),
-          role: 'ultra',
-        };
-        await storage.createUser(superAdminUser);
-        console.log("Ultra admin user created with default credentials");
-      }
-    } catch (error) {
-      console.error("Error creating ultra admin user:", error);
+/**
+ * Checks if an ultra admin exists. If not, sets the application to setup mode.
+ * This should be called once on server startup.
+ */
+export async function checkAndSetSetupMode() {
+  try {
+    const ultraAdmin = await storage.getUltraAdmin();
+    if (!ultraAdmin) {
+      console.log("No Ultra Admin found. Entering setup mode.");
+      setSetupMode(true);
+    } else {
+      console.log("Ultra Admin found. Application starting normally.");
+      setSetupMode(false);
     }
+  } catch (error) {
+    console.error("Error checking for Ultra Admin, entering setup mode as a failsafe:", error);
+    setSetupMode(true);
+  }
 }

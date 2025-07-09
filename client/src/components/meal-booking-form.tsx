@@ -26,10 +26,11 @@ import { useToast } from "@/hooks/use-toast";
 const formSchema = z.object({
   hostName: z.string().min(2, { message: "Host name must be at least 2 characters" }),
   hostPhone: z.string().min(10, { message: "Please enter a valid phone number" }),
+  hostEmail: z.string().email({ message: "Please enter a valid email address" }),
   startTime: z.string().min(1, { message: "Please select a time" }),
   mealDescription: z.string().optional(),
   specialNotes: z.string().optional(),
-  wardId: z.number().optional(),
+  congregationId: z.number().optional(),
   missionaryId: z.number().optional(),
   date: z.string().optional(),
 });
@@ -37,62 +38,65 @@ const formSchema = z.object({
 type BookingFormProps = {
   selectedDate: Date;
   missionaryType: string; // This will be the missionary ID or type
-  wardId: number;
+  congregationId: number;
   onCancel: () => void;
   onSuccess: () => void;
 };
 
-export function MealBookingForm({ selectedDate, missionaryType, wardId, onCancel, onSuccess }: BookingFormProps) {
+export function MealBookingForm({ selectedDate, missionaryType, congregationId, onCancel, onSuccess }: BookingFormProps) {
   const timeOptions = getTimeOptions();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
-  
+
   // Define missionary interface
   interface Missionary {
     id: number;
     name: string;
     type: string;
+    isTrio: boolean;
   }
-  
+
   // Get the selected missionary
   const { data: missionary, isLoading: loadingMissionary } = useQuery<Missionary>({
     queryKey: [`/api/missionaries/${missionaryType}`],
     queryFn: () => fetch(`/api/missionaries/${missionaryType}`).then(res => res.json()),
     enabled: !!missionaryType && !isNaN(parseInt(missionaryType, 10)),
   });
-  
+
   // Form setup
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       hostName: "",
       hostPhone: "",
+      hostEmail: "",
       startTime: "17:30", // Default to 5:30 PM
       mealDescription: "",
       specialNotes: "",
     },
   });
-  
+
   // Handle form submission
   const bookMealMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!missionary) {
         throw new Error("No missionary selected");
       }
-      
+
       // Format the date for the API
       const mealDate = new Date(selectedDate);
-      
+
       return apiRequest("POST", "/api/meals", {
         missionaryId: missionary.id,
         date: mealDate.toISOString(),
         startTime: values.startTime,
         hostName: values.hostName,
         hostPhone: values.hostPhone,
+        hostEmail: values.hostEmail,
         mealDescription: values.mealDescription || "",
         specialNotes: values.specialNotes || "",
-        wardId: wardId
+        congregationId: congregationId
       });
     },
     onSuccess: () => {
@@ -102,12 +106,12 @@ export function MealBookingForm({ selectedDate, missionaryType, wardId, onCancel
         description: "The missionaries have been notified of your meal appointment.",
         variant: "default",
       });
-      
+
       // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/meals'] 
+      queryClient.invalidateQueries({
+        queryKey: ['/api/meals']
       });
-      
+
       // Reset form and call success callback
       form.reset();
       onSuccess();
@@ -122,22 +126,28 @@ export function MealBookingForm({ selectedDate, missionaryType, wardId, onCancel
       setSubmitting(false);
     },
   });
-  
+
   function onSubmit(values: z.infer<typeof formSchema>) {
     setSubmitting(true);
     bookMealMutation.mutate(values);
   }
-  
+
   const formattedDate = format(selectedDate, "EEEE, MMMM do");
   const missionaryDisplay = missionary?.name || "Missionaries";
-  
+
   return (
     <Card className="mb-8 bg-white shadow-sm border border-gray-200">
       <CardContent className="p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">
           Schedule for {formattedDate} with {missionaryDisplay}
         </h3>
-        
+
+        {missionary?.isTrio && (
+            <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-400 text-blue-800">
+                <p className="font-bold">You are signing up to feed a trio of three missionaries.</p>
+            </div>
+        )}
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -154,15 +164,15 @@ export function MealBookingForm({ selectedDate, missionaryType, wardId, onCancel
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="startTime"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Preferred Time *</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
+                    <Select
+                      onValueChange={field.onChange}
                       defaultValue={field.value}
                     >
                       <FormControl>
@@ -183,21 +193,36 @@ export function MealBookingForm({ selectedDate, missionaryType, wardId, onCancel
                 )}
               />
             </div>
-            
-            <FormField
-              control={form.control}
-              name="hostPhone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contact Phone *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="(555) 123-4567" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
+
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <FormField
+                    control={form.control}
+                    name="hostPhone"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Contact Phone *</FormLabel>
+                        <FormControl>
+                        <Input placeholder="(555) 123-4567" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="hostEmail"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Host Email *</FormLabel>
+                        <FormControl>
+                        <Input placeholder="example@email.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+            </div>
+
             <FormField
               control={form.control}
               name="mealDescription"
@@ -205,7 +230,7 @@ export function MealBookingForm({ selectedDate, missionaryType, wardId, onCancel
                 <FormItem>
                   <FormLabel>Meal Description (Optional)</FormLabel>
                   <FormControl>
-                    <Textarea 
+                    <Textarea
                       placeholder="Let the missionaries know what you're planning to serve"
                       className="resize-none"
                       {...field}
@@ -218,7 +243,7 @@ export function MealBookingForm({ selectedDate, missionaryType, wardId, onCancel
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="specialNotes"
@@ -226,7 +251,7 @@ export function MealBookingForm({ selectedDate, missionaryType, wardId, onCancel
                 <FormItem>
                   <FormLabel>Special Notes (Optional)</FormLabel>
                   <FormControl>
-                    <Textarea 
+                    <Textarea
                       placeholder="Any dietary restrictions, allergies, or special instructions"
                       className="resize-none"
                       {...field}
@@ -239,7 +264,7 @@ export function MealBookingForm({ selectedDate, missionaryType, wardId, onCancel
                 </FormItem>
               )}
             />
-            
+
             <div className="flex justify-end space-x-3">
               <Button
                 type="button"
@@ -248,7 +273,7 @@ export function MealBookingForm({ selectedDate, missionaryType, wardId, onCancel
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 type="submit"
                 disabled={submitting || loadingMissionary}
               >

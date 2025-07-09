@@ -38,6 +38,11 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
+  async getUltraAdmin(): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.role, 'ultra'));
+    return user;
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db
       .insert(users)

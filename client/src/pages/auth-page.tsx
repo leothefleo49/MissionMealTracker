@@ -11,58 +11,61 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Calendar, Lock } from "lucide-react";
 
-// Password-only login schema
-const superAdminLoginSchema = z.object({
+// Admin login schema
+const adminLoginSchema = z.object({
+  username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
 });
 
-// Ward-specific login schema 
-const wardLoginSchema = z.object({
-  wardAccessCode: z.string().min(1, "Ward access code is required"),
+// Congregation-specific login schema
+const congregationLoginSchema = z.object({
+  congregationAccessCode: z.string().min(1, "Congregation access code is required"),
   password: z.string().min(1, "Password is required"),
 });
 
 export default function AuthPage() {
   const { user, loginMutation, wardLoginMutation } = useAuth();
   const [location] = useLocation();
-  const [authTab, setAuthTab] = useState<"superadmin" | "ward">("superadmin");
-  
-  // Get the ward access code from URL if present
-  const wardAccessCodeFromUrl = new URLSearchParams(window.location.search).get('ward');
-  
-  // Form for main superadmin login (password only)
-  const superAdminForm = useForm<z.infer<typeof superAdminLoginSchema>>({
-    resolver: zodResolver(superAdminLoginSchema),
+  const [authTab, setAuthTab] = useState<"admin" | "congregation">("admin");
+
+  // Get the congregation access code from URL if present
+  const congregationAccessCodeFromUrl = new URLSearchParams(window.location.search).get('congregation');
+
+  // Form for main admin login
+  const adminForm = useForm<z.infer<typeof adminLoginSchema>>({
+    resolver: zodResolver(adminLoginSchema),
     defaultValues: {
+      username: "",
       password: "",
     },
   });
 
-  // Form for ward-specific login
-  const wardLoginForm = useForm<z.infer<typeof wardLoginSchema>>({
-    resolver: zodResolver(wardLoginSchema),
+  // Form for congregation-specific login
+  const congregationLoginForm = useForm<z.infer<typeof congregationLoginSchema>>({
+    resolver: zodResolver(congregationLoginSchema),
     defaultValues: {
-      wardAccessCode: wardAccessCodeFromUrl || "",
+      congregationAccessCode: congregationAccessCodeFromUrl || "",
       password: "",
     },
   });
 
-  async function onSuperAdminLoginSubmit(values: z.infer<typeof superAdminLoginSchema>) {
+  async function onAdminLoginSubmit(values: z.infer<typeof adminLoginSchema>) {
     loginMutation.mutate(values);
   }
-  
-  async function onWardLoginSubmit(values: z.infer<typeof wardLoginSchema>) {
-    wardLoginMutation.mutate(values);
+
+  async function onCongregationLoginSubmit(values: z.infer<typeof congregationLoginSchema>) {
+    // Note: The mutation is still named wardLoginMutation from the useAuth hook, but it points to the correct endpoint.
+    wardLoginMutation.mutate({ wardAccessCode: values.congregationAccessCode, password: values.password });
   }
 
   // Redirect if already logged in
   if (user) {
     return <Redirect to="/admin" />;
   }
-  
-  // If ward code is in URL, default to ward login tab
-  if (wardAccessCodeFromUrl && authTab !== "ward") {
-    setAuthTab("ward");
+
+  // If congregation code is in URL, default to congregation login tab
+  if (congregationAccessCodeFromUrl && authTab !== "congregation") {
+    setAuthTab("congregation");
   }
 
   return (
@@ -84,22 +87,35 @@ export default function AuthPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={authTab} onValueChange={(v) => setAuthTab(v as "superadmin" | "ward")} className="w-full">
+            <Tabs value={authTab} onValueChange={(v) => setAuthTab(v as "admin" | "congregation")} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="superadmin">Super Admin</TabsTrigger>
-                <TabsTrigger value="ward">Ward Admin</TabsTrigger>
+                <TabsTrigger value="admin">Admin</TabsTrigger>
+                <TabsTrigger value="congregation">Congregation Admin</TabsTrigger>
               </TabsList>
-              
-              {/* SuperAdmin Login Form */}
-              <TabsContent value="superadmin" className="mt-4">
-                <Form {...superAdminForm}>
-                  <form onSubmit={superAdminForm.handleSubmit(onSuperAdminLoginSubmit)} className="space-y-4">
+
+              {/* Admin Login Form */}
+              <TabsContent value="admin" className="mt-4">
+                <Form {...adminForm}>
+                  <form onSubmit={adminForm.handleSubmit(onAdminLoginSubmit)} className="space-y-4">
                     <FormField
-                      control={superAdminForm.control}
+                      control={adminForm.control}
+                      name="username"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Username</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter your username" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={adminForm.control}
                       name="password"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Super Admin Password</FormLabel>
+                          <FormLabel>Password</FormLabel>
                           <FormControl>
                             <Input type="password" placeholder="••••••••" {...field} />
                           </FormControl>
@@ -114,40 +130,40 @@ export default function AuthPage() {
                     >
                       {loginMutation.isPending ? (
                         <>
-                          <Lock className="mr-2 h-4 w-4 animate-spin" /> 
+                          <Lock className="mr-2 h-4 w-4 animate-spin" />
                           Logging in...
                         </>
                       ) : (
-                        "Sign In as Super Admin"
+                        "Sign In as Admin"
                       )}
                     </Button>
                   </form>
                 </Form>
               </TabsContent>
-              
-              {/* Ward Admin Login Form */}
-              <TabsContent value="ward" className="mt-4">
-                <Form {...wardLoginForm}>
-                  <form onSubmit={wardLoginForm.handleSubmit(onWardLoginSubmit)} className="space-y-4">
+
+              {/* Congregation Admin Login Form */}
+              <TabsContent value="congregation" className="mt-4">
+                <Form {...congregationLoginForm}>
+                  <form onSubmit={congregationLoginForm.handleSubmit(onCongregationLoginSubmit)} className="space-y-4">
                     <FormField
-                      control={wardLoginForm.control}
-                      name="wardAccessCode"
+                      control={congregationLoginForm.control}
+                      name="congregationAccessCode"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Ward Access Code</FormLabel>
+                          <FormLabel>Congregation Access Code</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter ward access code" {...field} />
+                            <Input placeholder="Enter congregation access code" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                     <FormField
-                      control={wardLoginForm.control}
+                      control={congregationLoginForm.control}
                       name="password"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Ward Admin Password</FormLabel>
+                          <FormLabel>Congregation Admin Password</FormLabel>
                           <FormControl>
                             <Input type="password" placeholder="••••••••" {...field} />
                           </FormControl>
@@ -162,11 +178,11 @@ export default function AuthPage() {
                     >
                       {wardLoginMutation?.isPending ? (
                         <>
-                          <Lock className="mr-2 h-4 w-4 animate-spin" /> 
+                          <Lock className="mr-2 h-4 w-4 animate-spin" />
                           Logging in...
                         </>
                       ) : (
-                        "Sign In as Ward Admin"
+                        "Sign In as Congregation Admin"
                       )}
                     </Button>
                   </form>

@@ -35,16 +35,16 @@ const missionaryFormSchema = z.object({
     "Email must be a @missionary.org address"
   ),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  wardId: z.number(),
+  congregationId: z.number(),
 });
 
 interface AddMissionaryDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  wardId: number;
+  congregationId: number;
 }
 
-export function AddMissionaryDialog({ isOpen, onClose, wardId }: AddMissionaryDialogProps) {
+export function AddMissionaryDialog({ isOpen, onClose, congregationId }: AddMissionaryDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -56,7 +56,7 @@ export function AddMissionaryDialog({ isOpen, onClose, wardId }: AddMissionaryDi
       phoneNumber: "",
       emailAddress: "",
       password: "",
-      wardId,
+      congregationId,
     },
   });
 
@@ -68,7 +68,7 @@ export function AddMissionaryDialog({ isOpen, onClose, wardId }: AddMissionaryDi
         title: "Missionary Added",
         description: "The new missionary has been added successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/missionaries/ward", wardId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/missionaries/congregation", congregationId] });
       onClose();
     },
     onError: (error: any) => {

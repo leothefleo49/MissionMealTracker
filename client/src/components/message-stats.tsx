@@ -26,29 +26,29 @@ function formatNumber(value: number): string {
 }
 
 interface MessageStatsProps {
-  wardId?: number;
+  congregationId?: number;
 }
 
-export function MessageStatsComponent({ wardId }: MessageStatsProps) {
+export function MessageStatsComponent({ congregationId }: MessageStatsProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
   const [timeFrame, setTimeFrame] = useState("all");
-  
+
   // Fetch message statistics
   const { data: stats, isLoading, error } = useQuery<MessageStats>({
-    queryKey: ['/api/message-stats', wardId, timeFrame],
+    queryKey: ['/api/message-stats', congregationId, timeFrame],
     queryFn: async () => {
       const queryParams = new URLSearchParams();
-      if (wardId) queryParams.append('wardId', wardId.toString());
+      if (congregationId) queryParams.append('congregationId', congregationId.toString());
       if (timeFrame !== 'all') queryParams.append('timeFrame', timeFrame);
-      
+
       const url = `/api/message-stats${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch message statistics');
       }
-      
+
       return response.json();
     },
     enabled: true,
@@ -66,12 +66,12 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
         text: 0,
         messenger: 0,
       },
-      byWard: [],
+      byCongregation: [],
       byMissionary: [],
       byPeriod: [],
     },
   });
-  
+
   // Use useEffect for error handling to avoid re-renders
   useEffect(() => {
     if (error) {
@@ -82,18 +82,18 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
       });
     }
   }, [error, toast]);
-  
+
   // Calculate success rate as a percentage
-  const successRate = stats?.totalMessages 
-    ? ((stats.totalSuccessful / stats.totalMessages) * 100).toFixed(1) 
+  const successRate = stats?.totalMessages
+    ? ((stats.totalSuccessful / stats.totalMessages) * 100).toFixed(1)
     : "100.0";
-  
+
   // Prepare data for the period chart
   const periodChartData = stats?.byPeriod.map(period => ({
-    name: period.period === 'today' 
-      ? 'Today' 
-      : period.period === 'this_week' 
-        ? 'This Week' 
+    name: period.period === 'today'
+      ? 'Today'
+      : period.period === 'this_week'
+        ? 'This Week'
         : period.period === 'this_month'
           ? 'This Month'
           : 'Last Month',
@@ -101,10 +101,10 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
     segments: period.segments || 0,
     cost: period.estimatedCost,
   })) || [];
-  
+
   // COLORS for charts
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
-  
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -122,7 +122,7 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
           </SelectContent>
         </Select>
       </div>
-      
+
       {isLoading ? (
         <div className="flex justify-center items-center min-h-[400px]">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -151,7 +151,7 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -178,14 +178,14 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>Avg. Characters per Message</span>
                     <span>
-                      {stats?.totalMessages ? 
+                      {stats?.totalMessages ?
                         Math.round(stats.totalCharacters / stats.totalMessages) : 0}
                     </span>
                   </div>
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -205,7 +205,7 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -234,7 +234,7 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
               </CardContent>
             </Card>
           </div>
-          
+
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             {/* For mobile devices, use a vertical list of buttons for better mobile UX */}
             <div className="block sm:hidden mb-4">
@@ -246,10 +246,10 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
                   Overview
                 </button>
                 <button
-                  onClick={() => setActiveTab("wards")}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm ${activeTab === "wards" ? "bg-primary text-white" : "bg-gray-100"}`}
+                  onClick={() => setActiveTab("congregations")}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm ${activeTab === "congregations" ? "bg-primary text-white" : "bg-gray-100"}`}
                 >
-                  By Ward
+                  By Congregation
                 </button>
                 <button
                   onClick={() => setActiveTab("missionaries")}
@@ -259,16 +259,16 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
                 </button>
               </div>
             </div>
-            
+
             {/* For desktop, use the normal TabsList */}
             <div className="hidden sm:block">
               <TabsList className="grid grid-cols-3 w-full">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="wards">By Ward</TabsTrigger>
+                <TabsTrigger value="congregations">By Congregation</TabsTrigger>
                 <TabsTrigger value="missionaries">By Missionary</TabsTrigger>
               </TabsList>
             </div>
-            
+
             <TabsContent value="overview" className="mt-6">
               <Card>
                 <CardHeader>
@@ -293,7 +293,7 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
                           <XAxis dataKey="name" angle={-45} textAnchor="end" height={70} />
                           <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
                           <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
-                          <Tooltip 
+                          <Tooltip
                             formatter={(value, name) => {
                               if (name === 'cost') return [formatCurrency(value as number), 'Cost'];
                               return [formatNumber(value as number), name === 'messages' ? 'Messages' : 'Segments'];
@@ -310,19 +310,19 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
                 </CardContent>
               </Card>
             </TabsContent>
-            
-            <TabsContent value="wards" className="mt-6">
+
+            <TabsContent value="congregations" className="mt-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Message Usage by Ward</CardTitle>
+                  <CardTitle>Message Usage by Congregation</CardTitle>
                   <CardDescription>
-                    View message volume and cost breakdown by ward
+                    View message volume and cost breakdown by congregation
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {stats?.byWard.length === 0 ? (
+                  {stats?.byCongregation.length === 0 ? (
                     <div className="flex justify-center items-center p-8">
-                      <p className="text-muted-foreground">No ward data available for the selected time period</p>
+                      <p className="text-muted-foreground">No congregation data available for the selected time period</p>
                     </div>
                   ) : (
                     <>
@@ -330,9 +330,9 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
                             <Pie
-                              data={stats?.byWard.map(ward => ({
-                                name: ward.wardName,
-                                value: ward.messageCount
+                              data={stats?.byCongregation.map(congregation => ({
+                                name: congregation.congregationName,
+                                value: congregation.messageCount
                               }))}
                               cx="50%"
                               cy="50%"
@@ -343,7 +343,7 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
                               nameKey="name"
                               label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                             >
-                              {stats?.byWard.map((_, index) => (
+                              {stats?.byCongregation.map((_, index) => (
                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                               ))}
                             </Pie>
@@ -352,12 +352,12 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
-                      
+
                       <div className="overflow-x-auto">
                         <table className="w-full border-collapse">
                           <thead>
                             <tr className="border-b">
-                              <th className="text-left py-2 px-4">Ward</th>
+                              <th className="text-left py-2 px-4">Congregation</th>
                               <th className="text-right py-2 px-4">Messages</th>
                               <th className="text-right py-2 px-4">Success Rate</th>
                               <th className="text-right py-2 px-4">Segments</th>
@@ -365,13 +365,13 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
                             </tr>
                           </thead>
                           <tbody>
-                            {stats?.byWard.map((ward) => (
-                              <tr key={ward.wardId} className="border-b hover:bg-gray-50">
-                                <td className="py-2 px-4">{ward.wardName}</td>
-                                <td className="text-right py-2 px-4">{formatNumber(ward.messageCount)}</td>
-                                <td className="text-right py-2 px-4">{ward.successRate.toFixed(1)}%</td>
-                                <td className="text-right py-2 px-4">{formatNumber(ward.segments || 0)}</td>
-                                <td className="text-right py-2 px-4">{formatCurrency(ward.estimatedCost)}</td>
+                            {stats?.byCongregation.map((congregation) => (
+                              <tr key={congregation.congregationId} className="border-b hover:bg-gray-50">
+                                <td className="py-2 px-4">{congregation.congregationName}</td>
+                                <td className="text-right py-2 px-4">{formatNumber(congregation.messageCount)}</td>
+                                <td className="text-right py-2 px-4">{congregation.successRate.toFixed(1)}%</td>
+                                <td className="text-right py-2 px-4">{formatNumber(congregation.segments || 0)}</td>
+                                <td className="text-right py-2 px-4">{formatCurrency(congregation.estimatedCost)}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -382,7 +382,7 @@ export function MessageStatsComponent({ wardId }: MessageStatsProps) {
                 </CardContent>
               </Card>
             </TabsContent>
-            
+
             <TabsContent value="missionaries" className="mt-6">
               <Card>
                 <CardHeader>

@@ -21,7 +21,7 @@ const registerSchema = z.object({
     "Email must be a @missionary.org address"
   ),
   type: z.enum(["elders", "sisters"], { required_error: "Please select missionary type" }),
-  wardAccessCode: z.string().min(1, "Ward access code is required"),
+  congregationAccessCode: z.string().min(1, "Congregation access code is required"),
   password: z.string().min(4, "Password must be at least 4 characters").max(20, "Keep it simple - maximum 20 characters"),
 });
 
@@ -46,7 +46,7 @@ export default function MissionaryRegister() {
       name: "",
       emailAddress: "",
       type: undefined,
-      wardAccessCode: "",
+      congregationAccessCode: "",
       password: "",
     },
   });
@@ -84,7 +84,7 @@ export default function MissionaryRegister() {
   const verifyMutation = useMutation({
     mutationFn: async (data: VerificationForm) => {
       if (!missionaryData?.missionaryId) throw new Error("No missionary ID found");
-      
+
       return apiRequest("POST", "/api/missionaries/verify", {
         missionaryId: missionaryData.missionaryId,
         verificationCode: data.verificationCode,
@@ -120,7 +120,7 @@ export default function MissionaryRegister() {
 
   const handleAccessPortal = () => {
     if (missionaryData) {
-      setLocation(`/missionary-portal/${missionaryData.wardAccessCode}`);
+      setLocation(`/missionary-portal/${missionaryData.congregationAccessCode}`);
     }
   };
 
@@ -182,10 +182,10 @@ export default function MissionaryRegister() {
                         <FormItem>
                           <FormLabel>Missionary Email</FormLabel>
                           <FormControl>
-                            <Input 
-                              type="email" 
-                              placeholder="firstname.lastname@missionary.org" 
-                              {...field} 
+                            <Input
+                              type="email"
+                              placeholder="firstname.lastname@missionary.org"
+                              {...field}
                             />
                           </FormControl>
                           <FormMessage />
@@ -217,12 +217,12 @@ export default function MissionaryRegister() {
 
                     <FormField
                       control={registerForm.control}
-                      name="wardAccessCode"
+                      name="congregationAccessCode"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Ward Access Code</FormLabel>
+                          <FormLabel>Congregation Access Code</FormLabel>
                           <FormControl>
-                            <Input placeholder="Get from your ward clerk" {...field} />
+                            <Input placeholder="Get from your congregation clerk" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -236,10 +236,10 @@ export default function MissionaryRegister() {
                         <FormItem>
                           <FormLabel>Portal Password</FormLabel>
                           <FormControl>
-                            <Input 
-                              type="password" 
-                              placeholder="Keep it simple (4-20 characters)" 
-                              {...field} 
+                            <Input
+                              type="password"
+                              placeholder="Keep it simple (4-20 characters)"
+                              {...field}
                             />
                           </FormControl>
                           <FormMessage />
@@ -247,8 +247,8 @@ export default function MissionaryRegister() {
                       )}
                     />
 
-                    <Button 
-                      type="submit" 
+                    <Button
+                      type="submit"
                       className="w-full bg-amber-600 hover:bg-amber-700"
                       disabled={registerMutation.isPending}
                     >
@@ -282,11 +282,11 @@ export default function MissionaryRegister() {
                         <FormItem>
                           <FormLabel>Verification Code</FormLabel>
                           <FormControl>
-                            <Input 
-                              placeholder="123456" 
+                            <Input
+                              placeholder="123456"
                               maxLength={6}
                               className="text-center text-lg font-mono"
-                              {...field} 
+                              {...field}
                             />
                           </FormControl>
                           <FormMessage />
@@ -294,8 +294,8 @@ export default function MissionaryRegister() {
                       )}
                     />
 
-                    <Button 
-                      type="submit" 
+                    <Button
+                      type="submit"
                       className="w-full bg-blue-600 hover:bg-blue-700"
                       disabled={verifyMutation.isPending}
                     >
@@ -306,8 +306,8 @@ export default function MissionaryRegister() {
                 </Form>
 
                 <div className="mt-4 text-center">
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     onClick={() => setStep("register")}
                     className="text-sm text-gray-600"
                   >
@@ -339,7 +339,7 @@ export default function MissionaryRegister() {
                   </ul>
                 </div>
 
-                <Button 
+                <Button
                   onClick={handleAccessPortal}
                   className="w-full bg-green-600 hover:bg-green-700"
                 >
@@ -348,8 +348,8 @@ export default function MissionaryRegister() {
                 </Button>
 
                 <div className="text-center">
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     onClick={handleBackToHome}
                     className="text-sm text-gray-600"
                   >

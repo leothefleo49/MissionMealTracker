@@ -15,6 +15,7 @@ export interface IStorage {
   // User methods
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUltraAdmin(): Promise<User | undefined>; // Added this line
   createUser(user: InsertUser): Promise<User>;
   getUserCongregations(userId: number): Promise<Congregation[]>;
   addUserToCongregation(userCongregation: InsertUserCongregation): Promise<UserCongregation>;

@@ -24,18 +24,18 @@ interface MealStats {
 }
 
 interface MealStatisticsProps {
-  wardId: number;
+  congregationId: number;
 }
 
-export function MealStatistics({ wardId }: MealStatisticsProps) {
+export function MealStatistics({ congregationId }: MealStatisticsProps) {
   const [timeRange, setTimeRange] = useState<'3months' | '6months' | '1year'>('6months');
-  
+
   const endDate = new Date();
   const startDate = startOfMonth(subMonths(endDate, timeRange === '3months' ? 3 : timeRange === '6months' ? 6 : 12));
-  
+
   const { data: stats, isLoading } = useQuery<MealStats>({
-    queryKey: ['/api/meal-stats', wardId, timeRange],
-    queryFn: () => fetch(`/api/meal-stats/${wardId}?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`).then(res => res.json()),
+    queryKey: ['/api/meal-stats', congregationId, timeRange],
+    queryFn: () => fetch(`/api/meal-stats/${congregationId}?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`).then(res => res.json()),
     staleTime: 1000, // 1 second
     refetchInterval: 1000, // Refetch every second
     refetchOnWindowFocus: true
@@ -84,7 +84,7 @@ export function MealStatistics({ wardId }: MealStatisticsProps) {
           <BarChart3 className="h-5 w-5" />
           Meal Statistics
         </CardTitle>
-        
+
         <div className="flex gap-2">
           <Button
             variant={timeRange === '3months' ? 'default' : 'outline'}
@@ -109,7 +109,7 @@ export function MealStatistics({ wardId }: MealStatisticsProps) {
           </Button>
         </div>
       </CardHeader>
-      
+
       <CardContent>
         <Tabs defaultValue="overview" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
@@ -117,7 +117,7 @@ export function MealStatistics({ wardId }: MealStatisticsProps) {
             <TabsTrigger value="missionaries">Missionaries</TabsTrigger>
             <TabsTrigger value="trends">Trends</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="overview" className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card>
@@ -131,7 +131,7 @@ export function MealStatistics({ wardId }: MealStatisticsProps) {
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2">
@@ -143,7 +143,7 @@ export function MealStatistics({ wardId }: MealStatisticsProps) {
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2">
@@ -157,14 +157,14 @@ export function MealStatistics({ wardId }: MealStatisticsProps) {
               </Card>
             </div>
           </TabsContent>
-          
+
           <TabsContent value="missionaries" className="space-y-4">
             <div className="space-y-2">
               <h4 className="font-medium flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 Missionary Meal Frequency
               </h4>
-              
+
               {stats.missionaryStats.length === 0 ? (
                 <p className="text-gray-500 text-sm">No missionary meal data available</p>
               ) : (
@@ -180,7 +180,7 @@ export function MealStatistics({ wardId }: MealStatisticsProps) {
                           <p className="text-xs text-gray-600">{missionary.type}</p>
                         </div>
                       </div>
-                      
+
                       <div className="text-right">
                         <p className="font-bold text-sm">{missionary.mealCount} meals</p>
                         {missionary.lastMeal && (
@@ -195,11 +195,11 @@ export function MealStatistics({ wardId }: MealStatisticsProps) {
               )}
             </div>
           </TabsContent>
-          
+
           <TabsContent value="trends" className="space-y-4">
             <div>
               <h4 className="font-medium mb-3">Monthly Breakdown</h4>
-              
+
               {stats.monthlyBreakdown.length === 0 ? (
                 <p className="text-gray-500 text-sm">No trend data available</p>
               ) : (
@@ -209,10 +209,10 @@ export function MealStatistics({ wardId }: MealStatisticsProps) {
                       <span className="text-sm">{month.month}</span>
                       <div className="flex items-center gap-2">
                         <div className="w-24 bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-blue-600 h-2 rounded-full" 
-                            style={{ 
-                              width: `${Math.min(100, (month.mealCount / Math.max(...stats.monthlyBreakdown.map(m => m.mealCount))) * 100)}%` 
+                          <div
+                            className="bg-blue-600 h-2 rounded-full"
+                            style={{
+                              width: `${Math.min(100, (month.mealCount / Math.max(...stats.monthlyBreakdown.map(m => m.mealCount))) * 100)}%`
                             }}
                           />
                         </div>

@@ -53,18 +53,18 @@ const testMessageSchema = z.object({
     mealDescription: z.string().optional(),
     specialNotes: z.string().optional(),
   }).optional(),
-  wardId: z.number(),
+  congregationId: z.number(),
 });
 
 type TestMessageFormProps = {
-  wardId: number | null;
+  congregationId: number | null;
 };
 
-export function TestMessageForm({ wardId }: TestMessageFormProps) {
+export function TestMessageForm({ congregationId }: TestMessageFormProps) {
   const { toast } = useToast();
   const [isCustomMessage, setIsCustomMessage] = useState(false);
   const [isScheduled, setIsScheduled] = useState(false);
-  
+
   const form = useForm<z.infer<typeof testMessageSchema>>({
     resolver: zodResolver(testMessageSchema),
     defaultValues: {
@@ -82,16 +82,16 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
         mealDescription: "Test meal for demonstration",
         specialNotes: "",
       },
-      wardId: wardId || 0,
+      congregationId: congregationId || 0,
     },
   });
-  
+
   // Set initial states based on form default values
   useEffect(() => {
     setIsCustomMessage(form.getValues("messageType") === "custom");
     setIsScheduled(form.getValues("schedulingOption") === "scheduled");
   }, []);
-  
+
   const sendTestMessageMutation = useMutation({
     mutationFn: async (data: z.infer<typeof testMessageSchema>) => {
       const response = await apiRequest("POST", "/api/admin/test-message", data);
@@ -121,33 +121,33 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
       });
     },
   });
-  
+
   function onSubmit(data: z.infer<typeof testMessageSchema>) {
-    if (!wardId) {
+    if (!congregationId) {
       toast({
         title: "Error",
-        description: "Please select a ward first",
+        description: "Please select a congregation first",
         variant: "destructive",
       });
       return;
     }
-    
+
     // Format the data before sending
     const formattedData = {
       ...data,
-      wardId,
+      congregationId,
     };
-    
+
     // Create a modified version for API submission
     const apiSubmission = {
       ...formattedData,
       // Convert date to string format if it exists
       scheduledDate: data.scheduledDate ? format(data.scheduledDate, "yyyy-MM-dd") : undefined,
     };
-    
+
     sendTestMessageMutation.mutate(apiSubmission as any);
   }
-  
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -157,9 +157,9 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {!wardId ? (
+        {!congregationId ? (
           <div className="p-4 text-center">
-            <p>Please select a ward first to send test messages</p>
+            <p>Please select a congregation first to send test messages</p>
           </div>
         ) : (
           <Form {...form}>
@@ -182,7 +182,7 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="notificationMethod"
@@ -207,7 +207,7 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                   )}
                 />
               </div>
-              
+
               {/* Message Type */}
               <FormField
                 control={form.control}
@@ -263,7 +263,7 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                   </FormItem>
                 )}
               />
-              
+
               {/* Custom Message (conditional) */}
               {isCustomMessage && (
                 <FormField
@@ -287,7 +287,7 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                   )}
                 />
               )}
-              
+
               {/* Scheduling Options */}
               <FormField
                 control={form.control}
@@ -323,7 +323,7 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                   </FormItem>
                 )}
               />
-              
+
               {/* Scheduled Date and Time (conditional) */}
               {isScheduled && (
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -368,7 +368,7 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="scheduledTime"
@@ -391,7 +391,7 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                   />
                 </div>
               )}
-              
+
               {/* Meal Details (for all non-custom messages) */}
               {!isCustomMessage && (
                 <div className="border rounded-md p-4 space-y-4 mt-6">
@@ -410,7 +410,7 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                         </FormItem>
                       )}
                     />
-                    
+
                     <FormField
                       control={form.control}
                       name="mealDetails.startTime"
@@ -425,7 +425,7 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                       )}
                     />
                   </div>
-                  
+
                   <FormField
                     control={form.control}
                     name="mealDetails.hostName"
@@ -439,7 +439,7 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="mealDetails.mealDescription"
@@ -453,7 +453,7 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="mealDetails.specialNotes"
@@ -461,9 +461,9 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                       <FormItem>
                         <FormLabel>Special Notes</FormLabel>
                         <FormControl>
-                          <Textarea 
-                            {...field} 
-                            value={field.value || ""} 
+                          <Textarea
+                            {...field}
+                            value={field.value || ""}
                             placeholder="Any special instructions, allergies, etc."
                           />
                         </FormControl>
@@ -473,10 +473,10 @@ export function TestMessageForm({ wardId }: TestMessageFormProps) {
                   />
                 </div>
               )}
-              
-              <Button 
-                type="submit" 
-                className="w-full" 
+
+              <Button
+                type="submit"
+                className="w-full"
                 disabled={sendTestMessageMutation.isPending}
               >
                 {sendTestMessageMutation.isPending ? "Sending..." : "Send Test Message"}

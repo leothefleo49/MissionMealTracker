@@ -28,7 +28,7 @@ interface Missionary {
   weeklySummaryDay?: string;
   weeklySummaryTime?: string;
   dietaryRestrictions?: string;
-  wardId: number;
+  congregationId: number;
   // Consent management fields
   consentStatus: "pending" | "granted" | "denied";
   consentDate?: Date | null;
@@ -37,10 +37,10 @@ interface Missionary {
 }
 
 interface MissionaryListProps {
-  wardId: number;
+  congregationId: number;
 }
 
-export default function MissionaryList({ wardId }: MissionaryListProps) {
+export default function MissionaryList({ congregationId }: MissionaryListProps) {
   const [editingMissionary, setEditingMissionary] = useState<Missionary | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const { toast } = useToast();
@@ -55,7 +55,7 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
         title: "Missionary Deleted",
         description: "The missionary has been removed from the system.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/missionaries/ward", wardId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/missionaries/congregation", congregationId] });
     },
     onError: (error: any) => {
       toast({
@@ -67,9 +67,9 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
   });
 
   const { data: missionaries, isLoading, error } = useQuery({
-    queryKey: ["/api/admin/missionaries/ward", wardId],
+    queryKey: ["/api/admin/missionaries/congregation", congregationId],
     queryFn: async () => {
-      const response = await fetch(`/api/admin/missionaries/ward/${wardId}`);
+      const response = await fetch(`/api/admin/missionaries/congregation/${congregationId}`);
       if (!response.ok) {
         throw new Error("Failed to fetch missionaries");
       }
@@ -77,14 +77,14 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
       console.log("Missionaries data:", data); // Debug log
       return data;
     },
-    enabled: !!wardId,
+    enabled: !!congregationId,
   });
 
   // Mutation to request consent from a missionary
   const requestConsentMutation = useMutation({
     mutationFn: async (missionaryId: number) => {
       const response = await apiRequest(
-        "POST", 
+        "POST",
         `/api/missionaries/${missionaryId}/request-consent`
       );
       return await response.json();
@@ -96,7 +96,7 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
         variant: "default",
       });
       // Refetch missionaries to update consent status
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/missionaries/ward", wardId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/missionaries/congregation", congregationId] });
     },
     onError: (error) => {
       console.error("Error sending consent request:", error);
@@ -191,7 +191,7 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
                             ? missionary.notificationScheduleType.replace(/_/g, " ")
                             : "default"
                         }
-                        {missionary.notificationScheduleType === "before_meal" && missionary.hoursBefore && 
+                        {missionary.notificationScheduleType === "before_meal" && missionary.hoursBefore &&
                           ` (${missionary.hoursBefore} hours before)`}
                       </div>
 
@@ -204,18 +204,18 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
 
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="h-8 px-2"
                         onClick={() => setEditingMissionary(missionary)}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
 
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="h-8 px-2 border-red-200 text-red-700 hover:bg-red-50"
                         onClick={() => deleteMissionaryMutation.mutate(missionary.id)}
                         disabled={deleteMissionaryMutation.isPending}
@@ -234,7 +234,7 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
             );
           }) : (
             <div className="p-6 bg-gray-50 border border-gray-200 rounded-md text-gray-500 text-center">
-              No missionaries found for this ward. Add your first missionary.
+              No missionaries found for this congregation. Add your first missionary.
             </div>
           )}
         </div>
@@ -257,7 +257,7 @@ export default function MissionaryList({ wardId }: MissionaryListProps) {
         <AddMissionaryDialog
           isOpen={isAddDialogOpen}
           onClose={() => setIsAddDialogOpen(false)}
-          wardId={wardId}
+          congregationId={congregationId}
         />
       )}
 

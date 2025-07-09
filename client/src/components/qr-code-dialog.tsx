@@ -6,12 +6,12 @@ import { Download, Printer } from "lucide-react";
 interface QrCodeDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  wardName: string;
+  congregationName: string;
   accessCode: string;
 }
 
-export function QrCodeDialog({ isOpen, onClose, wardName, accessCode }: QrCodeDialogProps) {
-  const url = `${window.location.origin}/ward/${accessCode}`;
+export function QrCodeDialog({ isOpen, onClose, congregationName, accessCode }: QrCodeDialogProps) {
+  const url = `${window.location.origin}/congregation/${accessCode}`;
 
   const downloadQRCode = () => {
     const canvas = document.getElementById("qr-code-canvas") as HTMLCanvasElement;
@@ -19,7 +19,7 @@ export function QrCodeDialog({ isOpen, onClose, wardName, accessCode }: QrCodeDi
       const pngUrl = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
       let downloadLink = document.createElement("a");
       downloadLink.href = pngUrl;
-      downloadLink.download = `${wardName.replace(/\s+/g, '_')}_QRCode.png`;
+      downloadLink.download = `${congregationName.replace(/\s+/g, '_')}_QRCode.png`;
       document.body.appendChild(downloadLink);
       downloadLink.click();
       document.body.removeChild(downloadLink);
@@ -34,7 +34,7 @@ export function QrCodeDialog({ isOpen, onClose, wardName, accessCode }: QrCodeDi
       windowContent += '<html>';
       windowContent += '<head><title>Print QR Code</title></head>';
       windowContent += '<body>';
-      windowContent += `<h2 style="text-align:center;">${wardName} Meal Calendar</h2>`;
+      windowContent += `<h2 style="text-align:center;">${congregationName} Meal Calendar</h2>`;
       windowContent += `<div style="text-align:center;"><img src="${dataUrl}"></div>`;
       windowContent += `<p style="text-align:center;">Scan to access the missionary meal calendar.</p>`;
       windowContent += '</body>';
@@ -52,9 +52,9 @@ export function QrCodeDialog({ isOpen, onClose, wardName, accessCode }: QrCodeDi
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>QR Code for {wardName}</DialogTitle>
+          <DialogTitle>QR Code for {congregationName}</DialogTitle>
           <DialogDescription>
-            Ward members can scan this code to easily access the meal calendar.
+            Congregation members can scan this code to easily access the meal calendar.
           </DialogDescription>
         </DialogHeader>
         <div className="flex justify-center py-4">

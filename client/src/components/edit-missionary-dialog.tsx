@@ -54,7 +54,7 @@ const missionaryFormSchema = z.object({
   dayOfTime: z.string().optional(),
   weeklySummaryDay: z.enum(["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]).optional(),
   weeklySummaryTime: z.string().optional(),
-  wardId: z.number(),
+  congregationId: z.number(),
 });
 
 interface Missionary {
@@ -80,7 +80,7 @@ interface Missionary {
   dayOfTime?: string;
   weeklySummaryDay?: string;
   weeklySummaryTime?: string;
-  wardId: number;
+  congregationId: number;
   // Consent management fields
   consentStatus: "pending" | "granted" | "denied";
   consentDate?: Date | null;
@@ -97,7 +97,7 @@ interface EditMissionaryDialogProps {
 export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissionaryDialogProps) {
   const { toast } = useToast();
   const [isMessenger, setIsMessenger] = useState(missionary.preferredNotification === "messenger");
-  
+
   // Set up form with missionary data
   const form = useForm<z.infer<typeof missionaryFormSchema>>({
     resolver: zodResolver(missionaryFormSchema),
@@ -122,10 +122,10 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
       dayOfTime: missionary.dayOfTime || "08:00",
       weeklySummaryDay: missionary.weeklySummaryDay as any || "sunday",
       weeklySummaryTime: missionary.weeklySummaryTime || "08:00",
-      wardId: missionary.wardId,
+      congregationId: missionary.congregationId,
     },
   });
-  
+
   // Mutation for updating missionary
   const updateMissionary = useMutation({
     mutationFn: async (data: z.infer<typeof missionaryFormSchema>) => {
@@ -137,7 +137,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
         title: "Missionary updated",
         description: "The missionary has been successfully updated.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/missionaries/ward", missionary.wardId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/missionaries/congregation", missionary.congregationId] });
       onClose();
     },
     onError: (error: Error) => {
@@ -148,7 +148,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
       });
     },
   });
-  
+
   // Watch for changes to preferredNotification to control UI display
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
@@ -158,12 +158,12 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
     });
     return () => subscription.unsubscribe();
   }, [form.watch]);
-  
+
   // Submit handler
   function onSubmit(data: z.infer<typeof missionaryFormSchema>) {
     updateMissionary.mutate(data);
   }
-  
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
@@ -173,9 +173,9 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
             Update missionary information and notification preferences.
           </DialogDescription>
         </DialogHeader>
-        
 
-        
+
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -191,7 +191,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                 </FormItem>
               )}
             />
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -214,7 +214,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="active"
@@ -231,7 +231,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                 )}
               />
             </div>
-            
+
             {/* Contact Information */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
@@ -247,7 +247,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="personalPhone"
@@ -283,7 +283,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="whatsappNumber"
@@ -305,7 +305,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
             {/* Dietary Information */}
             <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
               <h4 className="font-semibold text-gray-900">Dietary Information</h4>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -314,7 +314,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                     <FormItem>
                       <FormLabel>Food Allergies</FormLabel>
                       <FormControl>
-                        <Textarea 
+                        <Textarea
                           placeholder="Peanuts, shellfish, dairy, etc."
                           {...field}
                         />
@@ -323,7 +323,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="petAllergies"
@@ -331,7 +331,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                     <FormItem>
                       <FormLabel>Pet Allergies</FormLabel>
                       <FormControl>
-                        <Textarea 
+                        <Textarea
                           placeholder="Cats, dogs, etc."
                           {...field}
                         />
@@ -373,7 +373,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                   <FormItem>
                     <FormLabel>Favorite Meals</FormLabel>
                     <FormControl>
-                      <Textarea 
+                      <Textarea
                         placeholder="Pizza, tacos, lasagna, etc."
                         {...field}
                       />
@@ -393,7 +393,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                   <FormItem>
                     <FormLabel>Other Dietary Restrictions</FormLabel>
                     <FormControl>
-                      <Textarea 
+                      <Textarea
                         placeholder="Vegetarian, gluten-free, kosher, etc."
                         {...field}
                       />
@@ -412,7 +412,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                 <FormItem>
                   <FormLabel>Transfer Date</FormLabel>
                   <FormControl>
-                    <Input 
+                    <Input
                       type="date"
                       value={field.value ? field.value.toISOString().split('T')[0] : ''}
                       onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : undefined)}
@@ -425,7 +425,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="preferredNotification"
@@ -455,7 +455,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                 </FormItem>
               )}
             />
-            
+
             <div className="grid grid-cols-1 gap-4">
               {!isMessenger ? (
                 <FormField
@@ -497,7 +497,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                 />
               )}
             </div>
-            
+
             <FormField
               control={form.control}
               name="notificationScheduleType"
@@ -520,7 +520,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                 </FormItem>
               )}
             />
-            
+
             {form.watch("notificationScheduleType") === "before_meal" && (
               <FormField
                 control={form.control}
@@ -545,7 +545,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                 )}
               />
             )}
-            
+
             {form.watch("notificationScheduleType") === "day_of" && (
               <FormField
                 control={form.control}
@@ -564,7 +564,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                 )}
               />
             )}
-            
+
             {form.watch("notificationScheduleType") === "weekly_summary" && (
               <>
                 <FormField
@@ -596,7 +596,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="weeklySummaryTime"
@@ -615,7 +615,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                 />
               </>
             )}
-            
+
             <DialogFooter>
               <Button variant="outline" type="button" onClick={onClose}>
                 Cancel
