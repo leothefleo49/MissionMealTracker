@@ -9,13 +9,16 @@ import { apiRequest, queryClient, getQueryFn } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
+// Define user roles to match the backend
+type UserRole = "ultra_admin" | "region_admin" | "mission_admin" | "stake_admin" | "ward_admin" | "missionary";
+
 interface AuthUser {
   id: number;
   username: string;
-  isAdmin: boolean;
-  isSuperAdmin: boolean;
-  isMissionAdmin: boolean;
-  isStakeAdmin: boolean;
+  role: UserRole;
+  regionId?: number | null;
+  missionId?: number | null;
+  stakeId?: number | null;
 }
 
 type AuthContextType = {
@@ -23,7 +26,6 @@ type AuthContextType = {
   isLoading: boolean;
   error: Error | null;
   loginMutation: UseMutationResult<AuthUser, Error, LoginData>;
-  wardLoginMutation: UseMutationResult<AuthUser, Error, WardLoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
   userWards: Ward[] | null;
   selectedWard: Ward | null;
@@ -32,11 +34,6 @@ type AuthContextType = {
 
 type LoginData = {
   username?: string;
-  password: string;
-};
-
-type WardLoginData = {
-  wardAccessCode: string;
   password: string;
 };
 
@@ -70,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: userWards } = useQuery<Ward[], Error>({
     queryKey: ["/api/admin/wards"],
     queryFn: getQueryFn({ on401: "returnNull" }),
-    enabled: !!user?.isAdmin,
+    enabled: !!user && user.role !== ROLES.MISSIONARY, // Enable for all admin roles
   });
 
   useEffect(() => {
@@ -94,7 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (loggedInUser: AuthUser) => {
       queryClient.setQueryData(["/api/user"], loggedInUser);
-      if (loggedInUser.isAdmin) {
+      // Invalidate wards query to fetch wards associated with the new admin
+      if (loggedInUser.role !== ROLES.MISSIONARY) {
         queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
       }
       toast({
@@ -106,35 +104,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onError: (error: Error) => {
       toast({
         title: "Login failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const wardLoginMutation = useMutation({
-    mutationFn: async (credentials: WardLoginData) => {
-      const res = await apiRequest("POST", "/api/ward-login", credentials);
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Invalid ward access code or password");
-      }
-      return await res.json();
-    },
-    onSuccess: (loggedInUser: AuthUser) => {
-      queryClient.setQueryData(["/api/user"], loggedInUser);
-      if (loggedInUser.isAdmin) {
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
-      }
-      toast({
-        title: "Ward login successful",
-        description: "You've successfully logged in as a ward admin",
-        variant: "default",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Ward login failed",
         description: error.message,
         variant: "destructive",
       });
@@ -171,7 +140,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         error,
         loginMutation,
-        wardLoginMutation,
         logoutMutation,
         userWards: userWards ?? null,
         selectedWard,
