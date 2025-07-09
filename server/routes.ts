@@ -9,7 +9,7 @@ import {
   insertMissionarySchema,
   insertCongregationSchema,
   insertUserCongregationSchema,
-  InsertUser
+  type InsertUser
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";

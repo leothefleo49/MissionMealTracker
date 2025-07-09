@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bell, ArrowLeft, Mail, Lock, User, MapPin } from "lucide-react";
+import { Bell, ArrowLeft, Mail, Lock, User, MapPin, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -23,6 +23,10 @@ const registerSchema = z.object({
   type: z.enum(["elders", "sisters"], { required_error: "Please select missionary type" }),
   congregationAccessCode: z.string().min(1, "Congregation access code is required"),
   password: z.string().min(4, "Password must be at least 4 characters").max(20, "Keep it simple - maximum 20 characters"),
+  confirmPassword: z.string(),
+}).refine(data => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
 });
 
 const verificationSchema = z.object({
@@ -39,6 +43,8 @@ export default function MissionaryRegister() {
   const [step, setStep] = useState<"register" | "verify" | "complete">("register");
   const [missionaryData, setMissionaryData] = useState<MissionaryData | null>(null);
   const { toast } = useToast();
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const registerForm = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
@@ -48,6 +54,7 @@ export default function MissionaryRegister() {
       type: undefined,
       congregationAccessCode: "",
       password: "",
+      confirmPassword: "",
     },
   });
 
@@ -235,13 +242,41 @@ export default function MissionaryRegister() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Portal Password</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="password"
-                              placeholder="Keep it simple (4-20 characters)"
-                              {...field}
-                            />
-                          </FormControl>
+                          <div className="relative">
+                            <FormControl>
+                              <Input
+                                type={showPassword ? "text" : "password"}
+                                placeholder="Keep it simple (4-20 characters)"
+                                {...field}
+                              />
+                            </FormControl>
+                             <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3" onClick={() => setShowPassword(!showPassword)}>
+                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                     <FormField
+                      control={registerForm.control}
+                      name="confirmPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Confirm Password</FormLabel>
+                          <div className="relative">
+                            <FormControl>
+                              <Input
+                                type={showConfirmPassword ? "text" : "password"}
+                                placeholder="Confirm your password"
+                                {...field}
+                              />
+                            </FormControl>
+                            <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
                           <FormMessage />
                         </FormItem>
                       )}
