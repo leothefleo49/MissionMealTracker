@@ -8,11 +8,12 @@ import {
   checkMealAvailabilitySchema,
   insertMissionarySchema,
   insertCongregationSchema,
-  insertUserCongregationSchema
+  insertUserCongregationSchema,
+  insertUserSchema
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
-import { setupAuth, checkAndSetSetupMode, comparePasswords, hashPassword } from "./auth";
+import { setupAuth, checkAndSetSetupMode, comparePasswords, hashPassword, isSetupMode, setSetupMode } from "./auth";
 import { notificationManager } from "./notifications";
 import { EmailVerificationService } from "./email-verification";
 import { TransferManagementService } from "./transfer-management";
@@ -50,6 +51,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     next();
   };
+
+  // New endpoint to check if the application is in setup mode
+  app.get('/api/auth/is-setup', (req, res) => {
+    res.json({ isSetupMode });
+  });
+
+  // New endpoint to create the first admin user during setup
+    app.post('/api/auth/setup', async (req, res, next) => {
+        if (!isSetupMode) {
+            return res.status(403).json({ message: 'Application is not in setup mode' });
+        }
+        try {
+            const { username, password } = req.body;
+            if (!username || !password) {
+                return res.status(400).json({ message: 'Username and password are required' });
+            }
+
+            const hashedPassword = await hashPassword(password);
+            const user = await storage.createUser({
+                username,
+                password: hashedPassword,
+                role: 'ultra',
+            });
+
+            // Exit setup mode
+            setSetupMode(false);
+
+            // Log the new user in
+            req.login(user, (err) => {
+                if (err) return next(err);
+                res.status(201).json({
+                    id: user.id,
+                    username: user.username,
+                    role: user.role,
+                });
+            });
+        } catch (error) {
+            console.error("Error during setup:", error);
+            res.status(500).json({ message: 'Failed to create admin user' });
+        }
+    });
 
   // Helper for notifications
   const notifyMissionary = async (missionaryId: number, message: string) => {
@@ -1473,7 +1515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const missionaryId = parseInt(id, 10);
 
       if (isNaN(missionaryId)) {
-        return res.status(400).json({ message: "Invalid missionary ID" });
+        return res.status(400).json({ message: 'Invalid missionary ID' });
       }
 
       const missionary = await storage.getMissionary(missionaryId);
@@ -1663,7 +1705,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const missionaryId = parseInt(id, 10);
 
       if (isNaN(missionaryId)) {
-        return res.status(400).json({ message: "Invalid missionary ID" });
+        return res.status(400).json({ message: 'Invalid missionary ID' });
       }
 
       const missionary = await storage.getMissionary(missionaryId);
