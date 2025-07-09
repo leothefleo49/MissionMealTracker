@@ -39,17 +39,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Middleware to check if user is an admin (any level)
   const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-    if (!req.isAuthenticated() || !['ultra', 'region', 'mission', 'stake', 'ward'].includes(req.user.role)) {
+    console.log("--- requireAdmin middleware invoked ---");
+    console.log(`isAuthenticated: ${req.isAuthenticated()}`);
+    if (req.user) {
+      console.log(`User ID: ${req.user.id}, Username: ${req.user.username}, Role: ${req.user.role}`);
+    } else {
+      console.log("req.user is undefined or null.");
+    }
+
+    if (!req.isAuthenticated() || !['ultra', 'region', 'mission', 'stake', 'ward'].includes(req.user?.role as string)) {
+      console.log("Access denied by requireAdmin (HTTP 403).");
       return res.status(403).json({ message: 'Access denied: Admin privileges required' });
     }
+    console.log("Access granted by requireAdmin. Continuing to next middleware/route handler.");
     next();
   };
 
   // Middleware to check if user is superadmin (ultra, region, mission, stake)
   const requireSuperAdmin = (req: Request, res: Response, next: NextFunction) => {
-    if (!req.isAuthenticated() || !['ultra', 'region', 'mission', 'stake'].includes(req.user.role)) {
+    console.log("--- requireSuperAdmin middleware invoked ---");
+    console.log(`isAuthenticated: ${req.isAuthenticated()}`);
+    if (req.user) {
+      console.log(`User ID: ${req.user.id}, Username: ${req.user.username}, Role: ${req.user.role}`);
+    } else {
+      console.log("req.user is undefined or null.");
+    }
+    if (!req.isAuthenticated() || !['ultra', 'region', 'mission', 'stake'].includes(req.user?.role as string)) {
+      console.log("Access denied by requireSuperAdmin (HTTP 403).");
       return res.status(403).json({ message: 'Access denied: SuperAdmin privileges required' });
     }
+    console.log("Access granted by requireSuperAdmin. Continuing to next middleware/route handler.");
     next();
   };
 
@@ -706,8 +725,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(404).json({ message: 'Missionary not found' });
       }
     } catch (err) {
-      console.error('Error updating missionary:', err);
-      res.status(500).json({ message: 'Failed to update missionary' });
+      handleZodError(err, res);
     }
   });
 
@@ -1132,8 +1150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(404).json({ message: 'Congregation not found' });
       }
     } catch (err) {
-      console.error('Error updating congregation:', err);
-      res.status(500).json({ message: 'Failed to update congregation' });
+      handleZodError(err, res);
     }
   });
 
