@@ -55,6 +55,7 @@ const missionaryFormSchema = z.object({
   weeklySummaryDay: z.enum(["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]).optional(),
   weeklySummaryTime: z.string().optional(),
   congregationId: z.number(),
+  groupNumber: z.coerce.number().min(1, "Group number must be at least 1").optional(), // NEW: Group number field
 });
 
 interface Missionary {
@@ -81,6 +82,7 @@ interface Missionary {
   weeklySummaryDay?: string;
   weeklySummaryTime?: string;
   congregationId: number;
+  groupNumber?: number | null; // NEW: Group number for duos/trios
   // Consent management fields
   consentStatus: "pending" | "granted" | "denied";
   consentDate?: Date | null;
@@ -123,6 +125,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
       weeklySummaryDay: missionary.weeklySummaryDay as any || "sunday",
       weeklySummaryTime: missionary.weeklySummaryTime || "08:00",
       congregationId: missionary.congregationId,
+      groupNumber: missionary.groupNumber || undefined, // NEW: Populate group number
     },
   });
 
@@ -302,6 +305,30 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
               />
             </div>
 
+            {/* NEW: Group Number Field */}
+            <FormField
+              control={form.control}
+              name="groupNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Group Number (Duo/Trio)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="e.g., 1 for Elder Smith & Johnson"
+                      {...field}
+                      value={field.value ?? ''} // Ensure it displays empty string for null/undefined
+                      onChange={(e) => field.onChange(parseInt(e.target.value) || undefined)}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Assign a unique number to each missionary companionship (e.g., 1 for Elder Smith & Johnson, 2 for Sister Brown & Jones).
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             {/* Dietary Information */}
             <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
               <h4 className="font-semibold text-gray-900">Dietary Information</h4>
@@ -449,6 +476,24 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
                           Email Notifications
                         </FormLabel>
                       </FormItem>
+                      {/* Add WhatsApp option */}
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="whatsapp" />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          WhatsApp Notifications
+                        </FormLabel>
+                      </FormItem>
+                      {/* Add Text option */}
+                      <FormItem className="flex items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <RadioGroupItem value="text" />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          SMS Text Message
+                        </FormLabel>
+                      </FormItem>
                     </RadioGroup>
                   </FormControl>
                   <FormMessage />
@@ -457,7 +502,7 @@ export function EditMissionaryDialog({ isOpen, onClose, missionary }: EditMissio
             />
 
             <div className="grid grid-cols-1 gap-4">
-              {!isMessenger ? (
+              {!isMessenger ? ( // This logic seems to depend on preferredNotification being messenger vs. not. Review if it should be more granular for phone numbers.
                 <FormField
                   control={form.control}
                   name="phoneNumber"

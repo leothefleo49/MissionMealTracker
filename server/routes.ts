@@ -102,7 +102,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             req.login(user, (err) => {
                 if (err) {
                     console.error("Error logging in new user:", err);
-                    console.log("--- END ADMIN SETUP ATTEMPT (LOGIN FAILED) ---");
                     return next(err); // Pass error to Express error handler
                 }
                 console.log(`User '${user.username}' logged in successfully. Sending 201 response.`);
@@ -180,10 +179,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all missionaries
   app.get('/api/missionaries', async (req, res) => {
     try {
+      console.log("Fetching all missionaries...");
       const missionaries = await storage.getAllMissionaries();
+      console.log(`Successfully fetched ${missionaries.length} missionaries.`);
       res.json(missionaries);
     } catch (err) {
-      console.error('Error fetching missionaries:', err);
+      console.error('Error fetching all missionaries:', err);
       res.status(500).json({ message: 'Failed to fetch missionaries' });
     }
   });
@@ -193,6 +194,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { typeOrId } = req.params;
       const congregationId = parseInt(req.query.congregationId as string, 10) || 1; // Default to congregation 1 if not specified
+      console.log(`Fetching missionary by type/ID: ${typeOrId} for congregationId: ${congregationId}`);
 
       // Check if this is a missionary ID (numeric) or a type (elders/sisters)
       if (!isNaN(parseInt(typeOrId, 10))) {
@@ -201,32 +203,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const missionary = await storage.getMissionary(missionaryId);
 
         if (!missionary) {
+          console.log(`Missionary with ID ${missionaryId} not found.`);
           return res.status(404).json({ message: 'Missionary not found' });
         }
-
+        console.log(`Successfully fetched missionary: ${missionary.name} (ID: ${missionary.id})`);
         return res.json(missionary);
       }
 
       // This is a missionary type
       if (typeOrId !== 'elders' && typeOrId !== 'sisters') {
+        console.log(`Invalid missionary type provided: ${typeOrId}`);
         return res.status(400).json({ message: 'Type must be either "elders" or "sisters"' });
       }
 
       const missionaries = await storage.getMissionariesByType(typeOrId, congregationId);
+      console.log(`Successfully fetched ${missionaries.length} missionaries of type ${typeOrId}.`);
       res.json(missionaries);
     } catch (err) {
-      console.error('Error fetching missionaries:', err);
+      console.error('Error fetching missionaries by type/ID:', err);
       res.status(500).json({ message: 'Failed to fetch missionaries' });
     }
   });
 
-  // Get missionaries by congregation
+  // Get missionaries by congregation (Admin panel list)
   app.get('/api/admin/missionaries/congregation/:congregationId', requireAdmin, async (req, res) => {
     try {
       const { congregationId } = req.params;
       const parsedCongregationId = parseInt(congregationId, 10);
+      console.log(`Attempting to fetch missionaries for congregation ID: ${parsedCongregationId} (Admin panel).`);
 
       if (isNaN(parsedCongregationId)) {
+        console.log(`Invalid congregation ID received: ${congregationId}`);
         return res.status(400).json({ message: 'Invalid congregation ID' });
       }
 
@@ -236,14 +243,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const hasAccess = userCongregations.some(congregation => congregation.id === parsedCongregationId);
 
         if (!hasAccess) {
+          console.warn(`Access denied for user ${req.user!.username} to congregation ${parsedCongregationId}.`);
           return res.status(403).json({ message: 'You do not have access to this congregation' });
         }
       }
 
       const missionaries = await storage.getMissionariesByCongregation(parsedCongregationId);
+      console.log(`Successfully fetched ${missionaries.length} missionaries for congregation ${parsedCongregationId}.`);
       res.json(missionaries);
     } catch (err) {
-      console.error('Error fetching missionaries by congregation:', err);
+      console.error(`Error fetching missionaries by congregation ${req.params.congregationId}:`, err);
       res.status(500).json({ message: 'Failed to fetch missionaries' });
     }
   });
@@ -421,19 +430,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             "Reply STOP at any time to opt out of messages. Msg & data rates may apply.";
 
           // Send the message using Twilio directly (bypassing consent checks since we're asking for consent)
-          if (notificationManager.smsService && notificationManager.smsService.twilioClient) {
-            await notificationManager.smsService.twilioClient.messages.create({
-              body: consentMessage,
-              from: notificationManager.smsService.twilioPhoneNumber,
-              to: missionary.phoneNumber
-            });
+            if (notificationManager.smsService && notificationManager.smsService.twilioClient) {
+              await notificationManager.smsService.twilioClient.messages.create({
+                body: consentMessage,
+                from: notificationManager.smsService.twilioPhoneNumber,
+                to: missionary.phoneNumber
+              });
 
-            console.log(`Consent verification sent to missionary ${missionary.id} (${missionary.name})`);
-          } else {
-            // Fallback for development without Twilio
-            console.log(`[SMS CONSENT REQUEST] Would send to ${missionary.phoneNumber}: ${consentMessage}`);
+              console.log(`Consent verification sent to missionary ${missionary.id} (${missionary.name})`);
+            } else {
+              // Fallback for development without Twilio
+              console.log(`[SMS CONSENT REQUEST] Would send to ${missionary.phoneNumber}: ${consentMessage}`);
+            }
           }
-        }
       } else if (missionary.preferredNotification === 'messenger' && missionary.messengerAccount) {
         // For messenger, we don't need explicit consent (this would depend on the platform's policies)
         await notifyMissionary(meal.missionaryId, notificationMessage);
@@ -654,6 +663,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin create missionary
   app.post('/api/admin/missionaries', requireAdmin, async (req, res) => {
     try {
+      // Ensure password is not present or is optional here
       const missionaryData = insertMissionarySchema.parse({
         ...req.body,
         emailVerified: true, // Automatically verify email for admin-created missionaries
@@ -1004,10 +1014,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (congregationId) {
         // Get user's congregations
         const userCongregations = await storage.getUserCongregations(req.user!.id);
-        const userCongregationIds = userCongregations.map(congregation => congregation.id);
+        const hasAccess = userCongregations.some(congregation => congregation.id === congregationId);
 
-        // Check if user has access to this congregation or is superadmin
-        if (req.user!.role !== 'ultra' && !userCongregationIds.includes(congregationId)) {
+        if (!hasAccess) {
           return res.status(403).json({ message: 'You do not have access to this congregation' });
         }
       }
@@ -1058,6 +1067,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err) {
       console.error('Error fetching congregations:', err);
       res.status(500).json({ message: 'Failed to fetch congregations' });
+    }
+  });
+
+  // NEW: Get users associated with a specific congregation (Admin only)
+  app.get('/api/admin/congregations/:congregationId/users', requireAdmin, async (req, res) => {
+    try {
+      const { congregationId } = req.params;
+      const parsedCongregationId = parseInt(congregationId, 10);
+
+      if (isNaN(parsedCongregationId)) {
+        return res.status(400).json({ message: 'Invalid congregation ID' });
+      }
+
+      // Check if user has access to this congregation or is ultra admin
+      if (req.user!.role !== 'ultra') {
+        const userCongregations = await storage.getUserCongregations(req.user!.id);
+        const hasAccess = userCongregations.some(congregation => congregation.id === parsedCongregationId);
+
+        if (!hasAccess) {
+          return res.status(403).json({ message: 'You do not have access to this congregation' });
+        }
+      }
+
+      const usersInCongregation = await storage.getUsersInCongregation(parsedCongregationId);
+      res.json(usersInCongregation);
+    } catch (err) {
+      console.error('Error fetching users in congregation:', err);
+      res.status(500).json({ message: 'Failed to fetch users for congregation' });
     }
   });
 
@@ -1311,7 +1348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const meals = await storage.getMealsByDateRange(startDate, endDate, parsedCongregationId);
 
       // Get missionaries to include their information
-      const missionaries = await storage.getMissionariesByCongregation(parsedCongregationId);
+      const missionaries = await storage.getAllMissionaries();
       const missionaryMap = new Map(missionaries.map(m => [m.id, m]));
 
       const mealsWithMissionaries = meals.map(meal => ({
@@ -1462,7 +1499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             consentVerificationSentAt: null,
             dietaryRestrictions: "",
             messengerAccount: "",
-            emailVerified: notificationMethod === "email"
+            groupNumber: null // Ensure groupNumber is handled for test missionary
           };
 
           testMissionary = await storage.createMissionary(insertTestMissionary);
