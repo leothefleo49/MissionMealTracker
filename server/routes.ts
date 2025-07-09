@@ -1,3 +1,4 @@
+// server/routes.ts
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -59,39 +60,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // New endpoint to create the first admin user during setup
     app.post('/api/auth/setup', async (req, res, next) => {
+        console.log("--- START ADMIN SETUP ATTEMPT ---");
+        console.log(`Current setup mode: ${isSetupMode}`);
         if (!isSetupMode) {
+            console.log("Application is NOT in setup mode. Blocking setup request (HTTP 403).");
+            console.log("--- END ADMIN SETUP ATTEMPT (BLOCKED) ---");
             return res.status(403).json({ message: 'Application is not in setup mode' });
         }
         try {
             const { username, password } = req.body;
+            console.log(`Received setup request for username: '${username}'`);
             if (!username || !password) {
+                console.log("Username or password missing (HTTP 400).");
+                console.log("--- END ADMIN SETUP ATTEMPT (FAILED) ---");
                 return res.status(400).json({ message: 'Username and password are required' });
             }
 
+            console.log("Hashing password...");
             const hashedPassword = await hashPassword(password);
+            console.log("Password hashed successfully.");
             const userToInsert: InsertUser = {
                 username,
                 password: hashedPassword,
                 role: 'ultra',
+                // Defaulting other optional fields to null or false
+                regionId: null,
+                missionId: null,
+                stakeId: null,
+                canUsePaidNotifications: false,
             };
 
+            console.log(`Attempting to create user '${username}' in database...`);
             const user = await storage.createUser(userToInsert);
+            console.log(`User created successfully with ID: ${user.id}, Username: '${user.username}', Role: '${user.role}'`);
 
             // Exit setup mode
             setSetupMode(false);
+            console.log("Setup mode set to false.");
 
             // Log the new user in
             req.login(user, (err) => {
-                if (err) return next(err);
+                if (err) {
+                    console.error("Error logging in new user:", err);
+                    console.log("--- END ADMIN SETUP ATTEMPT (LOGIN FAILED) ---");
+                    return next(err); // Pass error to Express error handler
+                }
+                console.log(`User '${user.username}' logged in successfully. Sending 201 response.`);
                 res.status(201).json({
                     id: user.id,
                     username: user.username,
                     role: user.role,
                 });
+                console.log("--- END ADMIN SETUP ATTEMPT (SUCCESS) ---");
             });
-        } catch (error) {
-            console.error("Error during setup:", error);
-            res.status(500).json({ message: 'Failed to create admin user' });
+        } catch (error: any) {
+            console.error("Error during setup (catch block):", error);
+            // Check for duplicate key error (e.g., if ultra admin already exists from a previous failed attempt)
+            if (error.code === '23505' && error.detail && error.detail.includes('username')) { // PostgreSQL unique violation error code
+                console.log("Duplicate username detected (HTTP 409).");
+                res.status(409).json({ message: 'Username already exists. An admin account might already be created, or the username is taken.' });
+            } else {
+                console.log(`Generic error during setup: ${error.message} (HTTP 500).`);
+                res.status(500).json({ message: error.message || 'Failed to create admin user due to an unexpected error.' });
+            }
+            console.log("--- END ADMIN SETUP ATTEMPT (FAILED) ---");
         }
     });
 
@@ -221,7 +253,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = checkMealAvailabilitySchema.parse(req.body);
       const date = new Date(data.date);
-      const congregationId = data.congregationId || 1;  // Default to 1 if not provided
+      const congregationId = data.congregationId; // Use provided congregationId directly
 
       const isAvailable = await storage.checkMealAvailability(date, data.missionaryType, congregationId);
       res.json({ available: isAvailable });
@@ -235,6 +267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const startDateParam = req.query.startDate as string;
       const endDateParam = req.query.endDate as string;
+      const congregationIdParam = req.query.congregationId as string;
 
       if (!startDateParam || !endDateParam) {
         return res.status(400).json({ message: 'startDate and endDate are required' });
@@ -247,7 +280,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid date format' });
       }
 
-      const meals = await storage.getMealsByDateRange(startDate, endDate);
+      const congregationId = congregationIdParam ? parseInt(congregationIdParam, 10) : undefined;
+
+      const meals = await storage.getMealsByDateRange(startDate, endDate, congregationId);
 
       // Get missionaries to include their information
       const missionaries = await storage.getAllMissionaries();
@@ -306,8 +341,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check meal availability for this date and missionary
       const mealDate = new Date(mealData.date);
-      const congregationId = mealData.congregationId || 1;
-      const isAvailable = await storage.checkMealAvailability(mealDate, mealData.missionaryId.toString(), congregationId);
+      const congregationId = mealData.congregationId; // Use actual congregationId from parsed data
+      const isAvailable = await storage.checkMealAvailability(mealDate, missionary.id.toString(), congregationId);
 
       if (!isAvailable) {
         return res.status(409).json({
@@ -1007,7 +1042,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Congregation Management Routes (SuperAdmin only)
+  // Congregation Management Routes (Admin/SuperAdmin)
   app.get('/api/admin/congregations', requireAdmin, async (req, res) => {
     try {
       let congregations;
@@ -1015,6 +1050,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (req.user!.role === 'ultra') {
         congregations = await storage.getAllCongregations();
       } else {
+        // For non-ultra admins, only return congregations they have access to
         congregations = await storage.getUserCongregations(req.user!.id);
       }
 
@@ -1085,18 +1121,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Validate request body
-      const { userId } = req.body;
-      if (!userId || isNaN(parseInt(userId, 10))) {
-        return res.status(400).json({ message: 'Valid userId is required' });
+      const { username } = req.body; // Changed from userId to username for adding existing users
+      if (!username) {
+        return res.status(400).json({ message: 'Valid username is required' });
+      }
+
+      // Find user by username
+      const userToAdd = await storage.getUserByUsername(username);
+      if (!userToAdd) {
+        return res.status(404).json({ message: `User '${username}' not found. Please ensure the user exists.` });
+      }
+
+      // Check if user is already a member of this congregation
+      const userCongregations = await storage.getUserCongregations(userToAdd.id);
+      const isAlreadyMember = userCongregations.some(uc => uc.id === parsedCongregationId);
+      if (isAlreadyMember) {
+          return res.status(400).json({ message: 'User is already an admin of this congregation.' });
       }
 
       // Add user to congregation
       const userCongregation = await storage.addUserToCongregation({
-        userId: parseInt(userId, 10),
+        userId: userToAdd.id,
         congregationId: parsedCongregationId
       });
 
-      res.status(201).json(userCongregation);
+      // Return simplified user data
+      res.status(201).json({
+        userId: userToAdd.id,
+        congregationId: parsedCongregationId,
+        username: userToAdd.username,
+        role: userToAdd.role // Return role for display if needed
+      });
     } catch (err) {
       console.error('Error adding user to congregation:', err);
       res.status(500).json({ message: 'Failed to add user to congregation' });
@@ -1122,6 +1177,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!userCongregationIds.includes(parsedCongregationId)) {
           return res.status(403).json({ message: 'You do not have access to this congregation' });
         }
+      }
+
+      // Prevent removing the last admin from a congregation if it's the only one
+      // This logic can be enhanced later if needed, e.g., ensure at least one admin always remains for a congregation
+      const congregationUsers = await storage.getUsersInCongregation(parsedCongregationId);
+      if (congregationUsers.length === 1 && congregationUsers[0].id === parsedUserId) {
+          // This is the last admin for this congregation, prevent removal unless it's an ultra admin removing themselves
+          // or another ultra admin removing the last admin.
+          if (req.user!.role !== 'ultra' && req.user!.id !== parsedUserId) {
+              return res.status(400).json({ message: 'Cannot remove the last admin from this congregation. Assign another admin first.' });
+          }
       }
 
       // Remove user from congregation
@@ -1301,7 +1367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        stats = await notificationManager.getCongregationMessageStats(congregationId);
+        stats = await notificationManager.getWardMessageStats(congregationId); // Note: getWardMessageStats now implies congregationId
       } else {
         // If not super admin, return error since regular admins can only see their congregations
         if (req.user!.role !== 'ultra') {
@@ -1562,7 +1628,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
             success = true;
           } else {
-            // Fallback for development without Twilio
             console.log(`[SMS CONSENT REQUEST] Sending to ${testMissionary.phoneNumber}: ${consentMessage}`);
             success = true;
           }
