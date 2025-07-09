@@ -44,6 +44,11 @@ export async function setupVite(app: Express, server: Server) {
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
 
+    // Only serve index.html for non-API routes
+    if (url.startsWith("/api")) {
+      return next(); // Skip to next middleware (API routes)
+    }
+
     try {
       const clientTemplate = path.resolve(
         import.meta.dirname,
@@ -76,10 +81,14 @@ export function serveStatic(app: Express) {
     );
   }
 
+  // Serve static assets, but allow API requests to pass through
   app.use(express.static(distPath));
 
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
+  // Fall through to index.html for non-API routes if the file doesn't exist
+  app.use("*", (req, res, next) => {
+    if (req.originalUrl.startsWith("/api")) {
+      return next(); // Skip to next middleware (API routes)
+    }
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

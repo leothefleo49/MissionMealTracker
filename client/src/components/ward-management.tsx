@@ -121,10 +121,14 @@ export function WardManagement() {
     queryFn: async () => {
       const response = await fetch('/api/admin/wards');
       if (!response.ok) {
-        throw new Error('Failed to fetch wards');
+        // If response is not OK, throw an error to be caught by react-query
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch wards');
       }
       return response.json();
     },
+    // Keep staleTime low to allow quick refetches if new ward is added
+    staleTime: 1000, 
   });
 
   // Generate a random access code
@@ -203,7 +207,8 @@ export function WardManagement() {
   const regenerateAccessCodeMutation = useMutation({
     mutationFn: async (wardId: number) => {
       const newAccessCode = generateAccessCode();
-      const res = await apiRequest("PATCH", `/api/admin/wards/${wardId}/access-code`, { accessCode: newAccessCode });
+      // The API endpoint should be PATCH /api/admin/wards/:id with { accessCode: newAccessCode }
+      const res = await apiRequest("PATCH", `/api/admin/wards/${wardId}`, { accessCode: newAccessCode });
       return await res.json();
     },
     onSuccess: (data) => {
@@ -212,10 +217,13 @@ export function WardManagement() {
         description: "A new access code has been generated for this ward.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
-      const updatedWard = wards?.find(w => w.id === data.id);
-      if(updatedWard) {
-        setCurrentWard({...updatedWard, accessCode: data.accessCode});
-        setIsQrCodeDialogOpen(true);
+      // Update the currentWard state if it's the one being regenerated
+      if(currentWard && currentWard.id === data.id) {
+        setCurrentWard({...currentWard, accessCode: data.accessCode});
+      }
+      // Re-open QR code dialog if it was open for this ward
+      if(isQrCodeDialogOpen && currentWard?.id === data.id) {
+        setIsQrCodeDialogOpen(true); // This will re-render with new QR code
       }
     },
     onError: (error: Error) => {
@@ -283,7 +291,7 @@ export function WardManagement() {
   if (error) {
     return (
       <div className="py-4 text-red-600">
-        <p>Error loading wards. Please try again.</p>
+        <p>Error loading wards: {error.message}. Please try again.</p>
       </div>
     );
   }
@@ -460,6 +468,7 @@ export function WardManagement() {
         </Dialog>
       </div>
 
+      {/* Conditional rendering based on whether wards exist */}
       {wards && wards.length > 0 ? (
         <div className="grid gap-4">
           {wards.map((ward: Ward) => (

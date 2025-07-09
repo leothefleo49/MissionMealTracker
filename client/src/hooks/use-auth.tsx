@@ -12,10 +12,13 @@ import { useLocation } from "wouter";
 interface AuthUser {
   id: number;
   username: string;
-  isAdmin: boolean;
-  isSuperAdmin: boolean;
+  // New hierarchical roles
+  isUltraAdmin: boolean;
+  isRegionAdmin: boolean;
   isMissionAdmin: boolean;
   isStakeAdmin: boolean;
+  // isAdmin is a convenience flag, true if any higher-tier admin role is true or if a ward admin
+  isAdmin: boolean;
 }
 
 type AuthContextType = {
@@ -59,7 +62,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const res = await fetch("/api/user");
         if (res.status === 401) return null;
         if (!res.ok) throw new Error("Failed to fetch user");
-        return await res.json();
+        const userData = await res.json();
+        // Manually set isAdmin based on the new roles received from the server
+        const isAdmin = userData.isUltraAdmin || userData.isRegionAdmin || userData.isMissionAdmin || userData.isStakeAdmin || (userData.wardAccessCode && userData.username.startsWith('ward_admin_'));
+        return { ...userData, isAdmin };
       } catch (error) {
         return null;
       }
@@ -70,7 +76,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: userWards } = useQuery<Ward[], Error>({
     queryKey: ["/api/admin/wards"],
     queryFn: getQueryFn({ on401: "returnNull" }),
-    enabled: !!user?.isAdmin,
+    // Only enable if user is authenticated and has any admin role
+    enabled: !!user && (user.isUltraAdmin || user.isRegionAdmin || user.isMissionAdmin || user.isStakeAdmin || user.isAdmin),
   });
 
   useEffect(() => {
@@ -93,8 +100,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return await res.json();
     },
     onSuccess: (loggedInUser: AuthUser) => {
-      queryClient.setQueryData(["/api/user"], loggedInUser);
-      if (loggedInUser.isAdmin) {
+      // Ensure the isAdmin flag is correctly set on the client side based on new roles
+      const isAdmin = loggedInUser.isUltraAdmin || loggedInUser.isRegionAdmin || loggedInUser.isMissionAdmin || loggedInUser.isStakeAdmin;
+      queryClient.setQueryData(["/api/user"], { ...loggedInUser, isAdmin });
+
+      if (isAdmin) {
         queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
       }
       toast({
@@ -121,11 +131,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return await res.json();
     },
-    onSuccess: (loggedInUser: AuthUser) => {
-      queryClient.setQueryData(["/api/user"], loggedInUser);
-      if (loggedInUser.isAdmin) {
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
-      }
+    onSuccess: (loggedInUser: AuthUser & { wardAccessCode: string }) => {
+      // For ward admins, isAdmin is always true
+      queryClient.setQueryData(["/api/user"], { ...loggedInUser, isAdmin: true });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
       toast({
         title: "Ward login successful",
         description: "You've successfully logged in as a ward admin",

@@ -24,7 +24,9 @@ export default function Admin() {
     );
   }
 
-  if (!user?.isAdmin && !user?.isSuperAdmin) {
+  // Check if the user has any admin role to access this dashboard
+  // isAdmin from useAuth now derives from isUltraAdmin, isRegionAdmin, isMissionAdmin, isStakeAdmin, or ward admin status
+  if (!user?.isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md">
@@ -44,15 +46,18 @@ export default function Admin() {
   const tabs = [
     { id: "missionaries", label: "Missionaries", icon: Users },
     { id: "meals", label: "Meals", icon: Calendar },
-    { id: "wards", label: "Wards", icon: Building },
+    // Only Ultra Admins can see the 'Wards' tab for now (full hierarchy management is not yet implemented beyond this point)
+    ...(user?.isUltraAdmin ? [{ id: "wards", label: "Wards", icon: Building }] : []),
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
   const renderContent = () => {
-    if (activeTab === "wards" && user?.isSuperAdmin) {
+    // Only Ultra Admins can manage wards
+    if (activeTab === "wards" && user?.isUltraAdmin) {
       return <WardManagement />;
     }
 
+    // This block handles cases where a ward needs to be selected
     if (!selectedWard) {
       if (userWards && userWards.length > 0) {
         return (
@@ -65,14 +70,27 @@ export default function Admin() {
           </Card>
         )
       }
+      // If no wards are found at all, and not an Ultra Admin who can create them
+      if (!user?.isUltraAdmin) {
+        return (
+           <Card className="mt-6">
+              <CardContent className="pt-6 text-center">
+                <Building className="mx-auto h-12 w-12 text-gray-300" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No Wards Found</h3>
+                <p className="mt-1 text-sm text-gray-500">Please contact a higher-level administrator to assign you to a ward or create one.</p>
+              </CardContent>
+            </Card>
+        )
+      }
+      // If no wards are found, but it's an Ultra Admin
       return (
-         <Card className="mt-6">
+        <Card className="mt-6">
             <CardContent className="pt-6 text-center">
               <Building className="mx-auto h-12 w-12 text-gray-300" />
               <h3 className="mt-2 text-sm font-medium text-gray-900">No Wards Found</h3>
-              <p className="mt-1 text-sm text-gray-500">Super Admins can create a new ward in the "Wards" tab.</p>
+              <p className="mt-1 text-sm text-gray-500">You are an Ultra Admin. You can create a new ward in the "Wards" tab.</p>
             </CardContent>
-          </Card>
+        </Card>
       )
     }
 
@@ -128,10 +146,12 @@ export default function Admin() {
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Admin Dashboard</h1>
               <div className="flex flex-wrap items-center gap-2 mt-1">
                 <p className="text-sm text-gray-600">Welcome, {user?.username}</p>
-                 {user?.isSuperAdmin && <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">Super Admin</Badge>}
+                 {user?.isUltraAdmin && <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">Ultra Admin</Badge>}
+                 {user?.isRegionAdmin && <Badge variant="secondary" className="text-xs bg-indigo-100 text-indigo-800">Region Admin</Badge>}
                  {user?.isMissionAdmin && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">Mission Admin</Badge>}
                  {user?.isStakeAdmin && <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">Stake Admin</Badge>}
-                 {user?.isAdmin && !user.isSuperAdmin && !user.isMissionAdmin && !user.isStakeAdmin && <Badge variant="outline" className="text-xs">Admin</Badge>}
+                 {/* Display 'Ward Admin' if the user is not a higher-tier admin but has admin access (via ward assignment) */}
+                 {user?.isAdmin && !user.isUltraAdmin && !user.isRegionAdmin && !user.isMissionAdmin && !user.isStakeAdmin && <Badge variant="outline" className="text-xs">Ward Admin</Badge>}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -155,6 +175,7 @@ export default function Admin() {
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex flex-wrap gap-1 sm:gap-2 py-2 overflow-x-auto">
             {tabs.map((tab) => {
+              // The 'wards' tab is only enabled for Ultra Admins, other tabs require a selected ward
               const isDisabled = tab.id !== 'wards' && !selectedWard;
               return (
                 <Button

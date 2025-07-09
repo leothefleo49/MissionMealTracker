@@ -36,10 +36,13 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
-  isAdmin: boolean("is_admin").default(false).notNull(),
-  isSuperAdmin: boolean("is_super_admin").default(false).notNull(),
+  // New hierarchical roles
+  isUltraAdmin: boolean("is_ultra_admin").default(false).notNull(),
+  isRegionAdmin: boolean("is_region_admin").default(false).notNull(),
   isMissionAdmin: boolean("is_mission_admin").default(false).notNull(),
   isStakeAdmin: boolean("is_stake_admin").default(false).notNull(),
+  // Ward admin is implicitly true if any of the above are true OR if assigned to a ward
+  // No longer a direct 'isAdmin' flag
   canUsePaidNotifications: boolean("can_use_paid_notifications").default(false).notNull(),
 });
 
@@ -61,8 +64,8 @@ export const usersRelations = relations(users, ({ many }) => ({
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
-  isAdmin: true,
-  isSuperAdmin: true,
+  isUltraAdmin: true,
+  isRegionAdmin: true,
   isMissionAdmin: true,
   isStakeAdmin: true,
 });

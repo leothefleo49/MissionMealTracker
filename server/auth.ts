@@ -17,10 +17,12 @@ declare global {
     interface User {
       id: number;
       username: string;
-      isAdmin: boolean;
-      isSuperAdmin: boolean;
+      isUltraAdmin: boolean;
+      isRegionAdmin: boolean;
       isMissionAdmin: boolean;
       isStakeAdmin: boolean;
+      // isAdmin is derived based on the new roles for convenience in the client
+      isAdmin: boolean; 
     }
   }
 }
@@ -39,12 +41,10 @@ export async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
-  // Create a MemoryStore for session storage (in production we would use a proper store)
   const sessionStore = new MemoryStore({
     checkPeriod: 86400000 // prune expired entries every 24h
   });
 
-  // Setup session middleware
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || 'missionary-meal-calendar-secret',
     resave: false,
@@ -60,33 +60,32 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Setup Passport local strategy with username and password
   passport.use('local-regular', 
     new LocalStrategy(async (username, password, done) => {
       try {
-        // Handle superadmin login with fixed password
+        // Handle Ultra Admin login with fixed password
         if (password === "Ts2120130981!") {
-          // Find or create the superadmin account
-          let superAdmin = await storage.getUserByUsername("superadmin");
-          if (!superAdmin) {
-            // Create superadmin if it doesn't exist
-            superAdmin = await storage.createUser({
-              username: "superadmin",
+          let ultraAdmin = await storage.getUserByUsername("ultraadmin");
+          if (!ultraAdmin) {
+            ultraAdmin = await storage.createUser({
+              username: "ultraadmin",
               password: await hashPassword("Ts2120130981!"),
-              isAdmin: true,
-              isSuperAdmin: true,
+              isUltraAdmin: true,
+              isRegionAdmin: false,
               isMissionAdmin: false,
               isStakeAdmin: false,
             });
           }
-          return done(null, superAdmin);
+          // The `isAdmin` property will be set during serialization based on new roles
+          return done(null, ultraAdmin);
         }
 
-        // Regular user authentication
+        // Regular admin/user authentication
         const user = await storage.getUserByUsername(username);
         if (!user || !(await comparePasswords(password, user.password))) {
           return done(null, false, { message: "Invalid username or password" });
         }
+        // The `isAdmin` property will be set during serialization based on new roles
         return done(null, user);
       } catch (error) {
         return done(error);
@@ -94,7 +93,6 @@ export function setupAuth(app: Express) {
     }),
   );
 
-  // Setup password-only strategy for ward access with fixed password
   passport.use('password-only',
     new LocalStrategy({ usernameField: 'wardAccessCode', passwordField: 'password' }, 
     async (wardAccessCode, password, done) => {
@@ -113,12 +111,12 @@ export function setupAuth(app: Express) {
         // Create or find ward admin user
         let wardAdmin = await storage.getUserByUsername(`ward_admin_${ward.id}`);
         if (!wardAdmin) {
-          // Create a ward admin user
+          // Create a ward admin user with ward_admin role
           wardAdmin = await storage.createUser({
             username: `ward_admin_${ward.id}`,
             password: await hashPassword("feast2323"),
-            isAdmin: true,
-            isSuperAdmin: false,
+            isUltraAdmin: false,
+            isRegionAdmin: false,
             isMissionAdmin: false,
             isStakeAdmin: false,
           });
@@ -129,7 +127,7 @@ export function setupAuth(app: Express) {
             wardId: ward.id
           });
         }
-
+        // The `isAdmin` property will be set during serialization based on new roles
         return done(null, wardAdmin);
       } catch (error) {
         return done(error);
@@ -144,19 +142,23 @@ export function setupAuth(app: Express) {
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
-      done(null, user);
+      if (user) {
+        // Dynamically determine `isAdmin` based on new roles
+        const isAdmin = user.isUltraAdmin || user.isRegionAdmin || user.isMissionAdmin || user.isStakeAdmin;
+        done(null, { ...user, isAdmin });
+      } else {
+        done(null, false);
+      }
     } catch (error) {
       done(error);
     }
   });
 
   // Auth routes
-  // Main superadmin login (password only)
   app.post("/api/login", (req, res, next) => {
-    // Check if this is a password-only authentication request
+    // If a password for superadmin is provided without a username, assume superadmin login
     if (req.body.password === "Ts2120130981!" && !req.body.username) {
-      // Auto-fill username for superadmin
-      req.body.username = "superadmin";
+      req.body.username = "ultraadmin";
     }
 
     passport.authenticate("local-regular", (err: Error, user: User) => {
@@ -170,19 +172,20 @@ export function setupAuth(app: Express) {
         if (loginErr) {
           return next(loginErr);
         }
+        // Send back all the new role flags
         return res.status(200).json({
           id: user.id,
           username: user.username,
-          isAdmin: user.isAdmin,
-          isSuperAdmin: user.isSuperAdmin,
+          isUltraAdmin: user.isUltraAdmin,
+          isRegionAdmin: user.isRegionAdmin,
           isMissionAdmin: user.isMissionAdmin,
           isStakeAdmin: user.isStakeAdmin,
+          isAdmin: user.isAdmin, // This will be true if any of the above admin roles are true
         });
       });
     })(req, res, next);
   });
 
-  // Ward-specific admin login
   app.post("/api/ward-login", (req, res, next) => {
     const { wardAccessCode, password } = req.body;
 
@@ -204,11 +207,12 @@ export function setupAuth(app: Express) {
         return res.status(200).json({
           id: user.id,
           username: user.username,
-          isAdmin: user.isAdmin,
-          isSuperAdmin: user.isSuperAdmin,
+          isUltraAdmin: user.isUltraAdmin,
+          isRegionAdmin: user.isRegionAdmin,
           isMissionAdmin: user.isMissionAdmin,
           isStakeAdmin: user.isStakeAdmin,
-          wardAccessCode: wardAccessCode
+          isAdmin: user.isAdmin, // This will be true for ward admins
+          wardAccessCode: wardAccessCode // Keep wardAccessCode for client-side routing logic
         });
       });
     })(req, res, next);
@@ -225,47 +229,76 @@ export function setupAuth(app: Express) {
 
   app.get("/api/user", (req, res) => {
     if (req.isAuthenticated()) {
+      // Return all new role flags
       res.json({
         id: req.user.id,
         username: req.user.username,
-        isAdmin: req.user.isAdmin,
-        isSuperAdmin: req.user.isSuperAdmin,
+        isUltraAdmin: req.user.isUltraAdmin,
+        isRegionAdmin: req.user.isRegionAdmin,
         isMissionAdmin: req.user.isMissionAdmin,
         isStakeAdmin: req.user.isStakeAdmin,
+        isAdmin: req.user.isAdmin, // This is derived in deserializeUser
       });
     } else {
       res.status(401).json({ message: "Not authenticated" });
     }
   });
 
-  // Middleware to check if user is authenticated and is an admin
-  app.use("/api/admin/*", (req, res, next) => {
-    if (req.isAuthenticated() && req.user.isAdmin) {
+  // Middleware to check if user has any admin privileges (ward, stake, mission, region, ultra)
+  const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    // Check if the user is explicitly a higher-tier admin
+    if (req.user.isUltraAdmin || req.user.isRegionAdmin || req.user.isMissionAdmin || req.user.isStakeAdmin) {
       return next();
     }
-    res.status(403).json({ message: "Forbidden - Admin access required" });
-  });
+
+    // Check if the user is a ward admin (associated with any ward)
+    const userWards = await storage.getUserWards(req.user.id);
+    if (userWards.length > 0) {
+      return next();
+    }
+
+    return res.status(403).json({ message: 'Access denied: Admin privileges required' });
+  };
+
+  // Middleware to check if user is Ultra Admin
+  const requireUltraAdmin = (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated() || !req.user.isUltraAdmin) {
+      return res.status(403).json({ message: 'Access denied: Ultra Admin privileges required' });
+    }
+    next();
+  };
+
+  // Apply the general admin middleware to the /api/admin routes
+  app.use("/api/admin/*", requireAdmin);
+
+  // Example of using requireUltraAdmin for routes that only Ultra Admins can access
+  // For now, keep existing requireSuperAdmin replaced with requireUltraAdmin
+  // You might want to apply this more granularly as the hierarchy features are built out
+  app.post('/api/admin/wards', requireUltraAdmin);
+  app.patch('/api/admin/wards/:id', requireUltraAdmin);
 }
 
-// Helper function to create super admin user
+// Helper function to create ultra admin user
 export async function createSuperAdminUser() {
   try {
-    // Check if super admin already exists
-    const existingSuperAdmin = await storage.getUserByUsername("superadmin");
-    if (!existingSuperAdmin) {
-      // Create a super admin user with the fixed password
-      const superAdminUser = {
-        username: "superadmin",
+    const existingUltraAdmin = await storage.getUserByUsername("ultraadmin");
+    if (!existingUltraAdmin) {
+      const ultraAdminUser = {
+        username: "ultraadmin",
         password: await hashPassword("Ts2120130981!"), 
-        isAdmin: true,
-        isSuperAdmin: true,
+        isUltraAdmin: true,
+        isRegionAdmin: false,
         isMissionAdmin: false,
         isStakeAdmin: false,
       };
-      await storage.createUser(superAdminUser);
-      console.log("Super admin user created with default credentials");
+      await storage.createUser(ultraAdminUser);
+      console.log("Ultra admin user created with default credentials");
     }
   } catch (error) {
-    console.error("Error creating super admin user:", error);
+    console.error("Error creating ultra admin user:", error);
   }
 }
