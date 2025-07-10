@@ -3573,6 +3573,10 @@ Please log in to the missionary portal and change your password immediately for 
 // server/index.ts
 import dotenv from "dotenv";
 import path from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+var __filename = fileURLToPath(import.meta.url);
+var __dirname = dirname(__filename);
 dotenv.config();
 async function startServer() {
   const app = express();
