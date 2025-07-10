@@ -1,8 +1,22 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
-import { Button } from './ui/button';
-import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
+// client/src/components/mission-management.tsx
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from "react";
+import { Pencil, Plus, Trash, Check, X, Building, MapPin } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +27,15 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -21,261 +44,469 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-type Mission = {
-    id: number;
-    name: string;
-    regionId: number;
-    stakes: { id: number; name: string }[] | null;
-};
-
-type Region = {
-    id: number;
-    name: string;
-}
-
-const missionSchema = z.object({
-  name: z.string().min(2, "Mission name must be at least 2 characters"),
-  regionId: z.coerce.number({ required_error: "Please select a region." }),
+// Define the zod schema for new mission creation
+const createMissionSchema = z.object({
+  name: z.string().min(2, { message: "Mission name must be at least 2 characters" }),
+  regionId: z.number().optional().nullable(),
+  description: z.string().optional(),
 });
 
-type MissionFormValues = z.infer<typeof missionSchema>;
+type Mission = {
+  id: number;
+  name: string;
+  regionId?: number | null;
+  description?: string;
+  region?: { id: number; name: string }; // Include region detail
+};
 
-const fetchMissions = async (): Promise<Mission[]> => {
-    const res = await apiRequest("GET", '/api/missions');
-    return res.json();
+type CreateMissionFormValues = z.infer<typeof createMissionSchema>;
+
+interface MissionManagementProps {
+  showUnassignedOnly?: boolean; // New prop to filter unassigned missions
 }
 
-const fetchRegions = async (): Promise<Region[]> => {
-    const res = await apiRequest("GET", '/api/regions');
-    return res.json();
-}
+export function MissionManagement({ showUnassignedOnly }: MissionManagementProps) {
+  const { toast } = useToast();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [currentMission, setCurrentMission] = useState<Mission | null>(null);
 
-export function MissionManagement() {
-    const queryClient = useQueryClient();
-    const { toast } = useToast();
-    const { data: missions, isLoading: missionsLoading, isError: missionsError, error: missionErr } = useQuery({
-        queryKey: ['missions'],
-        queryFn: fetchMissions,
+  // Create form
+  const createForm = useForm<CreateMissionFormValues>({
+    resolver: zodResolver(createMissionSchema),
+    defaultValues: {
+      name: "",
+      regionId: null,
+      description: "",
+    },
+  });
+
+  // Edit form
+  const editForm = useForm<Partial<Mission> & { id?: number }>({
+    resolver: zodResolver(createMissionSchema.partial()),
+    defaultValues: {
+      id: undefined,
+      name: "",
+      regionId: null,
+      description: "",
+    },
+  });
+
+  // Fetch regions for dropdown
+  const { data: regions, isLoading: isLoadingRegions } = useQuery({
+    queryKey: ["/api/regions"],
+    queryFn: async () => {
+      const response = await fetch('/api/regions');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch regions');
+      }
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Fetch missions
+  const { data: missions, isLoading, error, refetch } = useQuery({
+    queryKey: ["/api/missions", showUnassignedOnly], // Include filter in query key
+    queryFn: async () => {
+      let url = '/api/missions';
+      if (showUnassignedOnly) {
+        url += '?unassignedOnly=true'; // Add query param
+      }
+      const response = await fetch(url);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch missions');
+      }
+      return response.json();
+    },
+    staleTime: 1000,
+  });
+
+  // Create mission mutation
+  const createMissionMutation = useMutation({
+    mutationFn: async (data: CreateMissionFormValues) => {
+      const res = await apiRequest("POST", "/api/missions", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Mission created",
+        description: "Mission has been successfully created.",
+      });
+      setIsCreateDialogOpen(false);
+      createForm.reset({ name: "", regionId: null, description: "" });
+      queryClient.invalidateQueries({ queryKey: ["/api/missions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/regions"] }); // Invalidate regions to refresh data that might include new mission counts
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create mission. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Edit mission mutation
+  const editMissionMutation = useMutation({
+    mutationFn: async (data: Partial<Mission> & { id: number }) => {
+      const res = await apiRequest("PATCH", `/api/missions/${data.id}`, data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Mission updated",
+        description: "Mission has been successfully updated.",
+      });
+      setIsEditDialogOpen(false);
+      editForm.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/missions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/regions"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update mission. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete mission mutation
+  const deleteMissionMutation = useMutation({
+    mutationFn: async (missionId: number) => {
+      await apiRequest("DELETE", `/api/missions/${missionId}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Mission deleted",
+        description: "Mission has been successfully deleted.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/missions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/regions"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete mission. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+
+  function onCreateSubmit(values: CreateMissionFormValues) {
+    createMissionMutation.mutate(values);
+  }
+
+  function onEditSubmit(values: Partial<Mission>) {
+    if (currentMission?.id) {
+      editMissionMutation.mutate({ ...values, id: currentMission.id });
+    }
+  }
+
+  function handleDeleteMission(missionId: number) {
+    deleteMissionMutation.mutate(missionId);
+  }
+
+  function handleEditMission(mission: Mission) {
+    setCurrentMission(mission);
+    editForm.reset({
+      name: mission.name,
+      regionId: mission.regionId === undefined ? null : mission.regionId, // Handle undefined regionId
+      description: mission.description || "",
     });
+    setIsEditDialogOpen(true);
+  }
 
-    const { data: regions, isLoading: regionsLoading, isError: regionsError, error: regionErr } = useQuery({
-        queryKey: ['regions'],
-        queryFn: fetchRegions,
-    });
-
-    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-    const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
-
-    const createForm = useForm<MissionFormValues>({
-        resolver: zodResolver(missionSchema),
-        defaultValues: { name: "", regionId: undefined },
-    });
-
-    const editForm = useForm<MissionFormValues>({
-        resolver: zodResolver(missionSchema),
-    });
-
-    const createMissionMutation = useMutation({
-        mutationFn: (newMission: MissionFormValues) => apiRequest("POST", "/api/missions", newMission),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['missions'] });
-            toast({ title: "Mission created", description: "The new mission has been successfully created." });
-            setIsCreateDialogOpen(false);
-            createForm.reset();
-        },
-        onError: (error: Error) => {
-            toast({ title: "Error", description: error.message, variant: "destructive" });
-        },
-    });
-
-    const updateMissionMutation = useMutation({
-        mutationFn: (updatedMission: MissionFormValues) => apiRequest("PATCH", `/api/missions/${selectedMission?.id}`, updatedMission),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['missions'] });
-            toast({ title: "Mission updated", description: "The mission has been successfully updated." });
-            setIsEditDialogOpen(false);
-            setSelectedMission(null);
-        },
-        onError: (error: Error) => {
-            toast({ title: "Error", description: error.message, variant: "destructive" });
-        },
-    });
-
-    const deleteMissionMutation = useMutation({
-        mutationFn: () => apiRequest("DELETE", `/api/missions/${selectedMission?.id}`),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['missions'] });
-            toast({ title: "Mission deleted", description: "The mission has been successfully deleted." });
-            setIsDeleteDialogOpen(false);
-            setSelectedMission(null);
-        },
-        onError: (error: Error) => {
-            toast({ title: "Error", description: error.message, variant: "destructive" });
-        },
-    });
-
-    const handleCreateSubmit = (data: MissionFormValues) => {
-        createMissionMutation.mutate(data);
-    };
-
-    const handleUpdateSubmit = (data: MissionFormValues) => {
-        updateMissionMutation.mutate(data);
-    };
-
-    const handleDeleteConfirm = () => {
-        deleteMissionMutation.mutate();
-    };
-
-    const openEditDialog = (mission: Mission) => {
-        setSelectedMission(mission);
-        editForm.setValue("name", mission.name);
-        editForm.setValue("regionId", mission.regionId);
-        setIsEditDialogOpen(true);
-    };
-
-    const openDeleteDialog = (mission: Mission) => {
-        setSelectedMission(mission);
-        setIsDeleteDialogOpen(true);
-    };
-
+  if (isLoading || isLoadingRegions) {
     return (
-        <Card>
-            <CardHeader>
-                <div className="flex justify-between items-center">
-                    <div>
-                        <CardTitle>Mission Management</CardTitle>
-                        <CardDescription>Create and manage missions within your regions.</CardDescription>
-                    </div>
-                    <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button>
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Add Mission
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Add New Mission</DialogTitle>
-                            </DialogHeader>
-                            <form onSubmit={createForm.handleSubmit(handleCreateSubmit)}>
-                                <Input {...createForm.register("name")} placeholder="Mission Name" className="mb-4"/>
-                                {createForm.formState.errors.name && <p className="text-red-500 text-sm mt-1">{createForm.formState.errors.name.message}</p>}
-
-                                <Select onValueChange={(value) => createForm.setValue("regionId", Number(value))}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select a region" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {regions?.map(region => (
-                                            <SelectItem key={region.id} value={String(region.id)}>{region.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                {createForm.formState.errors.regionId && <p className="text-red-500 text-sm mt-1">{createForm.formState.errors.regionId.message}</p>}
-
-                                <DialogFooter className="mt-4">
-                                    <Button type="submit" disabled={createMissionMutation.isPending}>
-                                        {createMissionMutation.isPending ? "Adding..." : "Add Mission"}
-                                    </Button>
-                                </DialogFooter>
-                            </form>
-                        </DialogContent>
-                    </Dialog>
-                </div>
-            </CardHeader>
-            <CardContent>
-                {missionsLoading && <p className="text-center text-muted-foreground">Loading missions...</p>}
-                {missionsError && <p className="text-destructive">Error: {missionErr?.message}</p>}
-                <div className="space-y-4">
-                    {missions?.map(mission => (
-                        <Card key={mission.id}>
-                            <CardHeader>
-                                <div className="flex justify-between items-center">
-                                    <CardTitle>{mission.name}</CardTitle>
-                                    <div className="flex space-x-2">
-                                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(mission)}>
-                                            <Pencil className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(mission)}>
-                                            <Trash2 className="h-4 w-4 text-red-500" />
-                                        </Button>
-                                    </div>
-                                </div>
-                                <CardDescription>
-                                    {mission.stakes?.length || 0} stakes
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {mission.stakes && mission.stakes.length > 0 ? (
-                                    <ul>
-                                        {mission.stakes.map(stake => (
-                                            <li key={stake.id} className="text-sm text-muted-foreground">{stake.name}</li>
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">No stakes in this mission yet.</p>
-                                )}
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
-            </CardContent>
-             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Edit Mission</DialogTitle>
-                    </DialogHeader>
-                    <form onSubmit={editForm.handleSubmit(handleUpdateSubmit)}>
-                        <Input {...editForm.register("name")} placeholder="Mission Name" className="mb-4" />
-                        {editForm.formState.errors.name && <p className="text-red-500 text-sm mt-1">{editForm.formState.errors.name.message}</p>}
-
-                        <Select defaultValue={String(selectedMission?.regionId)} onValueChange={(value) => editForm.setValue("regionId", Number(value))}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select a region" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {regions?.map(region => (
-                                    <SelectItem key={region.id} value={String(region.id)}>{region.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        {editForm.formState.errors.regionId && <p className="text-red-500 text-sm mt-1">{editForm.formState.errors.regionId.message}</p>}
-
-                        <DialogFooter className="mt-4">
-                            <Button type="submit" disabled={updateMissionMutation.isPending}>
-                                {updateMissionMutation.isPending ? "Saving..." : "Save Changes"}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
-            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the mission and all associated stakes and wards.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDeleteConfirm} disabled={deleteMissionMutation.isPending}>
-                            {deleteMissionMutation.isPending ? "Deleting..." : "Delete"}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </Card>
+      <div className="py-4">
+        <p>Loading missions...</p>
+      </div>
     );
+  }
+
+  if (error) {
+    return (
+      <div className="py-4 text-red-600">
+        <p>Error loading missions: {error.message}. Please try again.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-semibold">Mission Management</h2>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Mission
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Create New Mission</DialogTitle>
+              <DialogDescription>
+                Add a new mission to the system and assign it to a region.
+              </DialogDescription>
+            </DialogHeader>
+
+            <Form {...createForm}>
+              <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
+                <FormField
+                  control={createForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mission Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Argentina Buenos Aires North" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={createForm.control}
+                  name="regionId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Region (Optional)</FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(value ? Number(value) : null)}
+                        value={field.value !== null && field.value !== undefined ? String(field.value) : ""}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a region" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="null">Unassigned</SelectItem>
+                          {regions?.map((region: any) => (
+                            <SelectItem key={region.id} value={String(region.id)}>
+                              {region.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Assign this mission to a specific region.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={createForm.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description (Optional)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter a brief description of this mission"
+                          {...field}
+                          value={field.value || ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <DialogFooter className="mt-6">
+                  <Button
+                    type="submit"
+                    disabled={createMissionMutation.isPending}
+                  >
+                    {createMissionMutation.isPending ? "Creating..." : "Create Mission"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {missions && missions.length > 0 ? (
+        <div className="grid gap-4">
+          {missions.map((mission: Mission) => (
+            <Card key={mission.id}>
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle className="text-lg">{mission.name}</CardTitle>
+                    <CardDescription>
+                      {mission.description || 'No description provided'}
+                    </CardDescription>
+                  </div>
+                  {mission.region && (
+                    <Badge variant="outline" className="flex items-center gap-1">
+                      <MapPin className="h-3 w-3" /> {mission.region.name}
+                    </Badge>
+                  )}
+                  {!mission.region && (
+                    <Badge variant="secondary" className="flex items-center gap-1 bg-yellow-100 text-yellow-800">
+                      Unassigned
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEditMission(mission)}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm">
+                        <Trash className="h-4 w-4 mr-2" />
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the
+                          <span className="font-bold text-gray-900 mx-1">{mission.name}</span> mission and any associated data (stakes, wards, missionaries).
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDeleteMission(mission.id)}>
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8 bg-slate-50 border rounded-md">
+          <p className="text-gray-500">No missions have been created yet. Create your first mission to get started.</p>
+        </div>
+      )}
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Mission</DialogTitle>
+            <DialogDescription>
+              Update the mission's information.
+            </DialogDescription>
+          </DialogHeader>
+
+          {currentMission && (
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                <FormField
+                  control={editForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mission Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="regionId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Region (Optional)</FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(value ? Number(value) : null)}
+                        value={field.value !== null && field.value !== undefined ? String(field.value) : ""}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a region" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="null">Unassigned</SelectItem>
+                          {regions?.map((region: any) => (
+                            <SelectItem key={region.id} value={String(region.id)}>
+                              {region.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Assign this mission to a specific region.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter a brief description"
+                          {...field}
+                          value={field.value || ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <DialogFooter className="mt-6">
+                  <Button
+                    type="submit"
+                    disabled={editMissionMutation.isPending}
+                  >
+                    {editMissionMutation.isPending ? "Saving..." : "Save Changes"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }

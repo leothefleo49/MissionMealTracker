@@ -256,7 +256,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Missions API Routes
   app.get('/api/missions', requireAdmin, async (req, res) => {
     try {
-      const missions = await storage.getAllMissions();
+      const showUnassignedOnly = req.query.unassignedOnly === 'true'; // Get query param
+      const missions = await storage.getAllMissions(showUnassignedOnly); // Pass to storage
       res.json(missions);
     } catch (err) {
       console.error('Error fetching missions:', err);
@@ -1203,8 +1204,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userCongregationIds = userCongregations.map(congregation => congregation.id);
 
         // Check if user has access to this congregation or is superadmin
-        if (req.user!.role !== 'ultra' && !userCongregationIds.includes(congregationId)) {
-          return res.status(403).json({ message: 'You do not have access to this congregation' });
+        if (req.user!.role !== 'ultra') { // Only ultra can see all.
+          const hasAccess = userCongregationIds.includes(congregationId);
+          if (!hasAccess) {
+            return res.status(403).json({ message: 'You do not have access to this congregation' });
+          }
         }
       }
 
@@ -1242,12 +1246,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/admin/congregations', requireAdmin, async (req, res) => {
     try {
       let congregations;
+      const showUnassignedOnly = req.query.unassignedOnly === 'true'; // Get query param
 
       if (req.user!.role === 'ultra') {
-        congregations = await storage.getAllCongregations();
+        congregations = await storage.getAllCongregations(showUnassignedOnly);
       } else {
         // For non-ultra admins, only return congregations they have access to
-        congregations = await storage.getUserCongregations(req.user!.id);
+        // If unassignedOnly is requested, filter from their accessible congregations
+        congregations = await storage.getUserCongregations(req.user!.id, showUnassignedOnly);
       }
 
       res.json(congregations);
@@ -1791,7 +1797,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const verificationCode = generateVerificationCode();
 
       // Update missionary with the verification token and timestamp
-      await storage.updateMissionary(missionaryId, {
+      await storage.updateMissionary(missionary.id, {
         consentVerificationToken: verificationCode,
         consentVerificationSentAt: new Date(),
         consentStatus: 'pending'

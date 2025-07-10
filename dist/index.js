@@ -2142,7 +2142,8 @@ async function registerRoutes(app) {
   });
   app.get("/api/missions", requireAdmin, async (req, res) => {
     try {
-      const missions2 = await storage.getAllMissions();
+      const showUnassignedOnly = req.query.unassignedOnly === "true";
+      const missions2 = await storage.getAllMissions(showUnassignedOnly);
       res.json(missions2);
     } catch (err) {
       console.error("Error fetching missions:", err);
@@ -2839,8 +2840,11 @@ async function registerRoutes(app) {
       if (congregationId) {
         const userCongregations2 = await storage.getUserCongregations(req.user.id);
         const userCongregationIds = userCongregations2.map((congregation) => congregation.id);
-        if (req.user.role !== "ultra" && !userCongregationIds.includes(congregationId)) {
-          return res.status(403).json({ message: "You do not have access to this congregation" });
+        if (req.user.role !== "ultra") {
+          const hasAccess = userCongregationIds.includes(congregationId);
+          if (!hasAccess) {
+            return res.status(403).json({ message: "You do not have access to this congregation" });
+          }
         }
       }
       const meals2 = await storage.getMealsByDateRange(startOfMonth, endOfMonth, congregationId);
@@ -2868,10 +2872,11 @@ async function registerRoutes(app) {
   app.get("/api/admin/congregations", requireAdmin, async (req, res) => {
     try {
       let congregations2;
+      const showUnassignedOnly = req.query.unassignedOnly === "true";
       if (req.user.role === "ultra") {
-        congregations2 = await storage.getAllCongregations();
+        congregations2 = await storage.getAllCongregations(showUnassignedOnly);
       } else {
-        congregations2 = await storage.getUserCongregations(req.user.id);
+        congregations2 = await storage.getUserCongregations(req.user.id, showUnassignedOnly);
       }
       res.json(congregations2);
     } catch (err) {
@@ -3284,7 +3289,7 @@ async function registerRoutes(app) {
         return res.status(404).json({ message: "Missionary not found" });
       }
       const verificationCode = generateVerificationCode();
-      await storage.updateMissionary(missionaryId, {
+      await storage.updateMissionary(missionary.id, {
         consentVerificationToken: verificationCode,
         consentVerificationSentAt: /* @__PURE__ */ new Date(),
         consentStatus: "pending"
