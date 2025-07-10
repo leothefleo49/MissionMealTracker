@@ -1,10 +1,9 @@
-// server/vite.ts
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
-import viteConfig from "../vite.config"; // This import path will need to change
+import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
 
 const viteLogger = createLogger();
@@ -27,10 +26,9 @@ export async function setupVite(app: Express, server: Server) {
     allowedHosts: true,
   };
 
-  // FIX: Adjust path to vite.config.ts since it moved
-  const viteConfigPath = path.resolve(import.meta.dirname, "../client/vite.config.ts");
   const vite = await createViteServer({
-    configFile: viteConfigPath, // Use the adjusted path
+    ...viteConfig,
+    configFile: false,
     customLogger: {
       ...viteLogger,
       error: (msg, options) => {
@@ -52,10 +50,10 @@ export async function setupVite(app: Express, server: Server) {
     }
 
     try {
-      // FIX: Adjust path to index.html since vite.config.ts moved
       const clientTemplate = path.resolve(
         import.meta.dirname,
-        "../client", // Go up to project root, then down to client
+        "..",
+        "client",
         "index.html",
       );
 
@@ -75,21 +73,22 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  // This path should still be correct: from project root (process.cwd()) to 'dist'
-  const publicAssetsPath = path.resolve(process.cwd(), "dist");
+  const distPath = path.resolve(import.meta.dirname, "public");
 
-  if (!fs.existsSync(publicAssetsPath)) {
+  if (!fs.existsSync(distPath)) {
     throw new Error(
-      `Could not find the build directory: ${publicAssetsPath}, make sure to build the client first`,
+      `Could not find the build directory: ${distPath}, make sure to build the client first`,
     );
   }
 
-  app.use(express.static(publicAssetsPath));
+  // Serve static assets, but allow API requests to pass through
+  app.use(express.static(distPath));
 
+  // Fall through to index.html for non-API routes if the file doesn't exist
   app.use("*", (req, res, next) => {
     if (req.originalUrl.startsWith("/api")) {
-      return next();
+      return next(); // Skip to next middleware (API routes)
     }
-    res.sendFile(path.resolve(publicAssetsPath, "index.html"));
+    res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

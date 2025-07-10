@@ -157,7 +157,6 @@ export const missionaries = pgTable("missionaries", {
   consentDate: timestamp("consent_date"),
   consentVerificationToken: text("consent_verification_token"),
   consentVerificationSentAt: timestamp("consent_verification_sent_at"),
-  groupNumber: integer("group_number"), // NEW: Group number for duos/trios
 });
 
 export const missionariesRelations = relations(missionaries, ({ one, many }) => ({
@@ -190,15 +189,12 @@ export const insertMissionarySchema = createInsertSchema(missionaries).pick({
   weeklySummaryDay: true,
   weeklySummaryTime: true,
   useMultipleNotifications: true,
+  password: true,
   consentStatus: true,
   consentDate: true,
   consentVerificationToken: true,
   consentVerificationSentAt: true,
-  groupNumber: true, // NEW: Include groupNumber in the insert schema
-}).extend({
-  password: z.string().min(6, "Password must be at least 6 characters").optional(), // Made optional
 });
-
 
 export type InsertMissionary = z.infer<typeof insertMissionarySchema>;
 export type Missionary = typeof missionaries.$inferSelect;

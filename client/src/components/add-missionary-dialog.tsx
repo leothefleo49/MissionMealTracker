@@ -34,7 +34,7 @@ const missionaryFormSchema = z.object({
     (email) => email.endsWith("@missionary.org"),
     "Email must be a @missionary.org address"
   ),
-  groupNumber: z.coerce.number().min(1, "Group number is required").optional(), // NEW: Group number field
+  password: z.string().min(6, "Password must be at least 6 characters"),
   congregationId: z.number(),
 });
 
@@ -55,19 +55,18 @@ export function AddMissionaryDialog({ isOpen, onClose, congregationId }: AddMiss
       type: "elders",
       phoneNumber: "",
       emailAddress: "",
-      groupNumber: undefined, // Initialize as undefined
+      password: "",
       congregationId,
     },
   });
 
   const createMissionaryMutation = useMutation({
     mutationFn: (data: z.infer<typeof missionaryFormSchema>) =>
-      // Exclude password from the data sent to the API, as it's now optional and not set by admin
-      apiRequest("POST", "/api/admin/missionaries", { ...data, password: undefined }),
+      apiRequest("POST", "/api/admin/missionaries", data),
     onSuccess: () => {
       toast({
         title: "Missionary Added",
-        description: "The new missionary has been added successfully. They can now register via the Missionary Portal to set their password.",
+        description: "The new missionary has been added successfully.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/missionaries/congregation", congregationId] });
       onClose();
@@ -91,7 +90,7 @@ export function AddMissionaryDialog({ isOpen, onClose, congregationId }: AddMiss
         <DialogHeader>
           <DialogTitle>Add New Missionary</DialogTitle>
           <DialogDescription>
-            Enter the details for the new missionary. No password will be set initially.
+            Enter the details for the new missionary.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -158,24 +157,15 @@ export function AddMissionaryDialog({ isOpen, onClose, congregationId }: AddMiss
                 </FormItem>
               )}
             />
-            {/* NEW: Group Number Field */}
             <FormField
               control={form.control}
-              name="groupNumber"
+              name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Group Number (Duo/Trio)</FormLabel>
+                  <FormLabel>Initial Password</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="e.g., 1 for Elder Smith & Johnson"
-                      {...field}
-                      onChange={(e) => field.onChange(parseInt(e.target.value) || undefined)}
-                    />
+                    <Input type="password" {...field} />
                   </FormControl>
-                  <FormDescription>
-                    Assign a unique number to each missionary companionship (e.g., 1 for Elder Smith & Johnson, 2 for Sister Brown & Jones).
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
