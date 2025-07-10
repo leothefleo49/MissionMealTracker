@@ -1,75 +1,43 @@
-import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
-import { notificationScheduler } from "./scheduler";
-import { checkAndSetSetupMode } from "./auth";
+// server/index.ts
+import express from 'express';
+import { registerRoutes } from './routes';
+import dotenv from 'dotenv';
+import path from 'path';
 
-const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+dotenv.config();
 
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+async function startServer() {
+  const app = express();
+  const port = process.env.PORT || 5000;
 
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
+  // Middleware to parse JSON bodies
+  app.use(express.json());
 
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
+  // Trust the first proxy in front of the app (e.g., Render's load balancer)
+  // This is crucial for correctly handling secure cookies and recognizing HTTPS connections
+  app.set('trust proxy', 1); // Add this line
 
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
+  // Register all API routes and authentication
+  const httpServer = await registerRoutes(app);
 
-      log(logLine);
-    }
-  });
+  // Serve static files from the client's build directory in production
+  if (process.env.NODE_ENV === 'production') {
+    const clientBuildPath = path.join(__dirname, 'public');
+    app.use(express.static(clientBuildPath));
 
-  next();
-});
-
-(async () => {
-  await checkAndSetSetupMode(); // Check for admin and set setup mode on startup
-  const server = await registerRoutes(app);
-
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
-
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
+    // For any other GET request, serve the index.html from the client build
+    // This allows client-side routing to work
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(clientBuildPath, 'index.html'));
+    });
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-    // Start the transfer notification scheduler
-    notificationScheduler.start();
+  httpServer.listen(port, () => {
+    console.log(`5:${new Date().getMinutes()}:${new Date().getSeconds()} [express] serving on port ${port}`);
   });
-})();
+}
+
+startServer().catch(error => {
+  console.error("Failed to start server:", error);
+  process.exit(1);
+});
