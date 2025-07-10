@@ -12,20 +12,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MealManagement } from "@/components/meal-management";
 
 export default function Admin() {
-  const { user, logoutMutation, isLoading: isAuthLoading } = useAuth();
+  const { user, logoutMutation, isLoading: isAuthLoading, userCongregations } = useAuth();
   const [selectedCongregation, setSelectedCongregation] = useState<{ id: number; name: string } | null>(null);
 
   const [activeTab, setActiveTab] = useState(user?.role === 'ward' ? "missionaries" : "hierarchy");
 
   useEffect(() => {
     // If the user is a ward admin, we can pre-select their congregation
-    if (user?.role === 'ward' && user.congregationId) {
-      // This assumes the user object from useAuth will eventually have the congregationId
-      // You might need to adjust this based on your actual data structure
-      // For now, let's assume a function getUserCongregation exists or is added to useAuth
-      // setSelectedCongregation({ id: user.congregationId, name: 'My Ward' });
+    if (user?.role === 'ward' && userCongregations && userCongregations.length > 0) {
+      setSelectedCongregation(userCongregations[0]);
     }
-  }, [user]);
+  }, [user, userCongregations]);
 
   if (isAuthLoading) {
     return (

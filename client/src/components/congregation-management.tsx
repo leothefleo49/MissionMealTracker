@@ -38,7 +38,8 @@ import {
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { PlusCircle, ChevronLeft, Building, Map, Globe, Trash2, Pencil, Search } from "lucide-react";
+import { PlusCircle, Building, Map, Globe, Trash2, Pencil, Search, Copy, QrCode } from "lucide-react";
+import { QrCodeDialog } from "./qr-code-dialog";
 
 type HierarchyType = 'region' | 'mission' | 'stake' | 'congregation';
 
@@ -47,6 +48,7 @@ type HierarchyItem = {
   name: string;
   description?: string;
   type: HierarchyType;
+  accessCode?: string;
   regionId?: number;
   missionId?: number;
   stakeId?: number;
@@ -55,24 +57,25 @@ type HierarchyItem = {
 const formSchema = z.object({
   name: z.string().min(2, "Name is required"),
   description: z.string().optional(),
-  parentId: z.number().optional().nullable(),
+  parentId: z.string().optional().nullable(),
 });
 type FormValues = z.infer<typeof formSchema>;
 
-export function CongregationManagement() {
+export function CongregationManagement({ onSelectCongregation }: { onSelectCongregation: (congregation: {id: number, name: string} | null) => void }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const [navigationPath, setNavigationPath] = useState<HierarchyItem[]>([]);
+  const [view, setView] = useState<HierarchyType | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState("");
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<HierarchyItem | null>(null);
+  const [isQrCodeDialogOpen, setIsQrCodeDialogOpen] = useState(false);
 
-  const currentItem = navigationPath.length > 0 ? navigationPath[navigationPath.length - 1] : null;
+  const [selectedItem, setSelectedItem] = useState<HierarchyItem | null>(null);
+  const [addDialogEntityType, setAddDialogEntityType] = useState<HierarchyType>('region');
 
   const { data: hierarchyData, isLoading } = useQuery<{
     regions: HierarchyItem[],
@@ -100,33 +103,14 @@ export function CongregationManagement() {
 
   const filteredData = useMemo(() => {
     if (!hierarchyData) return [];
+    const dataToFilter = view === 'all'
+      ? [...hierarchyData.regions, ...hierarchyData.missions, ...hierarchyData.stakes, ...hierarchyData.congregations]
+      : hierarchyData[view] || [];
 
-    let items;
-    if (currentItem === null) {
-      if (user?.role === 'ultra') items = hierarchyData.regions;
-      else if (user?.role === 'region') items = hierarchyData.missions.filter(m => m.regionId === user.regionId);
-      // ... other roles
-      else items = [];
-    } else {
-      switch (currentItem.type) {
-        case 'region':
-          items = hierarchyData.missions.filter(m => m.regionId === currentItem.id);
-          break;
-        case 'mission':
-          items = hierarchyData.stakes.filter(s => s.missionId === currentItem.id);
-          break;
-        case 'stake':
-          items = hierarchyData.congregations.filter(c => c.stakeId === currentItem.id);
-          break;
-        default:
-          items = [];
-      }
-    }
-
-    return items.filter(item =>
+    return dataToFilter.filter(item =>
       item.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [hierarchyData, currentItem, user, searchQuery]);
+  }, [hierarchyData, view, searchQuery]);
 
   const form = useForm<FormValues>();
 
@@ -146,9 +130,10 @@ export function CongregationManagement() {
     mutationFn: (data: { entityType: HierarchyType; values: FormValues }) => {
       let url = `/api/${data.entityType}s`;
       let payload: any = { name: data.values.name, description: data.values.description };
-      if (data.entityType === 'mission') payload.regionId = currentItem?.type === 'region' ? currentItem.id : null;
-      if (data.entityType === 'stake') payload.missionId = currentItem?.type === 'mission' ? currentItem.id : null;
-      if (data.entityType === 'congregation') payload.stakeId = currentItem?.type === 'stake' ? currentItem.id : null;
+      if (data.entityType === 'mission' && data.values.parentId) payload.regionId = data.values.parentId;
+      if (data.entityType === 'stake' && data.values.parentId) payload.missionId = data.values.parentId;
+      if (data.entityType === 'congregation' && data.values.parentId) payload.stakeId = data.values.parentId;
+      if (data.entityType === 'congregation') payload.accessCode = Math.random().toString(36).substring(2, 12);
 
       return apiRequest("POST", url, payload);
     },
@@ -189,19 +174,7 @@ export function CongregationManagement() {
   });
 
   const handleAddSubmit = (values: FormValues) => {
-    let entityType: HierarchyType | null = null;
-    if (!currentItem) {
-        if (user?.role === 'ultra') entityType = 'region';
-    } else {
-        switch (currentItem.type) {
-            case 'region': entityType = 'mission'; break;
-            case 'mission': entityType = 'stake'; break;
-            case 'stake': entityType = 'congregation'; break;
-        }
-    }
-    if (entityType) {
-        addMutation.mutate({ entityType, values });
-    }
+    addMutation.mutate({ entityType: addDialogEntityType, values });
   };
 
   const handleEditSubmit = (values: FormValues) => {
@@ -210,8 +183,9 @@ export function CongregationManagement() {
     }
   };
 
-  const openAddDialog = () => {
+  const openAddDialog = (type: HierarchyType) => {
     form.reset({ name: "", description: "", parentId: null });
+    setAddDialogEntityType(type);
     setIsAddDialogOpen(true);
   };
 
@@ -221,13 +195,40 @@ export function CongregationManagement() {
     if (item.type === 'mission') parentId = item.regionId;
     if (item.type === 'stake') parentId = item.missionId;
     if (item.type === 'congregation') parentId = item.stakeId;
-    form.reset({ name: item.name, description: item.description, parentId: parentId });
+    form.reset({ name: item.name, description: item.description || "", parentId: parentId });
     setIsEditDialogOpen(true);
   };
 
   const openDeleteDialog = (item: HierarchyItem) => {
     setSelectedItem(item);
     setIsDeleteDialogOpen(true);
+  };
+
+  const handleShowQrCode = (item: HierarchyItem) => {
+    setSelectedItem(item);
+    setIsQrCodeDialogOpen(true);
+  };
+
+  const renderButtons = () => {
+    const buttons = [
+        { label: 'All', type: 'all' },
+        { label: 'Regions', type: 'region' },
+        { label: 'Missions', type: 'mission' },
+        { label: 'Stakes', type: 'stake' },
+        { label: 'Congregations', type: 'congregation' }
+    ];
+
+    return buttons.map(b => {
+      if(user?.role !== 'ultra' && b.type === 'region') return null;
+      if(!['ultra', 'region'].includes(user?.role || '') && b.type === 'mission') return null;
+      if(!['ultra', 'region', 'mission'].includes(user?.role || '') && b.type === 'stake') return null;
+
+      return (
+        <Button key={b.type} variant={view === b.type ? 'default' : 'outline'} onClick={() => setView(b.type as HierarchyType | 'all')}>
+          {b.label}
+        </Button>
+      )
+    });
   };
 
   const getParentSelector = (entityType: HierarchyType) => {
@@ -277,30 +278,50 @@ export function CongregationManagement() {
     );
   };
 
-  const getAddEntityType = () => {
-    if (!currentItem) {
-      if (user?.role === 'ultra') return 'region';
-      if (user?.role === 'region') return 'mission';
-      if (user?.role === 'mission') return 'stake';
-      if (user?.role === 'stake') return 'congregation';
-    }
-    switch (currentItem.type) {
-      case 'region': return 'mission';
-      case 'mission': return 'stake';
-      case 'stake': return 'congregation';
-      default: return null;
-    }
+  const getAddOptions = () => {
+    const options: { label: string, type: HierarchyType }[] = [];
+    if (user?.role === 'ultra') options.push({ label: 'Add Region', type: 'region' });
+    if (['ultra', 'region'].includes(user?.role || '')) options.push({ label: 'Add Mission', type: 'mission' });
+    if (['ultra', 'region', 'mission'].includes(user?.role || '')) options.push({ label: 'Add Stake', type: 'stake' });
+    if (['ultra', 'region', 'mission', 'stake'].includes(user?.role || '')) options.push({ label: 'Add Congregation', type: 'congregation' });
+
+    return (
+        <Select onValueChange={(type) => openAddDialog(type as HierarchyType)}>
+            <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Add New..." />
+            </SelectTrigger>
+            <SelectContent>
+                {options.map(option => (
+                    <SelectItem key={option.type} value={option.type}>{option.label}</SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
   }
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">Hierarchy Management</h2>
-        <Button onClick={openAddDialog}><PlusCircle className="mr-2 h-4 w-4" /> Add New</Button>
+        {getAddOptions()}
+      </div>
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {renderButtons()}
+      </div>
+      <div className="relative mb-4">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Search..."
+          className="w-full pl-8"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
       </div>
       <div className="space-y-4">
+        {isLoading && <p>Loading...</p>}
         {filteredData.map(item => (
-          <Card key={`${item.type}-${item.id}`} className="cursor-pointer hover:bg-muted/50" onClick={() => handleNavigate(item)}>
+          <Card key={`${item.type}-${item.id}`} className="cursor-pointer hover:bg-muted/50" onClick={() => onSelectCongregation(item)}>
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle className="flex items-center">
@@ -317,6 +338,11 @@ export function CongregationManagement() {
                   <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); openDeleteDialog(item); }}>
                     <Trash2 className="h-4 w-4 text-red-500" />
                   </Button>
+                  {item.type === 'congregation' && (
+                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleShowQrCode(item); }}>
+                      <QrCode className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
               <CardDescription>{item.description}</CardDescription>
@@ -328,7 +354,7 @@ export function CongregationManagement() {
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New {getAddEntityType()}</DialogTitle>
+            <DialogTitle>Add New {addDialogEntityType}</DialogTitle>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleAddSubmit)} className="space-y-4">
@@ -348,7 +374,7 @@ export function CongregationManagement() {
                   </FormItem>
                 )}
               />
-              {getAddEntityType() && getParentSelector(getAddEntityType()!)}
+              {getParentSelector(addDialogEntityType)}
               <DialogFooter>
                 <Button type="submit">Add</Button>
               </DialogFooter>
@@ -403,6 +429,15 @@ export function CongregationManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {selectedItem && selectedItem.type === 'congregation' && (
+          <QrCodeDialog
+            isOpen={isQrCodeDialogOpen}
+            onClose={() => setIsQrCodeDialogOpen(false)}
+            congregationName={selectedItem.name}
+            accessCode={selectedItem.accessCode!}
+          />
+      )}
     </div>
   );
 }
