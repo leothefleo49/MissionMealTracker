@@ -36,14 +36,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "./ui/input";
+import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { PlusCircle, Building, Map, Globe, Trash2, Pencil, Search } from "lucide-react";
+import { PlusCircle, ChevronLeft, Building, Map, Globe, Trash2, Pencil, Search } from "lucide-react";
 
 type HierarchyType = 'region' | 'mission' | 'stake' | 'congregation';
 
 type HierarchyItem = {
   id: number;
   name: string;
+  description?: string;
   type: HierarchyType;
   regionId?: number;
   missionId?: number;
@@ -52,6 +54,7 @@ type HierarchyItem = {
 
 const formSchema = z.object({
   name: z.string().min(2, "Name is required"),
+  description: z.string().optional(),
   parentId: z.number().optional().nullable(),
 });
 type FormValues = z.infer<typeof formSchema>;
@@ -61,7 +64,7 @@ export function CongregationManagement() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const [view, setView] = useState<HierarchyType>('regions');
+  const [view, setView] = useState<HierarchyType | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState("");
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -97,51 +100,63 @@ export function CongregationManagement() {
 
   const filteredData = useMemo(() => {
     if (!hierarchyData) return [];
-    return (hierarchyData[view] || []).filter(item =>
+    const dataToFilter = view === 'all'
+      ? [...hierarchyData.regions, ...hierarchyData.missions, ...hierarchyData.stakes, ...hierarchyData.congregations]
+      : hierarchyData[view] || [];
+
+    return dataToFilter.filter(item =>
       item.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [hierarchyData, view, searchQuery]);
 
-  const form = useForm<FormValues>();
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+  });
+
+  const mutationOptions = {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hierarchy-all'] });
+      setIsAddDialogOpen(false);
+      setIsEditDialogOpen(false);
+      setIsDeleteDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  };
 
   const addMutation = useMutation({
     mutationFn: (data: { entityType: HierarchyType; values: FormValues }) => {
       let url = `/api/${data.entityType}s`;
-      let payload: any = { name: data.values.name };
-      if (data.entityType === 'mission' && data.values.parentId) payload.regionId = data.values.parentId;
-      if (data.entityType === 'stake' && data.values.parentId) payload.missionId = data.values.parentId;
-      if (data.entityType === 'congregation' && data.values.parentId) payload.stakeId = data.values.parentId;
+      let payload: any = { name: data.values.name, description: data.values.description };
+      if (data.entityType === 'mission') payload.regionId = data.values.parentId;
+      if (data.entityType === 'stake') payload.missionId = data.values.parentId;
+      if (data.entityType === 'congregation') payload.stakeId = data.values.parentId;
 
       return apiRequest("POST", url, payload);
     },
+    ...mutationOptions,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hierarchy-all'] });
+      mutationOptions.onSuccess();
       toast({ title: "Success", description: "Item created successfully." });
-      setIsAddDialogOpen(false);
-    },
-    onError: (error: Error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
   const editMutation = useMutation({
-    mutationFn: (data: { entityType: HierarchyType; values: FormValues }) => {
-      let url = `/api/${data.entityType}s/${selectedItem?.id}`;
-      let payload: any = { name: data.values.name };
-      if (data.entityType === 'mission' && data.values.parentId) payload.regionId = data.values.parentId;
-      if (data.entityType === 'stake' && data.values.parentId) payload.missionId = data.values.parentId;
-      if (data.entityType === 'congregation' && data.values.parentId) payload.stakeId = data.values.parentId;
+    mutationFn: (data: { item: HierarchyItem, values: FormValues }) => {
+      let url = `/api/${data.item.type}s/${data.item.id}`;
+      let payload: any = { name: data.values.name, description: data.values.description };
+      if (data.item.type === 'mission') payload.regionId = data.values.parentId;
+      if (data.item.type === 'stake') payload.missionId = data.values.parentId;
+      if (data.item.type === 'congregation') payload.stakeId = data.values.parentId;
 
       return apiRequest("PATCH", url, payload);
     },
+    ...mutationOptions,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hierarchy-all'] });
-      toast({ title: "Success", description: "Item updated successfully." });
-      setIsEditDialogOpen(false);
-    },
-    onError: (error: Error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
+        mutationOptions.onSuccess();
+        toast({ title: "Success", description: "Item updated successfully." });
+    }
   });
 
   const deleteMutation = useMutation({
@@ -149,14 +164,11 @@ export function CongregationManagement() {
       let url = `/api/${item.type}s/${item.id}`;
       return apiRequest("DELETE", url);
     },
+    ...mutationOptions,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hierarchy-all'] });
-      toast({ title: "Success", description: "Item deleted successfully." });
-      setIsDeleteDialogOpen(false);
-    },
-    onError: (error: Error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
+        mutationOptions.onSuccess();
+        toast({ title: "Success", description: "Item deleted successfully." });
+    }
   });
 
   const handleAddSubmit = (values: FormValues) => {
@@ -165,18 +177,23 @@ export function CongregationManagement() {
 
   const handleEditSubmit = (values: FormValues) => {
     if(selectedItem) {
-      editMutation.mutate({ entityType: selectedItem.type, values });
+      editMutation.mutate({ item: selectedItem, values });
     }
   };
 
   const openAddDialog = (type: HierarchyType) => {
+    form.reset({ name: "", description: "", parentId: null });
     setAddDialogEntityType(type);
     setIsAddDialogOpen(true);
-  }
+  };
 
   const openEditDialog = (item: HierarchyItem) => {
     setSelectedItem(item);
-    form.reset({ name: item.name, parentId: item.regionId || item.missionId || item.stakeId });
+    let parentId: number | undefined | null = null;
+    if (item.type === 'mission') parentId = item.regionId;
+    if (item.type === 'stake') parentId = item.missionId;
+    if (item.type === 'congregation') parentId = item.stakeId;
+    form.reset({ name: item.name, description: item.description, parentId: parentId });
     setIsEditDialogOpen(true);
   };
 
@@ -186,16 +203,25 @@ export function CongregationManagement() {
   };
 
   const renderButtons = () => {
-    const buttons = [];
-    if (user?.role === 'ultra') buttons.push({ label: 'Regions', type: 'region' });
-    if (['ultra', 'region'].includes(user?.role || '')) buttons.push({ label: 'Missions', type: 'mission' });
-    if (['ultra', 'region', 'mission'].includes(user?.role || '')) buttons.push({ label: 'Stakes', type: 'stake' });
-    buttons.push({ label: 'Congregations', type: 'congregation' });
-    return buttons.map(b => (
-      <Button key={b.type} variant={view === b.type ? 'default' : 'outline'} onClick={() => setView(b.type as HierarchyType)}>
-        {b.label}
-      </Button>
-    ));
+    const buttons = [
+        { label: 'All', type: 'all' },
+        { label: 'Regions', type: 'region' },
+        { label: 'Missions', type: 'mission' },
+        { label: 'Stakes', type: 'stake' },
+        { label: 'Congregations', type: 'congregation' }
+    ];
+
+    return buttons.map(b => {
+      if(user?.role !== 'ultra' && b.type === 'region') return null;
+      if(!['ultra', 'region'].includes(user?.role || '') && b.type === 'mission') return null;
+      if(!['ultra', 'region', 'mission'].includes(user?.role || '') && b.type === 'stake') return null;
+
+      return (
+        <Button key={b.type} variant={view === b.type ? 'default' : 'outline'} onClick={() => setView(b.type as HierarchyType | 'all')}>
+          {b.label}
+        </Button>
+      )
+    });
   };
 
   const getParentSelector = (entityType: HierarchyType) => {
@@ -245,36 +271,32 @@ export function CongregationManagement() {
     );
   };
 
+  const getAddOptions = () => {
+    const options: { label: string, type: HierarchyType }[] = [];
+    if (user?.role === 'ultra') options.push({ label: 'Add Region', type: 'region' });
+    if (['ultra', 'region'].includes(user?.role || '')) options.push({ label: 'Add Mission', type: 'mission' });
+    if (['ultra', 'region', 'mission'].includes(user?.role || '')) options.push({ label: 'Add Stake', type: 'stake' });
+    if (['ultra', 'region', 'mission', 'stake'].includes(user?.role || '')) options.push({ label: 'Add Congregation', type: 'congregation' });
+
+    return (
+        <Select onValueChange={(type) => openAddDialog(type as HierarchyType)}>
+            <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Add New..." />
+            </SelectTrigger>
+            <SelectContent>
+                {options.map(option => (
+                    <SelectItem key={option.type} value={option.type}>{option.label}</SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+  }
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">Hierarchy Management</h2>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button><PlusCircle className="mr-2 h-4 w-4" /> Add New</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New {addDialogEntityType}</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleAddSubmit)} className="space-y-4">
-                <FormField control={form.control} name="name" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Name</FormLabel>
-                      <FormControl><Input placeholder="Enter name" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                {getParentSelector(addDialogEntityType)}
-                <DialogFooter>
-                  <Button type="submit">Add</Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        {getAddOptions()}
       </div>
       <div className="flex gap-2 mb-4 flex-wrap">
         {renderButtons()}
@@ -290,6 +312,7 @@ export function CongregationManagement() {
         />
       </div>
       <div className="space-y-4">
+        {isLoading && <p>Loading...</p>}
         {filteredData.map(item => (
           <Card key={`${item.type}-${item.id}`}>
             <CardHeader>
@@ -298,6 +321,7 @@ export function CongregationManagement() {
                   {item.type === 'region' && <Globe className="mr-2"/>}
                   {item.type === 'mission' && <Map className="mr-2"/>}
                   {item.type === 'stake' && <Building className="mr-2"/>}
+                  {item.type === 'congregation' && <Building className="mr-2"/>}
                   {item.name}
                 </CardTitle>
                 <div className="flex space-x-2">
@@ -309,6 +333,7 @@ export function CongregationManagement() {
                   </Button>
                 </div>
               </div>
+              <CardDescription>{item.description}</CardDescription>
             </CardHeader>
           </Card>
         ))}
@@ -325,6 +350,14 @@ export function CongregationManagement() {
                   <FormItem>
                     <FormLabel>Name</FormLabel>
                     <FormControl><Input placeholder="Enter name" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField control={form.control} name="description" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl><Textarea placeholder="Enter description" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

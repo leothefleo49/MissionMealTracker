@@ -10,10 +10,14 @@ export const userRoleEnum = pgEnum('user_role', ['ultra', 'region', 'mission', '
 export const regions = pgTable("regions", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  description: text("description"),
 });
 
-export const insertRegionSchema = createInsertSchema(regions).pick({
+export const insertRegionSchema = createInsertSchema(regions, {
+  description: z.string().optional(),
+}).pick({
   name: true,
+  description: true,
 });
 
 export const regionsRelations = relations(regions, ({ many }) => ({
@@ -26,13 +30,16 @@ export const missions = pgTable("missions", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   regionId: integer("region_id").references(() => regions.id, { onDelete: "set null" }),
+  description: text("description"),
 });
 
 export const insertMissionSchema = createInsertSchema(missions, {
-  regionId: z.number().optional(),
+  regionId: z.number().optional().nullable(),
+  description: z.string().optional(),
 }).pick({
   name: true,
   regionId: true,
+  description: true,
 });
 
 
@@ -47,13 +54,16 @@ export const stakes = pgTable("stakes", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   missionId: integer("mission_id").references(() => missions.id, { onDelete: "set null" }),
+  description: text("description"),
 });
 
 export const insertStakeSchema = createInsertSchema(stakes, {
-    missionId: z.number().optional(),
+    missionId: z.number().optional().nullable(),
+    description: z.string().optional(),
 }).pick({
     name: true,
     missionId: true,
+    description: true,
 });
 
 export const stakesRelations = relations(stakes, ({ one, many }) => ({
@@ -84,11 +94,13 @@ export const congregationsRelations = relations(congregations, ({ one, many }) =
 }));
 
 export const insertCongregationSchema = createInsertSchema(congregations, {
-    stakeId: z.number().optional(),
+    stakeId: z.number().optional().nullable(),
+    description: z.string().optional(),
 }).pick({
   name: true,
   accessCode: true,
   stakeId: true,
+  description: true,
 });
 
 export type InsertCongregation = z.infer<typeof insertCongregationSchema>;
