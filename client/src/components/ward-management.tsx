@@ -119,7 +119,7 @@ export function WardManagement() {
   const { data: wards, isLoading, error, refetch } = useQuery({
     queryKey: ["/api/admin/wards"],
     queryFn: async () => {
-      const response = await fetch('/api/admin/wards');
+      const response = await fetch('/api/admin/congregations'); // Corrected endpoint for fetching
       if (!response.ok) {
         // If response is not OK, throw an error to be caught by react-query
         const errorData = await response.json();
@@ -150,7 +150,7 @@ export function WardManagement() {
         data.accessCode = generateAccessCode();
       }
 
-      const res = await apiRequest("POST", "/api/admin/wards", data);
+      const res = await apiRequest("POST", "/api/admin/congregations", data); // Corrected API endpoint
       return await res.json();
     },
     onSuccess: () => {
@@ -168,7 +168,7 @@ export function WardManagement() {
         bookingPeriodDays: 30,
         active: true,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] }); // Consider changing query key to /api/admin/congregations
     },
     onError: (error: Error) => {
       toast({
@@ -182,7 +182,7 @@ export function WardManagement() {
   // Edit ward mutation
   const editWardMutation = useMutation({
     mutationFn: async (data: Partial<Ward> & { id: number }) => {
-      const res = await apiRequest("PATCH", `/api/admin/wards/${data.id}`, data);
+      const res = await apiRequest("PATCH", `/api/admin/congregations/${data.id}`, data); // Corrected API endpoint
       return await res.json();
     },
     onSuccess: () => {
@@ -192,7 +192,7 @@ export function WardManagement() {
       });
       setIsEditDialogOpen(false);
       editForm.reset();
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] }); // Consider changing query key to /api/admin/congregations
     },
     onError: (error: Error) => {
       toast({
@@ -208,7 +208,7 @@ export function WardManagement() {
     mutationFn: async (wardId: number) => {
       const newAccessCode = generateAccessCode();
       // The API endpoint should be PATCH /api/admin/wards/:id with { accessCode: newAccessCode }
-      const res = await apiRequest("PATCH", `/api/admin/wards/${wardId}`, { accessCode: newAccessCode });
+      const res = await apiRequest("PATCH", `/api/admin/congregations/${wardId}`, { accessCode: newAccessCode }); // Corrected API endpoint
       return await res.json();
     },
     onSuccess: (data) => {
@@ -216,7 +216,7 @@ export function WardManagement() {
         title: "Access code regenerated",
         description: "A new access code has been generated for this ward.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/wards"] }); // Consider changing query key to /api/admin/congregations
       // Update the currentWard state if it's the one being regenerated
       if(currentWard && currentWard.id === data.id) {
         setCurrentWard({...currentWard, accessCode: data.accessCode});
