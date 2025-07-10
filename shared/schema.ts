@@ -93,15 +93,21 @@ export const congregationsRelations = relations(congregations, ({ one, many }) =
   userAccess: many(userCongregations),
 }));
 
+// CORRECTED SCHEMA FOR CONGREGATION INSERTION
 export const insertCongregationSchema = createInsertSchema(congregations, {
-    stakeId: z.number().optional().nullable(),
-    description: z.string().optional(),
-}).pick({
-  name: true,
-  accessCode: true,
-  stakeId: true,
-  description: true,
+    description: z.string().optional(), // Ensure description is optional
+    accessCode: z.string().min(6, { message: "Access code must be at least 6 characters" }).optional(), // Match client's optionality
+    allowCombinedBookings: z.boolean().default(false),
+    maxBookingsPerPeriod: z.number().min(0).default(0),
+    maxBookingsPerAddress: z.number().min(0).default(1), // Added this line
+    maxBookingsPerPhone: z.number().min(0).default(1), // Added this line
+    bookingPeriodDays: z.number().min(1).default(30),
+    active: z.boolean().default(true),
+}).omit({ // Omit fields not provided by client or auto-generated
+  id: true,
+  stakeId: true, // Client does not provide stakeId for creation
 });
+
 
 export type InsertCongregation = z.infer<typeof insertCongregationSchema>;
 export type Congregation = typeof congregations.$inferSelect;

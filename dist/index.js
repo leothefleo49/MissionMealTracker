@@ -8,366 +8,15 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// shared/schema.ts
-var schema_exports = {};
-__export(schema_exports, {
-  checkMealAvailabilitySchema: () => checkMealAvailabilitySchema,
-  congregations: () => congregations,
-  congregationsRelations: () => congregationsRelations,
-  insertCongregationSchema: () => insertCongregationSchema,
-  insertMealSchema: () => insertMealSchema,
-  insertMessageLogSchema: () => insertMessageLogSchema,
-  insertMissionSchema: () => insertMissionSchema,
-  insertMissionarySchema: () => insertMissionarySchema,
-  insertRegionSchema: () => insertRegionSchema,
-  insertStakeSchema: () => insertStakeSchema,
-  insertUserCongregationSchema: () => insertUserCongregationSchema,
-  insertUserSchema: () => insertUserSchema,
-  meals: () => meals,
-  mealsRelations: () => mealsRelations,
-  messageLogs: () => messageLogs,
-  messageLogsRelations: () => messageLogsRelations,
-  messageStatsSchema: () => messageStatsSchema,
-  missionaries: () => missionaries,
-  missionariesRelations: () => missionariesRelations,
-  missions: () => missions,
-  missionsRelations: () => missionsRelations,
-  regions: () => regions,
-  regionsRelations: () => regionsRelations,
-  stakes: () => stakes,
-  stakesRelations: () => stakesRelations,
-  updateMealSchema: () => updateMealSchema,
-  userCongregations: () => userCongregations,
-  userCongregationsRelations: () => userCongregationsRelations,
-  userRoleEnum: () => userRoleEnum,
-  users: () => users,
-  usersRelations: () => usersRelations
-});
-import { relations } from "drizzle-orm";
-import { boolean, integer, pgTable, serial, text, timestamp, pgEnum } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
-var userRoleEnum, regions, insertRegionSchema, regionsRelations, missions, insertMissionSchema, missionsRelations, stakes, insertStakeSchema, stakesRelations, congregations, congregationsRelations, insertCongregationSchema, users, userCongregations, userCongregationsRelations, usersRelations, insertUserSchema, insertUserCongregationSchema, missionaries, missionariesRelations, insertMissionarySchema, meals, mealsRelations, insertMealSchema, updateMealSchema, checkMealAvailabilitySchema, messageLogs, messageLogsRelations, insertMessageLogSchema, messageStatsSchema;
-var init_schema = __esm({
-  "shared/schema.ts"() {
-    "use strict";
-    userRoleEnum = pgEnum("user_role", ["ultra", "region", "mission", "stake", "ward"]);
-    regions = pgTable("regions", {
-      id: serial("id").primaryKey(),
-      name: text("name").notNull(),
-      description: text("description")
-    });
-    insertRegionSchema = createInsertSchema(regions, {
-      description: z.string().optional()
-    }).pick({
-      name: true,
-      description: true
-    });
-    regionsRelations = relations(regions, ({ many }) => ({
-      missions: many(missions),
-      users: many(users)
-    }));
-    missions = pgTable("missions", {
-      id: serial("id").primaryKey(),
-      name: text("name").notNull(),
-      regionId: integer("region_id").references(() => regions.id, { onDelete: "set null" }),
-      description: text("description")
-    });
-    insertMissionSchema = createInsertSchema(missions, {
-      regionId: z.number().optional().nullable(),
-      description: z.string().optional()
-    }).pick({
-      name: true,
-      regionId: true,
-      description: true
-    });
-    missionsRelations = relations(missions, ({ one, many }) => ({
-      region: one(regions, { fields: [missions.regionId], references: [regions.id] }),
-      stakes: many(stakes),
-      users: many(users)
-    }));
-    stakes = pgTable("stakes", {
-      id: serial("id").primaryKey(),
-      name: text("name").notNull(),
-      missionId: integer("mission_id").references(() => missions.id, { onDelete: "set null" }),
-      description: text("description")
-    });
-    insertStakeSchema = createInsertSchema(stakes, {
-      missionId: z.number().optional().nullable(),
-      description: z.string().optional()
-    }).pick({
-      name: true,
-      missionId: true,
-      description: true
-    });
-    stakesRelations = relations(stakes, ({ one, many }) => ({
-      mission: one(missions, { fields: [stakes.missionId], references: [missions.id] }),
-      congregations: many(congregations),
-      users: many(users)
-    }));
-    congregations = pgTable("congregations", {
-      id: serial("id").primaryKey(),
-      name: text("name").notNull(),
-      accessCode: text("access_code").notNull().unique(),
-      description: text("description"),
-      stakeId: integer("stake_id").references(() => stakes.id, { onDelete: "set null" }),
-      allowCombinedBookings: boolean("allow_combined_bookings").default(false),
-      maxBookingsPerPeriod: integer("max_bookings_per_period").default(1),
-      bookingPeriodDays: integer("booking_period_days").default(30),
-      active: boolean("active").default(true),
-      maxBookingsPerAddress: integer("max_bookings_per_address").default(1),
-      maxBookingsPerPhone: integer("max_bookings_per_phone").default(1)
-    });
-    congregationsRelations = relations(congregations, ({ one, many }) => ({
-      stake: one(stakes, { fields: [congregations.stakeId], references: [stakes.id] }),
-      missionaries: many(missionaries),
-      userAccess: many(userCongregations)
-    }));
-    insertCongregationSchema = createInsertSchema(congregations, {
-      stakeId: z.number().optional().nullable(),
-      description: z.string().optional()
-    }).pick({
-      name: true,
-      accessCode: true,
-      stakeId: true,
-      description: true
-    });
-    users = pgTable("users", {
-      id: serial("id").primaryKey(),
-      username: text("username").notNull().unique(),
-      password: text("password").notNull(),
-      role: userRoleEnum("role").notNull().default("ward"),
-      regionId: integer("region_id").references(() => regions.id, { onDelete: "set null" }),
-      missionId: integer("mission_id").references(() => missions.id, { onDelete: "set null" }),
-      stakeId: integer("stake_id").references(() => stakes.id, { onDelete: "set null" }),
-      canUsePaidNotifications: boolean("can_use_paid_notifications").default(false).notNull()
-    });
-    userCongregations = pgTable("user_congregations", {
-      id: serial("id").primaryKey(),
-      userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-      congregationId: integer("congregation_id").notNull().references(() => congregations.id, { onDelete: "cascade" })
-    });
-    userCongregationsRelations = relations(userCongregations, ({ one }) => ({
-      user: one(users, { fields: [userCongregations.userId], references: [users.id] }),
-      congregation: one(congregations, { fields: [userCongregations.congregationId], references: [congregations.id] })
-    }));
-    usersRelations = relations(users, ({ one, many }) => ({
-      region: one(regions, { fields: [users.regionId], references: [regions.id] }),
-      mission: one(missions, { fields: [users.missionId], references: [missions.id] }),
-      stake: one(stakes, { fields: [users.stakeId], references: [stakes.id] }),
-      congregationAccess: many(userCongregations)
-    }));
-    insertUserSchema = createInsertSchema(users).pick({
-      username: true,
-      password: true,
-      role: true,
-      regionId: true,
-      missionId: true,
-      stakeId: true
-    });
-    insertUserCongregationSchema = createInsertSchema(userCongregations).pick({
-      userId: true,
-      congregationId: true
-    });
-    missionaries = pgTable("missionaries", {
-      id: serial("id").primaryKey(),
-      congregationId: integer("congregation_id").notNull().references(() => congregations.id, { onDelete: "cascade" }),
-      name: text("name").notNull(),
-      type: text("type").notNull(),
-      // 'elders' or 'sisters'
-      isTrio: boolean("is_trio").default(false).notNull(),
-      phoneNumber: text("phone_number").notNull(),
-      personalPhone: text("personal_phone"),
-      emailAddress: text("email_address"),
-      emailVerified: boolean("email_verified").default(false).notNull(),
-      emailVerificationCode: text("email_verification_code"),
-      emailVerificationSentAt: timestamp("email_verification_sent_at"),
-      whatsappNumber: text("whatsapp_number"),
-      messengerAccount: text("messenger_account"),
-      preferredNotification: text("preferred_notification").default("email").notNull(),
-      active: boolean("active").default(true).notNull(),
-      foodAllergies: text("food_allergies"),
-      petAllergies: text("pet_allergies"),
-      allergySeverity: text("allergy_severity").default("mild"),
-      favoriteMeals: text("favorite_meals"),
-      dietaryRestrictions: text("dietary_restrictions"),
-      transferDate: timestamp("transfer_date"),
-      transferNotificationSent: boolean("transfer_notification_sent").default(false),
-      notificationScheduleType: text("notification_schedule_type").default("before_meal").notNull(),
-      hoursBefore: integer("hours_before").default(3),
-      dayOfTime: text("day_of_time").default("09:00"),
-      weeklySummaryDay: text("weekly_summary_day").default("sunday"),
-      weeklySummaryTime: text("weekly_summary_time").default("18:00"),
-      useMultipleNotifications: boolean("use_multiple_notifications").default(false),
-      password: text("password"),
-      consentStatus: text("consent_status").default("granted").notNull(),
-      consentDate: timestamp("consent_date"),
-      consentVerificationToken: text("consent_verification_token"),
-      consentVerificationSentAt: timestamp("consent_verification_sent_at")
-    });
-    missionariesRelations = relations(missionaries, ({ one, many }) => ({
-      congregation: one(congregations, { fields: [missionaries.congregationId], references: [congregations.id] }),
-      meals: many(meals),
-      messagesSent: many(messageLogs)
-    }));
-    insertMissionarySchema = createInsertSchema(missionaries).pick({
-      congregationId: true,
-      name: true,
-      type: true,
-      isTrio: true,
-      phoneNumber: true,
-      personalPhone: true,
-      emailAddress: true,
-      whatsappNumber: true,
-      messengerAccount: true,
-      preferredNotification: true,
-      active: true,
-      foodAllergies: true,
-      petAllergies: true,
-      allergySeverity: true,
-      favoriteMeals: true,
-      dietaryRestrictions: true,
-      transferDate: true,
-      notificationScheduleType: true,
-      hoursBefore: true,
-      dayOfTime: true,
-      weeklySummaryDay: true,
-      weeklySummaryTime: true,
-      useMultipleNotifications: true,
-      password: true,
-      consentStatus: true,
-      consentDate: true,
-      consentVerificationToken: true,
-      consentVerificationSentAt: true
-    });
-    meals = pgTable("meals", {
-      id: serial("id").primaryKey(),
-      missionaryId: integer("missionary_id").notNull().references(() => missionaries.id),
-      congregationId: integer("congregation_id").notNull().references(() => congregations.id, { onDelete: "cascade" }),
-      date: timestamp("date").notNull(),
-      startTime: text("start_time").notNull(),
-      hostName: text("host_name").notNull(),
-      hostPhone: text("host_phone").notNull(),
-      hostEmail: text("host_email"),
-      mealDescription: text("meal_description"),
-      specialNotes: text("special_notes"),
-      cancelled: boolean("cancelled").default(false).notNull(),
-      cancellationReason: text("cancellation_reason")
-    });
-    mealsRelations = relations(meals, ({ one }) => ({
-      missionary: one(missionaries, { fields: [meals.missionaryId], references: [missionaries.id] }),
-      congregation: one(congregations, { fields: [meals.congregationId], references: [congregations.id] })
-    }));
-    insertMealSchema = createInsertSchema(meals).pick({
-      missionaryId: true,
-      congregationId: true,
-      date: true,
-      startTime: true,
-      hostName: true,
-      hostPhone: true,
-      hostEmail: true,
-      mealDescription: true,
-      specialNotes: true
-    });
-    updateMealSchema = z.object({
-      id: z.number(),
-      cancelled: z.boolean().optional(),
-      cancellationReason: z.string().optional(),
-      hostName: z.string().optional(),
-      hostPhone: z.string().optional(),
-      startTime: z.string().optional(),
-      mealDescription: z.string().optional(),
-      specialNotes: z.string().optional()
-    });
-    checkMealAvailabilitySchema = z.object({
-      date: z.string(),
-      missionaryType: z.string(),
-      congregationId: z.number()
-    });
-    messageLogs = pgTable("message_logs", {
-      id: serial("id").primaryKey(),
-      missionaryId: integer("missionary_id").notNull().references(() => missionaries.id),
-      congregationId: integer("congregation_id").notNull().references(() => congregations.id),
-      sentAt: timestamp("sent_at").notNull().defaultNow(),
-      messageType: text("message_type").notNull(),
-      messageContent: text("message_content").notNull(),
-      deliveryMethod: text("delivery_method").notNull(),
-      successful: boolean("successful").notNull(),
-      failureReason: text("failure_reason"),
-      charCount: integer("char_count").notNull().default(0),
-      segmentCount: integer("segment_count").notNull().default(1),
-      content: text("content").notNull(),
-      method: text("method").notNull(),
-      estimatedCost: text("estimated_cost").notNull().default("0")
-    });
-    messageLogsRelations = relations(messageLogs, ({ one }) => ({
-      missionary: one(missionaries, { fields: [messageLogs.missionaryId], references: [missionaries.id] }),
-      congregation: one(congregations, { fields: [messageLogs.congregationId], references: [congregations.id] })
-    }));
-    insertMessageLogSchema = createInsertSchema(messageLogs).pick({
-      missionaryId: true,
-      congregationId: true,
-      messageType: true,
-      messageContent: true,
-      deliveryMethod: true,
-      successful: true,
-      failureReason: true,
-      charCount: true,
-      segmentCount: true,
-      content: true,
-      method: true,
-      estimatedCost: true
-    });
-    messageStatsSchema = z.object({
-      totalMessages: z.number(),
-      totalSuccessful: z.number(),
-      totalFailed: z.number(),
-      totalCharacters: z.number(),
-      totalSegments: z.number(),
-      estimatedCost: z.number(),
-      byNotificationMethod: z.object({
-        email: z.number(),
-        whatsapp: z.number(),
-        text: z.number(),
-        messenger: z.number()
-      }).optional(),
-      byCongregation: z.array(z.object({
-        congregationId: z.number(),
-        congregationName: z.string(),
-        messageCount: z.number(),
-        successRate: z.number(),
-        characters: z.number(),
-        segments: z.number(),
-        estimatedCost: z.number()
-      })),
-      byMissionary: z.array(z.object({
-        missionaryId: z.number(),
-        missionaryName: z.string(),
-        messageCount: z.number(),
-        successRate: z.number(),
-        characters: z.number(),
-        segments: z.number(),
-        estimatedCost: z.number()
-      })),
-      byPeriod: z.array(z.object({
-        period: z.string(),
-        messageCount: z.number(),
-        segments: z.number(),
-        estimatedCost: z.number()
-      }))
-    });
-  }
-});
-
 // server/db.ts
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import ws from "ws";
+import * as schema from "@shared/schema";
 var pool, db;
 var init_db = __esm({
   "server/db.ts"() {
     "use strict";
-    init_schema();
     neonConfig.webSocketConstructor = ws;
     if (!process.env.DATABASE_URL) {
       throw new Error(
@@ -375,11 +24,21 @@ var init_db = __esm({
       );
     }
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    db = drizzle({ client: pool, schema: schema_exports });
+    db = drizzle({ client: pool, schema });
   }
 });
 
 // server/database-storage.ts
+import {
+  users,
+  missionaries,
+  meals,
+  congregations,
+  userCongregations,
+  regions,
+  missions,
+  stakes
+} from "@shared/schema";
 import { eq, and, gte, lte } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
@@ -387,7 +46,6 @@ var PostgresSessionStore, DatabaseStorage;
 var init_database_storage = __esm({
   "server/database-storage.ts"() {
     "use strict";
-    init_schema();
     init_db();
     init_db();
     PostgresSessionStore = connectPg(session);
@@ -618,9 +276,9 @@ var init_database_storage = __esm({
           );
           return !existingMeal;
         } else {
-          const missionaries2 = await this.getMissionariesByType(missionaryTypeOrId, congregationId);
-          if (missionaries2.length === 0) return false;
-          for (const missionary of missionaries2) {
+          const missionaries4 = await this.getMissionariesByType(missionaryTypeOrId, congregationId);
+          if (missionaries4.length === 0) return false;
+          for (const missionary of missionaries4) {
             const existingMeal = mealsOnDate.find(
               (meal) => meal.missionaryId === missionary.id && !meal.cancelled
             );
@@ -859,12 +517,12 @@ __export(email_service_exports, {
 });
 import nodemailer from "nodemailer";
 import { format } from "date-fns";
+import { messageLogs } from "@shared/schema";
 var EmailService;
 var init_email_service = __esm({
   "server/email-service.ts"() {
     "use strict";
     init_db();
-    init_schema();
     EmailService = class {
       transporter;
       fromEmail;
@@ -1084,24 +742,33 @@ import express2 from "express";
 
 // server/routes.ts
 init_storage();
-init_schema();
 init_auth();
 import { createServer } from "http";
+import {
+  insertMealSchema,
+  updateMealSchema,
+  checkMealAvailabilitySchema,
+  insertMissionarySchema,
+  insertCongregationSchema,
+  insertRegionSchema,
+  insertMissionSchema,
+  insertStakeSchema
+} from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 
 // server/notifications.ts
 init_db();
-init_schema();
 init_email_service();
 import { format as format3 } from "date-fns";
-import { eq as eq2, and as and2, gte as gte2, lte as lte2, sql as sql3, count, sum } from "drizzle-orm";
+import { messageLogs as messageLogs3 } from "@shared/schema";
+import { eq as eq2, and as and2, gte as gte2, lte as lte2, sql as sql2, count, sum } from "drizzle-orm";
 
 // server/whatsapp-service.ts
 init_db();
-init_schema();
 import axios from "axios";
 import { format as format2 } from "date-fns";
+import { messageLogs as messageLogs2 } from "@shared/schema";
 var WhatsAppService = class {
   accessToken;
   phoneNumberId;
@@ -1247,7 +914,7 @@ ${messageText}`;
         estimatedCost: "0",
         failureReason
       };
-      await db.insert(messageLogs).values(messageLog);
+      await db.insert(messageLogs2).values(messageLog);
     } catch (logError) {
       console.error("Failed to log WhatsApp message:", logError);
     }
@@ -1428,7 +1095,7 @@ var TwilioService = class extends BaseNotificationService {
         estimatedCost: (segments * 75e-4).toString(),
         failureReason
       };
-      await db.insert(messageLogs).values(messageLog);
+      await db.insert(messageLogs3).values(messageLog);
     } catch (dbError) {
       console.error("Failed to log SMS message:", dbError);
     }
@@ -1495,7 +1162,7 @@ var MessengerService = class extends BaseNotificationService {
         estimatedCost: "0",
         failureReason
       };
-      await db.insert(messageLogs).values(messageLog);
+      await db.insert(messageLogs3).values(messageLog);
     } catch (dbError) {
       console.error("Failed to log message statistics:", dbError);
     }
@@ -1510,29 +1177,29 @@ var MessageStatsService = class {
     const [totalStats] = await db.select({
       totalMessages: count(),
       totalSuccessful: count(
-        sql3`CASE WHEN ${messageLogs.successful} = true THEN 1 END`
+        sql2`CASE WHEN ${messageLogs3.successful} = true THEN 1 END`
       ),
-      totalSegments: sum(messageLogs.segmentCount)
-    }).from(messageLogs);
+      totalSegments: sum(messageLogs3.segmentCount)
+    }).from(messageLogs3);
     const totalFailed = totalStats.totalMessages - totalStats.totalSuccessful;
     const byWard = await db.select({
-      wardId: messageLogs.wardId,
-      wardName: sql3`'Ward ' || ${messageLogs.wardId}::text`,
+      wardId: messageLogs3.wardId,
+      wardName: sql2`'Ward ' || ${messageLogs3.wardId}::text`,
       messageCount: count(),
       successCount: count(
-        sql3`CASE WHEN ${messageLogs.successful} = true THEN 1 END`
+        sql2`CASE WHEN ${messageLogs3.successful} = true THEN 1 END`
       ),
-      segments: sum(messageLogs.segmentCount)
-    }).from(messageLogs).groupBy(messageLogs.wardId);
+      segments: sum(messageLogs3.segmentCount)
+    }).from(messageLogs3).groupBy(messageLogs3.wardId);
     const byMissionary = await db.select({
-      missionaryId: messageLogs.missionaryId,
-      missionaryName: sql3`'Missionary ID ' || ${messageLogs.missionaryId}::text`,
+      missionaryId: messageLogs3.missionaryId,
+      missionaryName: sql2`'Missionary ID ' || ${messageLogs3.missionaryId}::text`,
       messageCount: count(),
       successCount: count(
-        sql3`CASE WHEN ${messageLogs.successful} = true THEN 1 END`
+        sql2`CASE WHEN ${messageLogs3.successful} = true THEN 1 END`
       ),
-      segments: sum(messageLogs.segmentCount)
-    }).from(messageLogs).groupBy(messageLogs.missionaryId);
+      segments: sum(messageLogs3.segmentCount)
+    }).from(messageLogs3).groupBy(messageLogs3.missionaryId);
     const now = /* @__PURE__ */ new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfWeek = new Date(now);
@@ -1551,11 +1218,11 @@ var MessageStatsService = class {
       timeQueries.map(async ({ name, start, end }) => {
         const [result] = await db.select({
           messageCount: count(),
-          segments: sum(messageLogs.segmentCount)
-        }).from(messageLogs).where(
+          segments: sum(messageLogs3.segmentCount)
+        }).from(messageLogs3).where(
           and2(
-            gte2(messageLogs.sentAt, start),
-            lte2(messageLogs.sentAt, end)
+            gte2(messageLogs3.sentAt, start),
+            lte2(messageLogs3.sentAt, end)
           )
         );
         return {
@@ -1567,9 +1234,9 @@ var MessageStatsService = class {
       })
     );
     const byMethodStats = await db.select({
-      method: messageLogs.method,
+      method: messageLogs3.method,
       count: count()
-    }).from(messageLogs).groupBy(messageLogs.method);
+    }).from(messageLogs3).groupBy(messageLogs3.method);
     const byNotificationMethod = {
       email: byMethodStats.find((m) => m.method === "email")?.count || 0,
       whatsapp: byMethodStats.find((m) => m.method === "whatsapp")?.count || 0,
@@ -1617,15 +1284,15 @@ var MessageStatsService = class {
     const [totalStats] = await db.select({
       totalMessages: count(),
       totalSuccessful: count(
-        sql3`CASE WHEN ${messageLogs.successful} = true THEN 1 END`
+        sql2`CASE WHEN ${messageLogs3.successful} = true THEN 1 END`
       ),
-      totalSegments: sum(messageLogs.segmentCount)
-    }).from(messageLogs).where(eq2(messageLogs.wardId, wardId));
+      totalSegments: sum(messageLogs3.segmentCount)
+    }).from(messageLogs3).where(eq2(messageLogs3.wardId, wardId));
     const totalFailed = totalStats.totalMessages - totalStats.totalSuccessful;
     const byMethodStats = await db.select({
-      method: messageLogs.method,
+      method: messageLogs3.method,
       count: count()
-    }).from(messageLogs).where(eq2(messageLogs.wardId, wardId)).groupBy(messageLogs.method);
+    }).from(messageLogs3).where(eq2(messageLogs3.wardId, wardId)).groupBy(messageLogs3.method);
     const byNotificationMethod = {
       email: byMethodStats.find((m) => m.method === "email")?.count || 0,
       whatsapp: byMethodStats.find((m) => m.method === "whatsapp")?.count || 0,
@@ -1716,8 +1383,8 @@ var notificationManager = new NotificationManager();
 
 // server/email-verification.ts
 init_db();
-init_schema();
 import nodemailer2 from "nodemailer";
+import { missionaries as missionaries2 } from "@shared/schema";
 import { eq as eq3 } from "drizzle-orm";
 var EmailVerificationService = class {
   transporter;
@@ -1753,11 +1420,11 @@ var EmailVerificationService = class {
       throw new Error("Email must end with @missionary.org");
     }
     const verificationCode = this.generateVerificationCode();
-    await db.update(missionaries).set({
+    await db.update(missionaries2).set({
       emailVerificationCode: verificationCode,
       emailVerificationSentAt: /* @__PURE__ */ new Date(),
       emailVerified: false
-    }).where(eq3(missionaries.id, missionaryId));
+    }).where(eq3(missionaries2.id, missionaryId));
     const subject = "Verify Your Email - Missionary Meal Scheduler";
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -1800,7 +1467,7 @@ var EmailVerificationService = class {
     }
   }
   async verifyCode(missionaryId, code) {
-    const [missionary] = await db.select().from(missionaries).where(eq3(missionaries.id, missionaryId));
+    const [missionary] = await db.select().from(missionaries2).where(eq3(missionaries2.id, missionaryId));
     if (!missionary) {
       throw new Error("Missionary not found");
     }
@@ -1816,11 +1483,11 @@ var EmailVerificationService = class {
       }
     }
     if (missionary.emailVerificationCode === code) {
-      await db.update(missionaries).set({
+      await db.update(missionaries2).set({
         emailVerified: true,
         emailVerificationCode: null,
         emailVerificationSentAt: null
-      }).where(eq3(missionaries.id, missionaryId));
+      }).where(eq3(missionaries2.id, missionaryId));
       return true;
     }
     return false;
@@ -1829,8 +1496,8 @@ var EmailVerificationService = class {
 
 // server/transfer-management.ts
 init_db();
-init_schema();
 init_email_service();
+import { missionaries as missionaries3, users as users2 } from "@shared/schema";
 import { eq as eq4, and as and3, lte as lte3, isNotNull } from "drizzle-orm";
 var TransferManagementService = class {
   emailService;
@@ -1842,17 +1509,17 @@ var TransferManagementService = class {
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const missionariesWithTransfers = await db.select().from(missionaries).where(
+    const missionariesWithTransfers = await db.select().from(missionaries3).where(
       and3(
-        isNotNull(missionaries.transferDate),
-        lte3(missionaries.transferDate, tomorrow),
-        eq4(missionaries.transferNotificationSent, false)
+        isNotNull(missionaries3.transferDate),
+        lte3(missionaries3.transferDate, tomorrow),
+        eq4(missionaries3.transferNotificationSent, false)
       )
     );
     if (missionariesWithTransfers.length === 0) {
       return;
     }
-    const superAdmins = await db.select().from(users).where(eq4(users.isSuperAdmin, true));
+    const superAdmins = await db.select().from(users2).where(eq4(users2.isSuperAdmin, true));
     for (const missionary of missionariesWithTransfers) {
       const transferDate = new Date(missionary.transferDate);
       const formattedDate = transferDate.toLocaleDateString("en-US", {
@@ -1864,7 +1531,7 @@ var TransferManagementService = class {
       for (const admin of superAdmins) {
         await this.sendTransferNotification(admin, missionary, formattedDate);
       }
-      await db.update(missionaries).set({ transferNotificationSent: true }).where(eq4(missionaries.id, missionary.id));
+      await db.update(missionaries3).set({ transferNotificationSent: true }).where(eq4(missionaries3.id, missionary.id));
     }
   }
   async sendTransferNotification(admin, missionary, transferDate) {
@@ -1936,10 +1603,10 @@ Update at: ${process.env.APP_URL || "https://missionary-meals.replit.app"}
     console.log(`Sending transfer notification for ${missionary.name} to ${admin.username}`);
   }
   async scheduleTransferNotification(missionaryId, transferDate) {
-    await db.update(missionaries).set({
+    await db.update(missionaries3).set({
       transferDate,
       transferNotificationSent: false
-    }).where(eq4(missionaries.id, missionaryId));
+    }).where(eq4(missionaries3.id, missionaryId));
   }
 };
 
@@ -2234,8 +1901,8 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/missionaries", async (req, res) => {
     try {
-      const missionaries2 = await storage.getAllMissionaries();
-      res.json(missionaries2);
+      const missionaries4 = await storage.getAllMissionaries();
+      res.json(missionaries4);
     } catch (err) {
       console.error("Error fetching missionaries:", err);
       res.status(500).json({ message: "Failed to fetch missionaries" });
@@ -2256,8 +1923,8 @@ async function registerRoutes(app2) {
       if (typeOrId !== "elders" && typeOrId !== "sisters") {
         return res.status(400).json({ message: 'Type must be either "elders" or "sisters"' });
       }
-      const missionaries2 = await storage.getMissionariesByType(typeOrId, congregationId);
-      res.json(missionaries2);
+      const missionaries4 = await storage.getMissionariesByType(typeOrId, congregationId);
+      res.json(missionaries4);
     } catch (err) {
       console.error("Error fetching missionaries:", err);
       res.status(500).json({ message: "Failed to fetch missionaries" });
@@ -2277,8 +1944,8 @@ async function registerRoutes(app2) {
           return res.status(403).json({ message: "You do not have access to this congregation" });
         }
       }
-      const missionaries2 = await storage.getMissionariesByCongregation(parsedCongregationId);
-      res.json(missionaries2);
+      const missionaries4 = await storage.getMissionariesByCongregation(parsedCongregationId);
+      res.json(missionaries4);
     } catch (err) {
       console.error("Error fetching missionaries by congregation:", err);
       res.status(500).json({ message: "Failed to fetch missionaries" });
@@ -2310,8 +1977,8 @@ async function registerRoutes(app2) {
       }
       const congregationId = congregationIdParam ? parseInt(congregationIdParam, 10) : void 0;
       const meals2 = await storage.getMealsByDateRange(startDate, endDate, congregationId);
-      const missionaries2 = await storage.getAllMissionaries();
-      const missionaryMap = new Map(missionaries2.map((m) => [m.id, m]));
+      const missionaries4 = await storage.getAllMissionaries();
+      const missionaryMap = new Map(missionaries4.map((m) => [m.id, m]));
       const mealsWithMissionaries = meals2.map((meal) => ({
         ...meal,
         missionary: missionaryMap.get(meal.missionaryId)
@@ -2326,8 +1993,8 @@ async function registerRoutes(app2) {
     try {
       const { phone } = req.params;
       const meals2 = await storage.getUpcomingMealsByHostPhone(phone);
-      const missionaries2 = await storage.getAllMissionaries();
-      const missionaryMap = new Map(missionaries2.map((m) => [m.id, m]));
+      const missionaries4 = await storage.getAllMissionaries();
+      const missionaryMap = new Map(missionaries4.map((m) => [m.id, m]));
       const mealsWithMissionaries = meals2.map((meal) => ({
         ...meal,
         missionary: missionaryMap.get(meal.missionaryId)
@@ -2828,17 +2495,17 @@ async function registerRoutes(app2) {
         }
       }
       const meals2 = await storage.getMealsByDateRange(startOfMonth, endOfMonth, congregationId);
-      const missionaries2 = congregationId ? await storage.getMissionariesByCongregation(congregationId) : await storage.getAllMissionaries();
+      const missionaries4 = congregationId ? await storage.getMissionariesByCongregation(congregationId) : await storage.getAllMissionaries();
       const stats = {
-        totalMissionaries: missionaries2.length,
-        activeMissionaries: missionaries2.filter((m) => m.active).length,
+        totalMissionaries: missionaries4.length,
+        activeMissionaries: missionaries4.filter((m) => m.active).length,
         totalMealsThisMonth: meals2.length,
         eldersBookings: meals2.filter((meal) => {
-          const missionary = missionaries2.find((m) => m.id === meal.missionaryId);
+          const missionary = missionaries4.find((m) => m.id === meal.missionaryId);
           return missionary && missionary.type === "elders";
         }).length,
         sistersBookings: meals2.filter((meal) => {
-          const missionary = missionaries2.find((m) => m.id === meal.missionaryId);
+          const missionary = missionaries4.find((m) => m.id === meal.missionaryId);
           return missionary && missionary.type === "sisters";
         }).length,
         cancelledMeals: meals2.filter((m) => m.cancelled).length
@@ -3006,8 +2673,8 @@ async function registerRoutes(app2) {
       if (!congregation.active) {
         return res.status(403).json({ message: "This congregation is no longer active" });
       }
-      const missionaries2 = await storage.getMissionariesByCongregation(parsedCongregationId);
-      res.json(missionaries2);
+      const missionaries4 = await storage.getMissionariesByCongregation(parsedCongregationId);
+      res.json(missionaries4);
     } catch (err) {
       console.error("Error fetching missionaries for congregation:", err);
       res.status(500).json({ message: "Failed to fetch missionaries" });
@@ -3023,8 +2690,8 @@ async function registerRoutes(app2) {
       if (type !== "elders" && type !== "sisters") {
         return res.status(400).json({ message: 'Type must be either "elders" or "sisters"' });
       }
-      const missionaries2 = await storage.getMissionariesByType(type, parsedCongregationId);
-      res.json(missionaries2);
+      const missionaries4 = await storage.getMissionariesByType(type, parsedCongregationId);
+      res.json(missionaries4);
     } catch (err) {
       console.error("Error fetching missionaries by congregation and type:", err);
       res.status(500).json({ message: "Failed to fetch missionaries" });
@@ -3048,8 +2715,8 @@ async function registerRoutes(app2) {
         return res.status(400).json({ message: "Invalid date format" });
       }
       const meals2 = await storage.getMealsByDateRange(startDate, endDate, parsedCongregationId);
-      const missionaries2 = await storage.getMissionariesByCongregation(parsedCongregationId);
-      const missionaryMap = new Map(missionaries2.map((m) => [m.id, m]));
+      const missionaries4 = await storage.getMissionariesByCongregation(parsedCongregationId);
+      const missionaryMap = new Map(missionaries4.map((m) => [m.id, m]));
       const mealsWithMissionaries = meals2.map((meal) => ({
         ...meal,
         missionary: missionaryMap.get(meal.missionaryId)
@@ -3315,16 +2982,16 @@ async function registerRoutes(app2) {
       }
       const phoneNumber = fromNumber.replace(/\s+/g, "");
       console.log(`Received SMS from: ${phoneNumber}, body: ${messageBody}`);
-      const missionaries2 = await storage.getAllMissionaries();
-      console.log(`Found ${missionaries2.length} missionaries in the database`);
-      missionaries2.forEach((m) => {
+      const missionaries4 = await storage.getAllMissionaries();
+      console.log(`Found ${missionaries4.length} missionaries in the database`);
+      missionaries4.forEach((m) => {
         console.log(`Missionary ${m.id} (${m.name}): phone=${m.phoneNumber}`);
       });
-      let missionary = missionaries2.find((m) => m.phoneNumber === phoneNumber);
+      let missionary = missionaries4.find((m) => m.phoneNumber === phoneNumber);
       if (!missionary) {
         console.log("Missionary not found with exact phone number match, trying alternative formats...");
         const numberWithoutPlus = phoneNumber.startsWith("+") ? phoneNumber.substring(1) : phoneNumber;
-        missionary = missionaries2.find(
+        missionary = missionaries4.find(
           (m) => m.phoneNumber === numberWithoutPlus || m.phoneNumber.startsWith("+") && m.phoneNumber.substring(1) === numberWithoutPlus
         );
         if (missionary) {
@@ -3426,8 +3093,8 @@ async function registerRoutes(app2) {
       }
       const meals2 = await storage.getMealsByDateRange(startDate, endDate, parsedCongregationId);
       const activeMeals = meals2.filter((meal) => !meal.cancelled);
-      const missionaries2 = await storage.getMissionariesByCongregation(parsedCongregationId);
-      const missionaryMap = new Map(missionaries2.map((m) => [m.id, m]));
+      const missionaries4 = await storage.getMissionariesByCongregation(parsedCongregationId);
+      const missionaryMap = new Map(missionaries4.map((m) => [m.id, m]));
       const totalMeals = activeMeals.length;
       const timeRangeInWeeks = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1e3)));
       const timeRangeInMonths = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / (30 * 24 * 60 * 60 * 1e3)));
@@ -3443,7 +3110,7 @@ async function registerRoutes(app2) {
         }
         missionaryMealCounts.set(meal.missionaryId, current);
       });
-      const missionaryStats = missionaries2.map((missionary) => ({
+      const missionaryStats = missionaries4.map((missionary) => ({
         id: missionary.id,
         name: missionary.name,
         type: missionary.type,
@@ -3562,30 +3229,24 @@ import { createServer as createViteServer, createLogger } from "vite";
 
 // vite.config.ts
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 var vite_config_default = defineConfig({
-  plugins: [
-    react(),
-    runtimeErrorOverlay(),
-    ...process.env.NODE_ENV !== "production" && process.env.REPL_ID !== void 0 ? [
-      await import("@replit/vite-plugin-cartographer").then(
-        (m) => m.cartographer()
-      )
-    ] : []
-  ],
+  plugins: [react()],
+  // Specify the root directory of your client-side application
+  root: "./client",
+  build: {
+    // Output directory for the production build, relative to the new root
+    outDir: "../dist/public",
+    emptyOutDir: true
+    // Clear the output directory before building
+  },
   resolve: {
     alias: {
-      "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
-      "@assets": path.resolve(import.meta.dirname, "attached_assets")
+      // Explicitly configure the alias for "@/" to point to "./client/src"
+      // This tells Vite how to resolve paths starting with "@/" during bundling
+      "@": path.resolve(__dirname, "./client/src")
     }
-  },
-  root: path.resolve(import.meta.dirname, "client"),
-  build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
-    emptyOutDir: true
   }
 });
 
