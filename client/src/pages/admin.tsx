@@ -3,12 +3,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Building, Users, Calendar, Settings, LogOut, Globe, Map } from "lucide-react";
+import { Building, Users, Calendar, Settings, LogOut } from "lucide-react";
 import { CongregationSelector } from "@/components/congregation-selector";
 import MissionaryList from "@/components/missionary-list";
 import { CongregationManagement } from "@/components/congregation-management";
-import { RegionManagement } from "@/components/region-management";
-import { MissionManagement } from "@/components/mission-management";
 import { MessageStatsComponent } from "@/components/message-stats";
 import { TestMessageForm } from "@/components/test-message-form";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,26 +44,16 @@ export default function Admin() {
   const tabs = [
     { id: "missionaries", label: "Missionaries", icon: Users },
     { id: "meals", label: "Meals", icon: Calendar },
-    { id: "congregations", label: "Congregations", icon: Building },
-    { id: "missions", label: "Missions", icon: Map, roles: ['ultra', 'region'] },
-    { id: "regions", label: "Regions", icon: Globe, roles: ['ultra'] },
+    { id: "hierarchy", label: "Hierarchy", icon: Building, roles: ['ultra', 'region', 'mission', 'stake'] },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
   const renderContent = () => {
-    if (activeTab === "regions" && user.role === 'ultra') {
-      return <RegionManagement />;
-    }
-
-    if (activeTab === "missions" && ['ultra', 'region'].includes(user.role)) {
-      return <MissionManagement />;
-    }
-
-    if (activeTab === "congregations" && ['ultra', 'region', 'mission', 'stake'].includes(user.role)) {
+    if (activeTab === "hierarchy" && user.role !== 'ward') {
       return <CongregationManagement />;
     }
 
-    if (!selectedCongregation) {
+    if (!selectedCongregation && ['missionaries', 'meals', 'settings'].includes(activeTab)) {
       if (userCongregations && userCongregations.length > 0) {
         return (
           <Card className="mt-6">
@@ -82,50 +70,52 @@ export default function Admin() {
             <CardContent className="pt-6 text-center">
               <Building className="mx-auto h-12 w-12 text-gray-300" />
               <h3 className="mt-2 text-sm font-medium text-gray-900">No Congregations Found</h3>
-              <p className="mt-1 text-sm text-gray-500">Admins with appropriate permissions can create a new congregation in the "Congregations" tab.</p>
+              <p className="mt-1 text-sm text-gray-500">Admins with appropriate permissions can create a new congregation in the "Hierarchy" tab.</p>
             </CardContent>
           </Card>
       )
     }
 
-    switch (activeTab) {
-      case "missionaries":
-        return (
-          <MissionaryList congregationId={selectedCongregation.id} />
-        );
-      case "meals":
-        return (
-          <MealManagement congregationId={selectedCongregation.id} />
-        );
-       case "settings":
-        return (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Message Statistics</CardTitle>
-                <CardDescription>
-                  View message statistics for {selectedCongregation.name}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <MessageStatsComponent congregationId={selectedCongregation.id} />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Test Messages</CardTitle>
-                <CardDescription>
-                  Send test messages to verify your notification settings for {selectedCongregation.name}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <TestMessageForm congregationId={selectedCongregation.id} />
-              </CardContent>
-            </Card>
-          </div>
-        );
-      default:
-        return null;
+    if(selectedCongregation) {
+      switch (activeTab) {
+        case "missionaries":
+          return (
+            <MissionaryList congregationId={selectedCongregation.id} />
+          );
+        case "meals":
+          return (
+            <MealManagement congregationId={selectedCongregation.id} />
+          );
+        case "settings":
+          return (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Message Statistics</CardTitle>
+                  <CardDescription>
+                    View message statistics for {selectedCongregation.name}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <MessageStatsComponent congregationId={selectedCongregation.id} />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Test Messages</CardTitle>
+                  <CardDescription>
+                    Send test messages to verify your notification settings for {selectedCongregation.name}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <TestMessageForm congregationId={selectedCongregation.id} />
+                </CardContent>
+              </Card>
+            </div>
+          );
+        default:
+          return null;
+      }
     }
   };
 
@@ -171,10 +161,7 @@ export default function Admin() {
               if (tab.roles && !tab.roles.includes(user.role)) {
                 return null;
               }
-              const isDisabled = (tab.id !== 'congregations' && tab.id !== 'regions' && tab.id !== 'missions') && !selectedCongregation;
-              if (user.role === 'ward' && (tab.id === 'congregations' || tab.id === 'regions' || tab.id === 'missions')) {
-                return null;
-              }
+              const isDisabled = (tab.id !== 'hierarchy') && !selectedCongregation;
               return (
                 <Button
                   key={tab.id}
