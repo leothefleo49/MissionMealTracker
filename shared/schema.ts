@@ -95,12 +95,13 @@ export const congregationsRelations = relations(congregations, ({ one, many }) =
 
 // CORRECTED SCHEMA FOR CONGREGATION INSERTION
 export const insertCongregationSchema = createInsertSchema(congregations, {
-    description: z.string().optional(), // Ensure description is optional
-    accessCode: z.string().min(6, { message: "Access code must be at least 6 characters" }).optional(), // Match client's optionality
+    description: z.string().optional(),
+    // accessCode is now REQUIRED, matching the DB's NOT NULL constraint
+    accessCode: z.string().min(6, { message: "Access code must be at least 6 characters" }),
     allowCombinedBookings: z.boolean().default(false),
     maxBookingsPerPeriod: z.number().min(0).default(0),
-    maxBookingsPerAddress: z.number().min(0).default(1), // Added this line
-    maxBookingsPerPhone: z.number().min(0).default(1), // Added this line
+    maxBookingsPerAddress: z.number().min(0).default(1),
+    maxBookingsPerPhone: z.number().min(0).default(1),
     bookingPeriodDays: z.number().min(1).default(30),
     active: z.boolean().default(true),
 }).omit({ // Omit fields not provided by client or auto-generated
