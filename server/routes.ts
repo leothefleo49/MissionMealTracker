@@ -10,6 +10,7 @@ import {
   insertMissionarySchema,
   insertCongregationSchema,
   insertUserCongregationSchema,
+  insertRegionSchema,
   type InsertUser
 } from "@shared/schema";
 import { ZodError } from "zod";
@@ -49,6 +50,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const requireSuperAdmin = (req: Request, res: Response, next: NextFunction) => {
     if (!req.isAuthenticated() || !['ultra', 'region', 'mission', 'stake'].includes(req.user.role)) {
       return res.status(403).json({ message: 'Access denied: SuperAdmin privileges required' });
+    }
+  };
+
+  const requireUltraAdmin = (req: Request, res: Response, next: NextFunction) => {
+    if (!req.isAuthenticated() || req.user.role !== 'ultra') {
+      return res.status(403).json({ message: 'Access denied: Ultra Admin privileges required' });
     }
     next();
   };
@@ -175,6 +182,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.error('API error:', err);
     return res.status(500).json({ message: 'Internal server error' });
   };
+
+  // Regions API Routes
+  app.get('/api/regions', requireAdmin, async (req, res) => {
+    try {
+      const regions = await storage.getAllRegions();
+      res.json(regions);
+    } catch (err) {
+      console.error('Error fetching regions:', err);
+      res.status(500).json({ message: 'Failed to fetch regions' });
+    }
+  });
+
+  app.post('/api/regions', requireUltraAdmin, async (req, res) => {
+    try {
+      const regionData = insertRegionSchema.parse(req.body);
+      const region = await storage.createRegion(regionData);
+      res.status(201).json(region);
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+
+  app.patch('/api/regions/:id', requireUltraAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const regionId = parseInt(id, 10);
+      if (isNaN(regionId)) {
+        return res.status(400).json({ message: 'Invalid region ID' });
+      }
+      const regionData = insertRegionSchema.partial().parse(req.body);
+      const updatedRegion = await storage.updateRegion(regionId, regionData);
+      if (updatedRegion) {
+        res.json(updatedRegion);
+      } else {
+        res.status(404).json({ message: 'Region not found' });
+      }
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+
+  app.delete('/api/regions/:id', requireUltraAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const regionId = parseInt(id, 10);
+      if (isNaN(regionId)) {
+        return res.status(400).json({ message: 'Invalid region ID' });
+      }
+      const success = await storage.deleteRegion(regionId);
+      if (success) {
+        res.status(204).end();
+      } else {
+        res.status(404).json({ message: 'Region not found' });
+      }
+    } catch (err) {
+      console.error('Error deleting region:', err);
+      res.status(500).json({ message: 'Failed to delete region' });
+    }
+  });
+
 
   // API Routes
   // Get all missionaries
@@ -1644,7 +1711,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (err) {
       console.error("Error requesting consent:", err);
-      res.status(500).json({ message: "Failed to request consent" });
+      res.status(500).json({ message: 'Failed to request consent' });
     }
   });
 

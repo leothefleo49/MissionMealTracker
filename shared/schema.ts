@@ -12,6 +12,10 @@ export const regions = pgTable("regions", {
   name: text("name").notNull(),
 });
 
+export const insertRegionSchema = createInsertSchema(regions).pick({
+  name: true,
+});
+
 export const regionsRelations = relations(regions, ({ many }) => ({
   missions: many(missions),
   users: many(users),

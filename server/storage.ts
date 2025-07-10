@@ -15,7 +15,7 @@ export interface IStorage {
   // User methods
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
-  getUltraAdmin(): Promise<User | undefined>; // Added this line
+  getUltraAdmin(): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   getUserCongregations(userId: number): Promise<Congregation[]>;
   addUserToCongregation(userCongregation: InsertUserCongregation): Promise<UserCongregation>;
@@ -23,6 +23,9 @@ export interface IStorage {
 
   // Congregation Hierarchy Methods
   getAllRegions(): Promise<Region[]>;
+  createRegion(region: { name: string }): Promise<Region>;
+  updateRegion(id: number, data: Partial<Region>): Promise<Region | undefined>;
+  deleteRegion(id: number): Promise<boolean>;
   getMissionsByRegion(regionId: number): Promise<Mission[]>;
   getStakesByMission(missionId: number): Promise<Stake[]>;
   getCongregationsByStake(stakeId: number): Promise<Congregation[]>;

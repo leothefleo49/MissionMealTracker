@@ -56,6 +56,21 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(regions);
   }
 
+  async createRegion(region: { name: string }): Promise<Region> {
+    const [newRegion] = await db.insert(regions).values(region).returning();
+    return newRegion;
+  }
+
+  async updateRegion(id: number, data: Partial<Region>): Promise<Region | undefined> {
+    const [updatedRegion] = await db.update(regions).set(data).where(eq(regions.id, id)).returning();
+    return updatedRegion;
+  }
+
+  async deleteRegion(id: number): Promise<boolean> {
+    await db.delete(regions).where(eq(regions.id, id));
+    return true;
+  }
+
   async getMissionsByRegion(regionId: number): Promise<Mission[]> {
     return await db.select().from(missions).where(eq(missions.regionId, regionId));
   }
