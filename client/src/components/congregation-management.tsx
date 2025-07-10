@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "./ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { PlusCircle, ChevronLeft, Building, Map, Globe, Trash2, Pencil, Search } from "lucide-react";
+import { PlusCircle, Building, Map, Globe, Trash2, Pencil, Search } from "lucide-react";
 
 type HierarchyType = 'region' | 'mission' | 'stake' | 'congregation';
 
@@ -48,12 +48,11 @@ type HierarchyItem = {
   regionId?: number;
   missionId?: number;
   stakeId?: number;
-  parent?: HierarchyItem;
 };
 
 const formSchema = z.object({
   name: z.string().min(2, "Name is required"),
-  parentId: z.number().optional(),
+  parentId: z.number().optional().nullable(),
 });
 type FormValues = z.infer<typeof formSchema>;
 
@@ -64,9 +63,13 @@ export function CongregationManagement() {
 
   const [view, setView] = useState<HierarchyType>('regions');
   const [searchQuery, setSearchQuery] = useState("");
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [addDialogEntityType, setAddDialogEntityType] = useState<HierarchyType>('region');
-  const [selectedParent, setSelectedParent] = useState<HierarchyItem | null>(null);
+
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<HierarchyItem | null>(null);
 
   const { data: hierarchyData, isLoading } = useQuery<{
     regions: HierarchyItem[],
@@ -94,7 +97,7 @@ export function CongregationManagement() {
 
   const filteredData = useMemo(() => {
     if (!hierarchyData) return [];
-    return hierarchyData[view].filter(item =>
+    return (hierarchyData[view] || []).filter(item =>
       item.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [hierarchyData, view, searchQuery]);
@@ -121,14 +124,66 @@ export function CongregationManagement() {
     },
   });
 
+  const editMutation = useMutation({
+    mutationFn: (data: { entityType: HierarchyType; values: FormValues }) => {
+      let url = `/api/${data.entityType}s/${selectedItem?.id}`;
+      let payload: any = { name: data.values.name };
+      if (data.entityType === 'mission' && data.values.parentId) payload.regionId = data.values.parentId;
+      if (data.entityType === 'stake' && data.values.parentId) payload.missionId = data.values.parentId;
+      if (data.entityType === 'congregation' && data.values.parentId) payload.stakeId = data.values.parentId;
+
+      return apiRequest("PATCH", url, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hierarchy-all'] });
+      toast({ title: "Success", description: "Item updated successfully." });
+      setIsEditDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (item: HierarchyItem) => {
+      let url = `/api/${item.type}s/${item.id}`;
+      return apiRequest("DELETE", url);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hierarchy-all'] });
+      toast({ title: "Success", description: "Item deleted successfully." });
+      setIsDeleteDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleAddSubmit = (values: FormValues) => {
     addMutation.mutate({ entityType: addDialogEntityType, values });
+  };
+
+  const handleEditSubmit = (values: FormValues) => {
+    if(selectedItem) {
+      editMutation.mutate({ entityType: selectedItem.type, values });
+    }
   };
 
   const openAddDialog = (type: HierarchyType) => {
     setAddDialogEntityType(type);
     setIsAddDialogOpen(true);
   }
+
+  const openEditDialog = (item: HierarchyItem) => {
+    setSelectedItem(item);
+    form.reset({ name: item.name, parentId: item.regionId || item.missionId || item.stakeId });
+    setIsEditDialogOpen(true);
+  };
+
+  const openDeleteDialog = (item: HierarchyItem) => {
+    setSelectedItem(item);
+    setIsDeleteDialogOpen(true);
+  };
 
   const renderButtons = () => {
     const buttons = [];
@@ -143,10 +198,10 @@ export function CongregationManagement() {
     ));
   };
 
-  const getParentSelector = () => {
+  const getParentSelector = (entityType: HierarchyType) => {
     let parentType: HierarchyType | null = null;
     let parents: HierarchyItem[] = [];
-    switch(addDialogEntityType) {
+    switch(entityType) {
       case 'mission':
         parentType = 'region';
         parents = hierarchyData?.regions || [];
@@ -170,7 +225,7 @@ export function CongregationManagement() {
         render={({ field }) => (
           <FormItem>
             <FormLabel>{parentType.charAt(0).toUpperCase() + parentType.slice(1)}</FormLabel>
-            <Select onValueChange={(value) => field.onChange(Number(value))}>
+            <Select onValueChange={(value) => field.onChange(value === "null" ? null : Number(value))} defaultValue={field.value ? String(field.value) : undefined}>
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder={`Select a ${parentType}`} />
@@ -212,7 +267,7 @@ export function CongregationManagement() {
                     </FormItem>
                   )}
                 />
-                {getParentSelector()}
+                {getParentSelector(addDialogEntityType)}
                 <DialogFooter>
                   <Button type="submit">Add</Button>
                 </DialogFooter>
@@ -238,16 +293,65 @@ export function CongregationManagement() {
         {filteredData.map(item => (
           <Card key={`${item.type}-${item.id}`}>
             <CardHeader>
-              <CardTitle className="flex items-center">
-                {item.type === 'region' && <Globe className="mr-2"/>}
-                {item.type === 'mission' && <Map className="mr-2"/>}
-                {item.type === 'stake' && <Building className="mr-2"/>}
-                {item.name}
-              </CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle className="flex items-center">
+                  {item.type === 'region' && <Globe className="mr-2"/>}
+                  {item.type === 'mission' && <Map className="mr-2"/>}
+                  {item.type === 'stake' && <Building className="mr-2"/>}
+                  {item.name}
+                </CardTitle>
+                <div className="flex space-x-2">
+                  <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(item)}>
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
           </Card>
         ))}
       </div>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit {selectedItem?.type}</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleEditSubmit)} className="space-y-4">
+              <FormField control={form.control} name="name" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl><Input placeholder="Enter name" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {selectedItem && getParentSelector(selectedItem.type)}
+              <DialogFooter>
+                <Button type="submit">Save Changes</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the {selectedItem?.type}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => selectedItem && deleteMutation.mutate(selectedItem)}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

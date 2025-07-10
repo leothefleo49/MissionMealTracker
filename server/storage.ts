@@ -29,13 +29,13 @@ export interface IStorage {
 
   getAllMissions(): Promise<Mission[]>;
   getMissionsByRegion(regionId: number): Promise<Mission[]>;
-  createMission(mission: { name: string; regionId?: number }): Promise<Mission>;
+  createMission(mission: { name: string; regionId?: number | null }): Promise<Mission>;
   updateMission(id: number, data: Partial<Mission>): Promise<Mission | undefined>;
   deleteMission(id: number): Promise<boolean>;
 
   getAllStakes(): Promise<Stake[]>;
   getStakesByMission(missionId: number): Promise<Stake[]>;
-  createStake(stake: { name: string; missionId?: number }): Promise<Stake>;
+  createStake(stake: { name: string; missionId?: number | null }): Promise<Stake>;
   updateStake(id: number, data: Partial<Stake>): Promise<Stake | undefined>;
   deleteStake(id: number): Promise<boolean>;
 

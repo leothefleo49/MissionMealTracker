@@ -79,7 +79,7 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(missions).where(eq(missions.regionId, regionId));
   }
 
-  async createMission(mission: { name: string; regionId?: number }): Promise<Mission> {
+  async createMission(mission: { name: string; regionId?: number | null }): Promise<Mission> {
     const [newMission] = await db.insert(missions).values(mission).returning();
     return newMission;
   }
@@ -102,7 +102,7 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(stakes).where(eq(stakes.missionId, missionId));
   }
 
-  async createStake(stake: { name: string; missionId?: number }): Promise<Stake> {
+  async createStake(stake: { name: string; missionId?: number | null }): Promise<Stake> {
     const [newStake] = await db.insert(stakes).values(stake).returning();
     return newStake;
   }
