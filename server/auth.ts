@@ -1,14 +1,16 @@
+// server/auth.ts
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import connectPgSimple from "connect-pg-simple";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
-import { promisify } from "util";
+import { promisify } from "util"; // Corrected this line
 import { storage } from "./storage";
 import { User, userRoleEnum, InsertUser } from "@shared/schema";
+import { pool } from "./db"; // Import the pg pool from your db setup
 
-const MemoryStore = createMemoryStore(session);
+const PgStore = connectPgSimple(session);
 
 const scryptAsync = promisify(scrypt);
 
@@ -57,9 +59,11 @@ export async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
-  const MemoryStore = createMemoryStore(session);
-  const sessionStore = new MemoryStore({
-    checkPeriod: 86400000 // prune expired entries every 24h
+  const sessionStore = new PgStore({
+    pool: pool,
+    tableName: 'session',
+    createTableIfMissing: true,
+    pruneSessionInterval: 60 * 60,
   });
 
   const sessionSettings: session.SessionOptions = {
@@ -69,7 +73,7 @@ export function setupAuth(app: Express) {
     store: sessionStore,
     cookie: {
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 1000 * 60 * 60 * 24 // 24 hours
+      maxAge: 1000 * 60 * 60 * 24
     }
   };
 
@@ -98,7 +102,7 @@ export function setupAuth(app: Express) {
         }
 
         // This is a placeholder for a real password check for ward-level users
-        if (password !== "password") { 
+        if (password !== "password") {
             return done(null, false, { message: "Invalid password" });
         }
 
