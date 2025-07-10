@@ -1,20 +1,31 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Building, Users, Calendar, Settings, LogOut } from "lucide-react";
-import { CongregationSelector } from "@/components/congregation-selector";
-import MissionaryList from "@/components/missionary-list";
 import { CongregationManagement } from "@/components/congregation-management";
+import MissionaryList from "@/components/missionary-list";
 import { MessageStatsComponent } from "@/components/message-stats";
 import { TestMessageForm } from "@/components/test-message-form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MealManagement } from "@/components/meal-management";
 
 export default function Admin() {
-  const { user, logoutMutation, selectedCongregation, isLoading: isAuthLoading, userCongregations } = useAuth();
-  const [activeTab, setActiveTab] = useState("missionaries");
+  const { user, logoutMutation, isLoading: isAuthLoading } = useAuth();
+  const [selectedCongregation, setSelectedCongregation] = useState<{ id: number; name: string } | null>(null);
+
+  const [activeTab, setActiveTab] = useState(user?.role === 'ward' ? "missionaries" : "hierarchy");
+
+  useEffect(() => {
+    // If the user is a ward admin, we can pre-select their congregation
+    if (user?.role === 'ward' && user.congregationId) {
+      // This assumes the user object from useAuth will eventually have the congregationId
+      // You might need to adjust this based on your actual data structure
+      // For now, let's assume a function getUserCongregation exists or is added to useAuth
+      // setSelectedCongregation({ id: user.congregationId, name: 'My Ward' });
+    }
+  }, [user]);
 
   if (isAuthLoading) {
     return (
@@ -42,50 +53,23 @@ export default function Admin() {
   }
 
   const tabs = [
+    { id: "hierarchy", label: "Hierarchy", icon: Building, roles: ['ultra', 'region', 'mission', 'stake'] },
     { id: "missionaries", label: "Missionaries", icon: Users },
     { id: "meals", label: "Meals", icon: Calendar },
-    { id: "hierarchy", label: "Hierarchy", icon: Building, roles: ['ultra', 'region', 'mission', 'stake'] },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
   const renderContent = () => {
-    if (activeTab === "hierarchy" && user.role !== 'ward') {
-      return <CongregationManagement />;
+    if (activeTab === "hierarchy") {
+      return <CongregationManagement onSelectCongregation={setSelectedCongregation} />;
     }
 
-    if (!selectedCongregation && ['missionaries', 'meals', 'settings'].includes(activeTab)) {
-      if (userCongregations && userCongregations.length > 0) {
-        return (
-          <Card className="mt-6">
-            <CardContent className="pt-6 text-center">
-              <Building className="mx-auto h-12 w-12 text-gray-300" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No Congregation Selected</h3>
-              <p className="mt-1 text-sm text-gray-500">Please select a congregation from the dropdown above to continue.</p>
-            </CardContent>
-          </Card>
-        )
-      }
-      return (
-         <Card className="mt-6">
-            <CardContent className="pt-6 text-center">
-              <Building className="mx-auto h-12 w-12 text-gray-300" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No Congregations Found</h3>
-              <p className="mt-1 text-sm text-gray-500">Admins with appropriate permissions can create a new congregation in the "Hierarchy" tab.</p>
-            </CardContent>
-          </Card>
-      )
-    }
-
-    if(selectedCongregation) {
+    if (selectedCongregation) {
       switch (activeTab) {
         case "missionaries":
-          return (
-            <MissionaryList congregationId={selectedCongregation.id} />
-          );
+          return <MissionaryList congregationId={selectedCongregation.id} />;
         case "meals":
-          return (
-            <MealManagement congregationId={selectedCongregation.id} />
-          );
+          return <MealManagement congregationId={selectedCongregation.id} />;
         case "settings":
           return (
             <div className="space-y-6">
@@ -116,13 +100,21 @@ export default function Admin() {
         default:
           return null;
       }
+    } else if (user?.role !== 'ward') {
+        return (
+            <Card className="mt-6">
+                <CardContent className="pt-6 text-center">
+                    <Building className="mx-auto h-12 w-12 text-gray-300" />
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No Congregation Selected</h3>
+                    <p className="mt-1 text-sm text-gray-500">Please select a congregation from the hierarchy to view its details.</p>
+                </CardContent>
+            </Card>
+        )
     }
   };
 
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 space-y-3 sm:space-y-0">
@@ -137,31 +129,21 @@ export default function Admin() {
                  {user?.role === 'ward' && <Badge variant="outline" className="text-xs">Ward Admin</Badge>}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <CongregationSelector className="w-full sm:w-56" />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => logoutMutation.mutate()}
-                className="flex items-center gap-2 w-auto"
-              >
-                <LogOut className="h-4 w-4" />
-                Logout
-              </Button>
-            </div>
+            <Button variant="outline" size="sm" onClick={() => logoutMutation.mutate()} className="flex items-center gap-2 w-auto">
+              <LogOut className="h-4 w-4" />
+              Logout
+            </Button>
           </div>
         </div>
       </header>
-
-      {/* Navigation Tabs */}
       <nav className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex flex-wrap gap-1 sm:gap-2 py-2 overflow-x-auto">
             {tabs.map((tab) => {
-              if (tab.roles && !tab.roles.includes(user.role)) {
-                return null;
-              }
-              const isDisabled = (tab.id !== 'hierarchy') && !selectedCongregation;
+              if (tab.roles && !tab.roles.includes(user.role)) return null;
+              if (user.role === 'ward' && tab.id === 'hierarchy') return null;
+
+              const isDisabled = (tab.id !== 'hierarchy') && !selectedCongregation && user.role !== 'ward';
               return (
                 <Button
                   key={tab.id}
@@ -180,22 +162,11 @@ export default function Admin() {
           </div>
         </div>
       </nav>
-
-      {/* Main Content */}
       <main className="flex-grow">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 overflow-x-hidden">
           {renderContent()}
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="bg-white border-t mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <p className="text-center text-sm text-gray-500">
-            Missionary Meal Scheduler - Admin Dashboard
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

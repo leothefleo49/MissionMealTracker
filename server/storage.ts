@@ -23,19 +23,19 @@ export interface IStorage {
 
   // Congregation Hierarchy Methods
   getAllRegions(): Promise<Region[]>;
-  createRegion(region: { name: string }): Promise<Region>;
+  createRegion(region: { name: string, description?: string }): Promise<Region>;
   updateRegion(id: number, data: Partial<Region>): Promise<Region | undefined>;
   deleteRegion(id: number): Promise<boolean>;
 
   getAllMissions(): Promise<Mission[]>;
   getMissionsByRegion(regionId: number): Promise<Mission[]>;
-  createMission(mission: { name: string; regionId?: number | null }): Promise<Mission>;
+  createMission(mission: { name: string; regionId?: number | null, description?: string }): Promise<Mission>;
   updateMission(id: number, data: Partial<Mission>): Promise<Mission | undefined>;
   deleteMission(id: number): Promise<boolean>;
 
   getAllStakes(): Promise<Stake[]>;
   getStakesByMission(missionId: number): Promise<Stake[]>;
-  createStake(stake: { name: string; missionId?: number | null }): Promise<Stake>;
+  createStake(stake: { name: string; missionId?: number | null, description?: string }): Promise<Stake>;
   updateStake(id: number, data: Partial<Stake>): Promise<Stake | undefined>;
   deleteStake(id: number): Promise<boolean>;
 

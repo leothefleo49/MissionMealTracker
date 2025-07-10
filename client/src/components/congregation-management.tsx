@@ -64,15 +64,15 @@ export function CongregationManagement() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const [view, setView] = useState<HierarchyType | 'all'>('all');
+  const [navigationPath, setNavigationPath] = useState<HierarchyItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [addDialogEntityType, setAddDialogEntityType] = useState<HierarchyType>('region');
-
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<HierarchyItem | null>(null);
+
+  const currentItem = navigationPath.length > 0 ? navigationPath[navigationPath.length - 1] : null;
 
   const { data: hierarchyData, isLoading } = useQuery<{
     regions: HierarchyItem[],
@@ -100,18 +100,35 @@ export function CongregationManagement() {
 
   const filteredData = useMemo(() => {
     if (!hierarchyData) return [];
-    const dataToFilter = view === 'all'
-      ? [...hierarchyData.regions, ...hierarchyData.missions, ...hierarchyData.stakes, ...hierarchyData.congregations]
-      : hierarchyData[view] || [];
 
-    return dataToFilter.filter(item =>
+    let items;
+    if (currentItem === null) {
+      if (user?.role === 'ultra') items = hierarchyData.regions;
+      else if (user?.role === 'region') items = hierarchyData.missions.filter(m => m.regionId === user.regionId);
+      // ... other roles
+      else items = [];
+    } else {
+      switch (currentItem.type) {
+        case 'region':
+          items = hierarchyData.missions.filter(m => m.regionId === currentItem.id);
+          break;
+        case 'mission':
+          items = hierarchyData.stakes.filter(s => s.missionId === currentItem.id);
+          break;
+        case 'stake':
+          items = hierarchyData.congregations.filter(c => c.stakeId === currentItem.id);
+          break;
+        default:
+          items = [];
+      }
+    }
+
+    return items.filter(item =>
       item.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [hierarchyData, view, searchQuery]);
+  }, [hierarchyData, currentItem, user, searchQuery]);
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-  });
+  const form = useForm<FormValues>();
 
   const mutationOptions = {
     onSuccess: () => {
@@ -129,9 +146,9 @@ export function CongregationManagement() {
     mutationFn: (data: { entityType: HierarchyType; values: FormValues }) => {
       let url = `/api/${data.entityType}s`;
       let payload: any = { name: data.values.name, description: data.values.description };
-      if (data.entityType === 'mission') payload.regionId = data.values.parentId;
-      if (data.entityType === 'stake') payload.missionId = data.values.parentId;
-      if (data.entityType === 'congregation') payload.stakeId = data.values.parentId;
+      if (data.entityType === 'mission') payload.regionId = currentItem?.type === 'region' ? currentItem.id : null;
+      if (data.entityType === 'stake') payload.missionId = currentItem?.type === 'mission' ? currentItem.id : null;
+      if (data.entityType === 'congregation') payload.stakeId = currentItem?.type === 'stake' ? currentItem.id : null;
 
       return apiRequest("POST", url, payload);
     },
@@ -172,7 +189,19 @@ export function CongregationManagement() {
   });
 
   const handleAddSubmit = (values: FormValues) => {
-    addMutation.mutate({ entityType: addDialogEntityType, values });
+    let entityType: HierarchyType | null = null;
+    if (!currentItem) {
+        if (user?.role === 'ultra') entityType = 'region';
+    } else {
+        switch (currentItem.type) {
+            case 'region': entityType = 'mission'; break;
+            case 'mission': entityType = 'stake'; break;
+            case 'stake': entityType = 'congregation'; break;
+        }
+    }
+    if (entityType) {
+        addMutation.mutate({ entityType, values });
+    }
   };
 
   const handleEditSubmit = (values: FormValues) => {
@@ -181,9 +210,8 @@ export function CongregationManagement() {
     }
   };
 
-  const openAddDialog = (type: HierarchyType) => {
+  const openAddDialog = () => {
     form.reset({ name: "", description: "", parentId: null });
-    setAddDialogEntityType(type);
     setIsAddDialogOpen(true);
   };
 
@@ -200,28 +228,6 @@ export function CongregationManagement() {
   const openDeleteDialog = (item: HierarchyItem) => {
     setSelectedItem(item);
     setIsDeleteDialogOpen(true);
-  };
-
-  const renderButtons = () => {
-    const buttons = [
-        { label: 'All', type: 'all' },
-        { label: 'Regions', type: 'region' },
-        { label: 'Missions', type: 'mission' },
-        { label: 'Stakes', type: 'stake' },
-        { label: 'Congregations', type: 'congregation' }
-    ];
-
-    return buttons.map(b => {
-      if(user?.role !== 'ultra' && b.type === 'region') return null;
-      if(!['ultra', 'region'].includes(user?.role || '') && b.type === 'mission') return null;
-      if(!['ultra', 'region', 'mission'].includes(user?.role || '') && b.type === 'stake') return null;
-
-      return (
-        <Button key={b.type} variant={view === b.type ? 'default' : 'outline'} onClick={() => setView(b.type as HierarchyType | 'all')}>
-          {b.label}
-        </Button>
-      )
-    });
   };
 
   const getParentSelector = (entityType: HierarchyType) => {
@@ -271,50 +277,30 @@ export function CongregationManagement() {
     );
   };
 
-  const getAddOptions = () => {
-    const options: { label: string, type: HierarchyType }[] = [];
-    if (user?.role === 'ultra') options.push({ label: 'Add Region', type: 'region' });
-    if (['ultra', 'region'].includes(user?.role || '')) options.push({ label: 'Add Mission', type: 'mission' });
-    if (['ultra', 'region', 'mission'].includes(user?.role || '')) options.push({ label: 'Add Stake', type: 'stake' });
-    if (['ultra', 'region', 'mission', 'stake'].includes(user?.role || '')) options.push({ label: 'Add Congregation', type: 'congregation' });
-
-    return (
-        <Select onValueChange={(type) => openAddDialog(type as HierarchyType)}>
-            <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Add New..." />
-            </SelectTrigger>
-            <SelectContent>
-                {options.map(option => (
-                    <SelectItem key={option.type} value={option.type}>{option.label}</SelectItem>
-                ))}
-            </SelectContent>
-        </Select>
-    );
+  const getAddEntityType = () => {
+    if (!currentItem) {
+      if (user?.role === 'ultra') return 'region';
+      if (user?.role === 'region') return 'mission';
+      if (user?.role === 'mission') return 'stake';
+      if (user?.role === 'stake') return 'congregation';
+    }
+    switch (currentItem.type) {
+      case 'region': return 'mission';
+      case 'mission': return 'stake';
+      case 'stake': return 'congregation';
+      default: return null;
+    }
   }
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">Hierarchy Management</h2>
-        {getAddOptions()}
-      </div>
-      <div className="flex gap-2 mb-4 flex-wrap">
-        {renderButtons()}
-      </div>
-      <div className="relative mb-4">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="Search..."
-          className="w-full pl-8"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+        <Button onClick={openAddDialog}><PlusCircle className="mr-2 h-4 w-4" /> Add New</Button>
       </div>
       <div className="space-y-4">
-        {isLoading && <p>Loading...</p>}
         {filteredData.map(item => (
-          <Card key={`${item.type}-${item.id}`}>
+          <Card key={`${item.type}-${item.id}`} className="cursor-pointer hover:bg-muted/50" onClick={() => handleNavigate(item)}>
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle className="flex items-center">
@@ -325,10 +311,10 @@ export function CongregationManagement() {
                   {item.name}
                 </CardTitle>
                 <div className="flex space-x-2">
-                  <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)}>
+                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); openEditDialog(item); }}>
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(item)}>
+                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); openDeleteDialog(item); }}>
                     <Trash2 className="h-4 w-4 text-red-500" />
                   </Button>
                 </div>
@@ -338,6 +324,38 @@ export function CongregationManagement() {
           </Card>
         ))}
       </div>
+
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New {getAddEntityType()}</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleAddSubmit)} className="space-y-4">
+              <FormField control={form.control} name="name" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl><Input placeholder="Enter name" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField control={form.control} name="description" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl><Textarea placeholder="Enter description" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {getAddEntityType() && getParentSelector(getAddEntityType()!)}
+              <DialogFooter>
+                <Button type="submit">Add</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
