@@ -71,8 +71,27 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
+  async getAllMissions(): Promise<Mission[]> {
+    return await db.select().from(missions);
+  }
+
   async getMissionsByRegion(regionId: number): Promise<Mission[]> {
     return await db.select().from(missions).where(eq(missions.regionId, regionId));
+  }
+
+  async createMission(mission: { name: string; regionId: number }): Promise<Mission> {
+    const [newMission] = await db.insert(missions).values(mission).returning();
+    return newMission;
+  }
+
+  async updateMission(id: number, data: Partial<Mission>): Promise<Mission | undefined> {
+    const [updatedMission] = await db.update(missions).set(data).where(eq(missions.id, id)).returning();
+    return updatedMission;
+  }
+
+  async deleteMission(id: number): Promise<boolean> {
+    await db.delete(missions).where(eq(missions.id, id));
+    return true;
   }
 
   async getStakesByMission(missionId: number): Promise<Stake[]> {

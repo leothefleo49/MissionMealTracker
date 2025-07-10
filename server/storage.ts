@@ -26,7 +26,13 @@ export interface IStorage {
   createRegion(region: { name: string }): Promise<Region>;
   updateRegion(id: number, data: Partial<Region>): Promise<Region | undefined>;
   deleteRegion(id: number): Promise<boolean>;
+
+  getAllMissions(): Promise<Mission[]>;
   getMissionsByRegion(regionId: number): Promise<Mission[]>;
+  createMission(mission: { name: string; regionId: number }): Promise<Mission>;
+  updateMission(id: number, data: Partial<Mission>): Promise<Mission | undefined>;
+  deleteMission(id: number): Promise<boolean>;
+
   getStakesByMission(missionId: number): Promise<Stake[]>;
   getCongregationsByStake(stakeId: number): Promise<Congregation[]>;
 

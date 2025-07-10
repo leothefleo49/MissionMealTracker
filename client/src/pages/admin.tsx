@@ -3,10 +3,12 @@ import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Building, Users, Calendar, Settings, LogOut } from "lucide-react";
+import { Building, Users, Calendar, Settings, LogOut, Globe, Map } from "lucide-react";
 import { CongregationSelector } from "@/components/congregation-selector";
 import MissionaryList from "@/components/missionary-list";
 import { CongregationManagement } from "@/components/congregation-management";
+import { RegionManagement } from "@/components/region-management";
+import { MissionManagement } from "@/components/mission-management";
 import { MessageStatsComponent } from "@/components/message-stats";
 import { TestMessageForm } from "@/components/test-message-form";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -45,10 +47,20 @@ export default function Admin() {
     { id: "missionaries", label: "Missionaries", icon: Users },
     { id: "meals", label: "Meals", icon: Calendar },
     { id: "congregations", label: "Congregations", icon: Building },
+    { id: "missions", label: "Missions", icon: Map, roles: ['ultra', 'region'] },
+    { id: "regions", label: "Regions", icon: Globe, roles: ['ultra'] },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
   const renderContent = () => {
+    if (activeTab === "regions" && user.role === 'ultra') {
+      return <RegionManagement />;
+    }
+
+    if (activeTab === "missions" && ['ultra', 'region'].includes(user.role)) {
+      return <MissionManagement />;
+    }
+
     if (activeTab === "congregations" && ['ultra', 'region', 'mission', 'stake'].includes(user.role)) {
       return <CongregationManagement />;
     }
@@ -156,8 +168,11 @@ export default function Admin() {
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex flex-wrap gap-1 sm:gap-2 py-2 overflow-x-auto">
             {tabs.map((tab) => {
-              const isDisabled = tab.id !== 'congregations' && !selectedCongregation;
-              if (user.role === 'ward' && tab.id === 'congregations') {
+              if (tab.roles && !tab.roles.includes(user.role)) {
+                return null;
+              }
+              const isDisabled = (tab.id !== 'congregations' && tab.id !== 'regions' && tab.id !== 'missions') && !selectedCongregation;
+              if (user.role === 'ward' && (tab.id === 'congregations' || tab.id === 'regions' || tab.id === 'missions')) {
                 return null;
               }
               return (

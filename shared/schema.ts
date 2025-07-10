@@ -28,6 +28,12 @@ export const missions = pgTable("missions", {
   regionId: integer("region_id").references(() => regions.id, { onDelete: "cascade" }),
 });
 
+export const insertMissionSchema = createInsertSchema(missions).pick({
+  name: true,
+  regionId: true,
+});
+
+
 export const missionsRelations = relations(missions, ({ one, many }) => ({
   region: one(regions, { fields: [missions.regionId], references: [regions.id] }),
   stakes: many(stakes),

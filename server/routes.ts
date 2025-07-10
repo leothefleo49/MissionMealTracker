@@ -11,6 +11,7 @@ import {
   insertCongregationSchema,
   insertUserCongregationSchema,
   insertRegionSchema,
+  insertMissionSchema,
   type InsertUser
 } from "@shared/schema";
 import { ZodError } from "zod";
@@ -51,6 +52,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated() || !['ultra', 'region', 'mission', 'stake'].includes(req.user.role)) {
       return res.status(403).json({ message: 'Access denied: SuperAdmin privileges required' });
     }
+    next();
   };
 
   const requireUltraAdmin = (req: Request, res: Response, next: NextFunction) => {
@@ -239,6 +241,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err) {
       console.error('Error deleting region:', err);
       res.status(500).json({ message: 'Failed to delete region' });
+    }
+  });
+
+  // Missions API Routes
+  app.get('/api/missions', requireAdmin, async (req, res) => {
+    try {
+      const missions = await storage.getAllMissions();
+      res.json(missions);
+    } catch (err) {
+      console.error('Error fetching missions:', err);
+      res.status(500).json({ message: 'Failed to fetch missions' });
+    }
+  });
+
+  app.post('/api/missions', requireUltraAdmin, async (req, res) => {
+    try {
+      const missionData = insertMissionSchema.parse(req.body);
+      const mission = await storage.createMission(missionData);
+      res.status(201).json(mission);
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+
+  app.patch('/api/missions/:id', requireUltraAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const missionId = parseInt(id, 10);
+      if (isNaN(missionId)) {
+        return res.status(400).json({ message: 'Invalid mission ID' });
+      }
+      const missionData = insertMissionSchema.partial().parse(req.body);
+      const updatedMission = await storage.updateMission(missionId, missionData);
+      if (updatedMission) {
+        res.json(updatedMission);
+      } else {
+        res.status(404).json({ message: 'Mission not found' });
+      }
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+
+  app.delete('/api/missions/:id', requireUltraAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const missionId = parseInt(id, 10);
+      if (isNaN(missionId)) {
+        return res.status(400).json({ message: 'Invalid mission ID' });
+      }
+      const success = await storage.deleteMission(missionId);
+      if (success) {
+        res.status(204).end();
+      } else {
+        res.status(404).json({ message: 'Mission not found' });
+      }
+    } catch (err) {
+      console.error('Error deleting mission:', err);
+      res.status(500).json({ message: 'Failed to delete mission' });
     }
   });
 
@@ -861,7 +922,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (err: any) {
       console.error('Error verifying email:', err);
-      res.status(400).json({ message: err.message || 'Verification failed' });
+      res.status(400).json({ message: 'Verification failed' });
     }
   });
 
