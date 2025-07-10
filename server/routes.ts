@@ -8,7 +8,7 @@ import {
   updateMealSchema,
   checkMealAvailabilitySchema,
   insertMissionarySchema,
-  insertCongregationSchema, // Make sure insertCongregationSchema is imported
+  insertCongregationSchema,
   insertUserCongregationSchema,
   insertRegionSchema,
   insertMissionSchema,
@@ -42,52 +42,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Middleware to check if user is an admin (any level)
   const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-    console.log(`[AUTH-CHECK] Path: ${req.path}`); // Log route being accessed
-    console.log(`[AUTH-CHECK] isAuthenticated: ${req.isAuthenticated()}`); // Log isAuthenticated status
-    if (req.user) {
-      console.log(`[AUTH-CHECK] User ID: ${req.user.id}, Username: ${req.user.username}, Role: ${req.user.role}`); // Log user data
-    } else {
-      console.log(`[AUTH-CHECK] req.user is undefined or null.`); // Log if user object is missing
-    }
-
-    if (!req.isAuthenticated() || !req.user || !['ultra', 'region', 'mission', 'stake', 'ward'].includes(req.user.role)) {
-      console.log("[AUTH-CHECK] Access denied by requireAdmin."); // Log denial
+    if (!req.isAuthenticated() || !['ultra', 'region', 'mission', 'stake', 'ward'].includes(req.user.role)) {
       return res.status(403).json({ message: 'Access denied: Admin privileges required' });
     }
-    console.log("[AUTH-CHECK] Access granted by requireAdmin."); // Log grant
     next();
   };
 
   // Middleware to check if user is superadmin (ultra, region, mission, stake)
   const requireSuperAdmin = (req: Request, res: Response, next: NextFunction) => {
-    console.log(`[AUTH-CHECK] Path: ${req.path}`); // Log route being accessed
-    console.log(`[AUTH-CHECK] isAuthenticated: ${req.isAuthenticated()}`); // Log isAuthenticated status
-    if (req.user) {
-      console.log(`[AUTH-CHECK] User ID: ${req.user.id}, Username: ${req.user.username}, Role: ${req.user.role}`); // Log user data
-    } else {
-      console.log(`[AUTH-CHECK] req.user is undefined or null.`); // Log if user object is missing
+    console.log("requireSuperAdmin: Checking user authentication and role for POST /api/admin/congregations.");
+    if (!req.isAuthenticated()) {
+      console.log("requireSuperAdmin: User is NOT authenticated.");
+      return res.status(401).json({ message: 'Not authenticated' });
     }
-    if (!req.isAuthenticated() || !req.user || !['ultra', 'region', 'mission', 'stake'].includes(req.user.role)) {
-      console.log("[AUTH-CHECK] Access denied by requireSuperAdmin."); // Log denial
+    console.log(`requireSuperAdmin: User IS authenticated. User ID: ${req.user.id}, User Role: ${req.user.role}`);
+    if (!['ultra', 'region', 'mission', 'stake'].includes(req.user.role)) {
+      console.log(`requireSuperAdmin: Access DENIED. User role '${req.user.role}' does not have SuperAdmin privileges.`);
       return res.status(403).json({ message: 'Access denied: SuperAdmin privileges required' });
     }
-    console.log("[AUTH-CHECK] Access granted by requireSuperAdmin."); // Log grant
+    console.log("requireSuperAdmin: Access GRANTED for SuperAdmin role.");
     next();
   };
 
   const requireUltraAdmin = (req: Request, res: Response, next: NextFunction) => {
-    console.log(`[AUTH-CHECK] Path: ${req.path}`); // Log route being accessed
-    console.log(`[AUTH-CHECK] isAuthenticated: ${req.isAuthenticated()}`); // Log isAuthenticated status
-    if (req.user) {
-      console.log(`[AUTH-CHECK] User ID: ${req.user.id}, Username: ${req.user.username}, Role: ${req.user.role}`); // Log user data
-    } else {
-      console.log(`[AUTH-CHECK] req.user is undefined or null.`); // Log if user object is missing
-    }
-    if (!req.isAuthenticated() || !req.user || req.user.role !== 'ultra') {
-      console.log("[AUTH-CHECK] Access denied by requireUltraAdmin."); // Log denial
+    if (!req.isAuthenticated() || req.user.role !== 'ultra') {
       return res.status(403).json({ message: 'Access denied: Ultra Admin privileges required' });
     }
-    console.log("[AUTH-CHECK] Access granted by requireUltraAdmin."); // Log grant
     next();
   };
 
@@ -1831,7 +1811,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       try {
         if (testMissionary.preferredNotification === 'messenger' && testMissionary.messengerAccount) {
-          // For messenger notifications
           console.log(`[MESSENGER CONSENT REQUEST] Sending to ${testMissionary.messengerAccount}: ${consentMessage}`);
           success = true;
         } else {
