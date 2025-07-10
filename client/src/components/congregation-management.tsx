@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -37,17 +37,18 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "./ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { PlusCircle, ChevronLeft, Building, Map, Globe, Trash2, Pencil } from "lucide-react";
+import { PlusCircle, ChevronLeft, Building, Map, Globe, Trash2, Pencil, Search } from "lucide-react";
+
+type HierarchyType = 'region' | 'mission' | 'stake' | 'congregation';
 
 type HierarchyItem = {
   id: number;
   name: string;
-  type: 'region' | 'mission' | 'stake' | 'congregation';
-  children?: HierarchyItem[];
-  parent?: HierarchyItem;
+  type: HierarchyType;
   regionId?: number;
   missionId?: number;
   stakeId?: number;
+  parent?: HierarchyItem;
 };
 
 const formSchema = z.object({
@@ -61,118 +62,157 @@ export function CongregationManagement() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const [navigationPath, setNavigationPath] = useState<HierarchyItem[]>([]);
-  const currentItem = navigationPath.length > 0 ? navigationPath[navigationPath.length - 1] : null;
+  const [view, setView] = useState<HierarchyType>('regions');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [addDialogEntityType, setAddDialogEntityType] = useState<HierarchyType>('region');
+  const [selectedParent, setSelectedParent] = useState<HierarchyItem | null>(null);
 
-  const { data: hierarchyData, isLoading } = useQuery<HierarchyItem[]>({
-    queryKey: ['hierarchy', user?.role, user?.id],
+  const { data: hierarchyData, isLoading } = useQuery<{
+    regions: HierarchyItem[],
+    missions: HierarchyItem[],
+    stakes: HierarchyItem[],
+    congregations: HierarchyItem[],
+  }>({
+    queryKey: ['hierarchy-all', user?.id],
     queryFn: async () => {
-      // This will be a new endpoint that fetches the relevant hierarchy based on user role
-      // For now, we'll mock the data fetching logic on the client-side
-      if (user?.role === 'ultra') {
-        const regionsRes = await apiRequest("GET", "/api/regions");
-        const regions = await regionsRes.json();
-        return regions.map((r: any) => ({ ...r, type: 'region' }));
-      }
-      // Add logic for other roles here
-      return [];
+      const [regionsRes, missionsRes, stakesRes, congregationsRes] = await Promise.all([
+        apiRequest("GET", "/api/regions"),
+        apiRequest("GET", "/api/missions"),
+        apiRequest("GET", "/api/stakes"),
+        apiRequest("GET", "/api/admin/congregations"),
+      ]);
+      return {
+        regions: (await regionsRes.json()).map((r: any) => ({ ...r, type: 'region' })),
+        missions: (await missionsRes.json()).map((m: any) => ({ ...m, type: 'mission' })),
+        stakes: (await stakesRes.json()).map((s: any) => ({ ...s, type: 'stake' })),
+        congregations: (await congregationsRes.json()).map((c: any) => ({ ...c, type: 'congregation' })),
+      };
     },
     enabled: !!user,
   });
 
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const filteredData = useMemo(() => {
+    if (!hierarchyData) return [];
+    return hierarchyData[view].filter(item =>
+      item.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [hierarchyData, view, searchQuery]);
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<FormValues>();
+
+  const addMutation = useMutation({
+    mutationFn: (data: { entityType: HierarchyType; values: FormValues }) => {
+      let url = `/api/${data.entityType}s`;
+      let payload: any = { name: data.values.name };
+      if (data.entityType === 'mission' && data.values.parentId) payload.regionId = data.values.parentId;
+      if (data.entityType === 'stake' && data.values.parentId) payload.missionId = data.values.parentId;
+      if (data.entityType === 'congregation' && data.values.parentId) payload.stakeId = data.values.parentId;
+
+      return apiRequest("POST", url, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hierarchy-all'] });
+      toast({ title: "Success", description: "Item created successfully." });
+      setIsAddDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
   });
 
-  const getEntityType = () => {
-    if (!currentItem) {
-      if (user?.role === 'ultra') return 'region';
-      if (user?.role === 'region') return 'mission';
-      if (user?.role === 'mission') return 'stake';
-      if (user?.role === 'stake') return 'congregation';
-    }
-    switch (currentItem.type) {
-      case 'region': return 'mission';
-      case 'mission': return 'stake';
-      case 'stake': return 'congregation';
-      default: return null;
-    }
+  const handleAddSubmit = (values: FormValues) => {
+    addMutation.mutate({ entityType: addDialogEntityType, values });
   };
 
-  const handleAddItem = (data: FormValues) => {
-    const entityType = getEntityType();
-    // Logic to call the correct API endpoint based on entityType
-    toast({ title: `${entityType} added`, description: `The new ${entityType} has been created.` });
-    setIsAddDialogOpen(false);
-  };
+  const openAddDialog = (type: HierarchyType) => {
+    setAddDialogEntityType(type);
+    setIsAddDialogOpen(true);
+  }
 
-  const handleNavigate = (item: HierarchyItem) => {
-    setNavigationPath([...navigationPath, item]);
-  };
-
-  const handleBack = () => {
-    setNavigationPath(navigationPath.slice(0, -1));
-  };
-
-  const renderList = () => {
-    const itemsToRender = currentItem ? currentItem.children : hierarchyData;
-
-    if (isLoading) return <p>Loading...</p>
-
-    return itemsToRender?.map(item => (
-      <Card key={item.id} className="cursor-pointer hover:bg-muted/50" onClick={() => handleNavigate(item)}>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            {item.type === 'region' && <Globe className="mr-2"/>}
-            {item.type === 'mission' && <Map className="mr-2"/>}
-            {item.type === 'stake' && <Building className="mr-2"/>}
-            {item.name}
-          </CardTitle>
-          <CardDescription>
-            {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
-          </CardDescription>
-        </CardHeader>
-      </Card>
+  const renderButtons = () => {
+    const buttons = [];
+    if (user?.role === 'ultra') buttons.push({ label: 'Regions', type: 'region' });
+    if (['ultra', 'region'].includes(user?.role || '')) buttons.push({ label: 'Missions', type: 'mission' });
+    if (['ultra', 'region', 'mission'].includes(user?.role || '')) buttons.push({ label: 'Stakes', type: 'stake' });
+    buttons.push({ label: 'Congregations', type: 'congregation' });
+    return buttons.map(b => (
+      <Button key={b.type} variant={view === b.type ? 'default' : 'outline'} onClick={() => setView(b.type as HierarchyType)}>
+        {b.label}
+      </Button>
     ));
+  };
+
+  const getParentSelector = () => {
+    let parentType: HierarchyType | null = null;
+    let parents: HierarchyItem[] = [];
+    switch(addDialogEntityType) {
+      case 'mission':
+        parentType = 'region';
+        parents = hierarchyData?.regions || [];
+        break;
+      case 'stake':
+        parentType = 'mission';
+        parents = hierarchyData?.missions || [];
+        break;
+      case 'congregation':
+        parentType = 'stake';
+        parents = hierarchyData?.stakes || [];
+        break;
+    }
+
+    if (!parentType) return null;
+
+    return (
+      <FormField
+        control={form.control}
+        name="parentId"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{parentType.charAt(0).toUpperCase() + parentType.slice(1)}</FormLabel>
+            <Select onValueChange={(value) => field.onChange(Number(value))}>
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue placeholder={`Select a ${parentType}`} />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectItem value="null">None</SelectItem>
+                {parents.map((parent) => (
+                  <SelectItem key={parent.id} value={String(parent.id)}>{parent.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    );
   };
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-xl font-semibold">Hierarchy Management</h2>
-          <div className="flex items-center text-sm text-muted-foreground">
-            {navigationPath.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={handleBack}><ChevronLeft className="h-4 w-4 mr-1"/> Back</Button>
-            )}
-            <span>{currentItem ? currentItem.name : "Top Level"}</span>
-          </div>
-        </div>
+        <h2 className="text-xl font-semibold">Hierarchy Management</h2>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button><PlusCircle className="mr-2 h-4 w-4" /> Add New</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add New {getEntityType()}</DialogTitle>
+              <DialogTitle>Add New {addDialogEntityType}</DialogTitle>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleAddItem)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
+              <form onSubmit={form.handleSubmit(handleAddSubmit)} className="space-y-4">
+                <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter name" {...field} />
-                      </FormControl>
+                      <FormControl><Input placeholder="Enter name" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                {getParentSelector()}
                 <DialogFooter>
                   <Button type="submit">Add</Button>
                 </DialogFooter>
@@ -181,8 +221,32 @@ export function CongregationManagement() {
           </DialogContent>
         </Dialog>
       </div>
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {renderButtons()}
+      </div>
+      <div className="relative mb-4">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Search..."
+          className="w-full pl-8"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
       <div className="space-y-4">
-        {renderList()}
+        {filteredData.map(item => (
+          <Card key={`${item.type}-${item.id}`}>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                {item.type === 'region' && <Globe className="mr-2"/>}
+                {item.type === 'mission' && <Map className="mr-2"/>}
+                {item.type === 'stake' && <Building className="mr-2"/>}
+                {item.name}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        ))}
       </div>
     </div>
   );

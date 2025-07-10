@@ -12,6 +12,7 @@ import {
   insertUserCongregationSchema,
   insertRegionSchema,
   insertMissionSchema,
+  insertStakeSchema,
   type InsertUser
 } from "@shared/schema";
 import { ZodError } from "zod";
@@ -255,7 +256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/missions', requireUltraAdmin, async (req, res) => {
+  app.post('/api/missions', requireSuperAdmin, async (req, res) => {
     try {
       const missionData = insertMissionSchema.parse(req.body);
       const mission = await storage.createMission(missionData);
@@ -265,7 +266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/missions/:id', requireUltraAdmin, async (req, res) => {
+  app.patch('/api/missions/:id', requireSuperAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const missionId = parseInt(id, 10);
@@ -284,7 +285,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/missions/:id', requireUltraAdmin, async (req, res) => {
+  app.delete('/api/missions/:id', requireSuperAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const missionId = parseInt(id, 10);
@@ -300,6 +301,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err) {
       console.error('Error deleting mission:', err);
       res.status(500).json({ message: 'Failed to delete mission' });
+    }
+  });
+
+  // Stakes API Routes
+  app.get('/api/stakes', requireAdmin, async (req, res) => {
+    try {
+      const stakes = await storage.getAllStakes();
+      res.json(stakes);
+    } catch (err) {
+      console.error('Error fetching stakes:', err);
+      res.status(500).json({ message: 'Failed to fetch stakes' });
+    }
+  });
+
+  app.post('/api/stakes', requireSuperAdmin, async (req, res) => {
+    try {
+      const stakeData = insertStakeSchema.parse(req.body);
+      const stake = await storage.createStake(stakeData);
+      res.status(201).json(stake);
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+
+  app.patch('/api/stakes/:id', requireSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const stakeId = parseInt(id, 10);
+      if (isNaN(stakeId)) {
+        return res.status(400).json({ message: 'Invalid stake ID' });
+      }
+      const stakeData = insertStakeSchema.partial().parse(req.body);
+      const updatedStake = await storage.updateStake(stakeId, stakeData);
+      if (updatedStake) {
+        res.json(updatedStake);
+      } else {
+        res.status(404).json({ message: 'Stake not found' });
+      }
+    } catch (err) {
+      handleZodError(err, res);
+    }
+  });
+
+  app.delete('/api/stakes/:id', requireSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const stakeId = parseInt(id, 10);
+      if (isNaN(stakeId)) {
+        return res.status(400).json({ message: 'Invalid stake ID' });
+      }
+      const success = await storage.deleteStake(stakeId);
+      if (success) {
+        res.status(204).end();
+      } else {
+        res.status(404).json({ message: 'Stake not found' });
+      }
+    } catch (err) {
+      console.error('Error deleting stake:', err);
+      res.status(500).json({ message: 'Failed to delete stake' });
     }
   });
 

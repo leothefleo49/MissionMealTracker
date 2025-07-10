@@ -25,7 +25,7 @@ export const regionsRelations = relations(regions, ({ many }) => ({
 export const missions = pgTable("missions", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  regionId: integer("region_id").references(() => regions.id, { onDelete: "cascade" }),
+  regionId: integer("region_id").references(() => regions.id, { onDelete: "set null" }),
 });
 
 export const insertMissionSchema = createInsertSchema(missions, {
@@ -34,6 +34,7 @@ export const insertMissionSchema = createInsertSchema(missions, {
   name: true,
   regionId: true,
 });
+
 
 export const missionsRelations = relations(missions, ({ one, many }) => ({
   region: one(regions, { fields: [missions.regionId], references: [regions.id] }),
@@ -45,7 +46,7 @@ export const missionsRelations = relations(missions, ({ one, many }) => ({
 export const stakes = pgTable("stakes", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  missionId: integer("mission_id").references(() => missions.id, { onDelete: "cascade" }),
+  missionId: integer("mission_id").references(() => missions.id, { onDelete: "set null" }),
 });
 
 export const insertStakeSchema = createInsertSchema(stakes, {
@@ -67,7 +68,7 @@ export const congregations = pgTable("congregations", {
   name: text("name").notNull(),
   accessCode: text("access_code").notNull().unique(),
   description: text("description"),
-  stakeId: integer("stake_id").references(() => stakes.id, { onDelete: "cascade" }),
+  stakeId: integer("stake_id").references(() => stakes.id, { onDelete: "set null" }),
   allowCombinedBookings: boolean("allow_combined_bookings").default(false),
   maxBookingsPerPeriod: integer("max_bookings_per_period").default(1),
   bookingPeriodDays: integer("booking_period_days").default(30),

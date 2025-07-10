@@ -10,7 +10,7 @@ import {
   stakes, type Stake
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql, or, isNull } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from './db';
@@ -79,7 +79,7 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(missions).where(eq(missions.regionId, regionId));
   }
 
-  async createMission(mission: { name: string; regionId: number }): Promise<Mission> {
+  async createMission(mission: { name: string; regionId?: number }): Promise<Mission> {
     const [newMission] = await db.insert(missions).values(mission).returning();
     return newMission;
   }
@@ -94,8 +94,27 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
+  async getAllStakes(): Promise<Stake[]> {
+    return await db.select().from(stakes);
+  }
+
   async getStakesByMission(missionId: number): Promise<Stake[]> {
     return await db.select().from(stakes).where(eq(stakes.missionId, missionId));
+  }
+
+  async createStake(stake: { name: string; missionId?: number }): Promise<Stake> {
+    const [newStake] = await db.insert(stakes).values(stake).returning();
+    return newStake;
+  }
+
+  async updateStake(id: number, data: Partial<Stake>): Promise<Stake | undefined> {
+    const [updatedStake] = await db.update(stakes).set(data).where(eq(stakes.id, id)).returning();
+    return updatedStake;
+  }
+
+  async deleteStake(id: number): Promise<boolean> {
+    await db.delete(stakes).where(eq(stakes.id, id));
+    return true;
   }
 
   async getCongregationsByStake(stakeId: number): Promise<Congregation[]> {
