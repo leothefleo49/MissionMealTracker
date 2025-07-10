@@ -28,11 +28,12 @@ export const missions = pgTable("missions", {
   regionId: integer("region_id").references(() => regions.id, { onDelete: "cascade" }),
 });
 
-export const insertMissionSchema = createInsertSchema(missions).pick({
+export const insertMissionSchema = createInsertSchema(missions, {
+  regionId: z.number().optional(),
+}).pick({
   name: true,
   regionId: true,
 });
-
 
 export const missionsRelations = relations(missions, ({ one, many }) => ({
   region: one(regions, { fields: [missions.regionId], references: [regions.id] }),
@@ -45,6 +46,13 @@ export const stakes = pgTable("stakes", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   missionId: integer("mission_id").references(() => missions.id, { onDelete: "cascade" }),
+});
+
+export const insertStakeSchema = createInsertSchema(stakes, {
+    missionId: z.number().optional(),
+}).pick({
+    name: true,
+    missionId: true,
 });
 
 export const stakesRelations = relations(stakes, ({ one, many }) => ({
@@ -74,7 +82,9 @@ export const congregationsRelations = relations(congregations, ({ one, many }) =
   userAccess: many(userCongregations),
 }));
 
-export const insertCongregationSchema = createInsertSchema(congregations).pick({
+export const insertCongregationSchema = createInsertSchema(congregations, {
+    stakeId: z.number().optional(),
+}).pick({
   name: true,
   accessCode: true,
   stakeId: true,
