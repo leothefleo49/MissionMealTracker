@@ -3,13 +3,20 @@ import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Building, Users, Calendar, Settings, LogOut } from "lucide-react";
+import { Building, Users, Calendar, Settings, LogOut, LucideIcon } from "lucide-react";
 import { CongregationManagement } from "@/components/congregation-management";
 import MissionaryList from "@/components/missionary-list";
 import { MessageStatsComponent } from "@/components/message-stats";
 import { TestMessageForm } from "@/components/test-message-form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MealManagement } from "@/components/meal-management";
+
+type Tab = {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  roles?: string[];
+}
 
 export default function Admin() {
   const { user, logoutMutation, isLoading: isAuthLoading, userCongregations } = useAuth();
@@ -18,7 +25,6 @@ export default function Admin() {
   const [activeTab, setActiveTab] = useState(user?.role === 'ward' ? "missionaries" : "hierarchy");
 
   useEffect(() => {
-    // If the user is a ward admin, we can pre-select their congregation
     if (user?.role === 'ward' && userCongregations && userCongregations.length > 0) {
       setSelectedCongregation(userCongregations[0]);
     }
@@ -49,8 +55,8 @@ export default function Admin() {
     );
   }
 
-  const tabs = [
-    { id: "hierarchy", label: "Hierarchy", icon: Building, roles: ['ultra', 'region', 'mission', 'stake'] },
+  const tabs: Tab[] = [
+    { id: "hierarchy", label: "Wards Management", icon: Building, roles: ['ultra', 'region', 'mission', 'stake'] },
     { id: "missionaries", label: "Missionaries", icon: Users },
     { id: "meals", label: "Meals", icon: Calendar },
     { id: "settings", label: "Settings", icon: Settings },
@@ -102,8 +108,8 @@ export default function Admin() {
             <Card className="mt-6">
                 <CardContent className="pt-6 text-center">
                     <Building className="mx-auto h-12 w-12 text-gray-300" />
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No Congregation Selected</h3>
-                    <p className="mt-1 text-sm text-gray-500">Please select a congregation from the hierarchy to view its details.</p>
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No Ward Selected</h3>
+                    <p className="mt-1 text-sm text-gray-500">Please select a ward from the hierarchy to view its details.</p>
                 </CardContent>
             </Card>
         )
