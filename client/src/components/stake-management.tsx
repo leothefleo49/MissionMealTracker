@@ -5,7 +5,7 @@ import { hc } from 'hono/client';
 import type { AppType } from '../../../server/routes';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
-import { PlusCircle, Pencil, Trash, Building, MapPin } from 'lucide-react';
+import { PlusCircle, Pencil, Trash, Building, MapPin } from 'lucide-react'; // Added MapPin for display, Building for general hierarchy icon if needed
 import { Badge } from './ui/badge';
 import {
     Dialog,
@@ -54,13 +54,13 @@ import { apiRequest, queryClient } from '@/lib/queryClient';
 
 const client = hc<AppType>('/');
 
-type Stake = {
+type Stake = { // Using Stake type for fetched data
     id: number;
     name: string;
     missionId?: number | null;
     description?: string;
-    mission?: { id: number; name: string }; // Include mission detail for display
-    wards: { id: number; name: string }[] | null; // Keep wards
+    mission?: { id: number; name: string }; // Include mission detail for display as returned by backend
+    wards: { id: number; name: string }[] | null;
 };
 
 // Define the zod schema for new stake creation
@@ -118,20 +118,19 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
         staleTime: 5 * 60 * 1000, // 5 minutes
     });
 
-    const fetchStakes = async (): Promise<Stake[]> => {
-        // Updated URL to include showUnassignedOnly query parameter
-        let url = '/api/stakes';
-        if (showUnassignedOnly) {
-            url += '?unassignedOnly=true';
-        }
-        const res = await client.api.stakes.$get({ query: { unassignedOnly: showUnassignedOnly ? 'true' : 'false' } });
+    const fetchStakes = async (): Promise<Stake[]> => { // Changed return type to Stake[]
+        // Updated URL to include showUnassignedOnly query parameter for hono client
+        const res = await client.api.stakes.$get({ 
+            query: { unassignedOnly: showUnassignedOnly ? 'true' : 'false' } 
+        });
         if (!res.ok) {
-            throw new Error('Failed to fetch stakes');
+            const errorData = await res.json(); // Parse error response
+            throw new Error(errorData.message || 'Failed to fetch stakes');
         }
         return res.json();
     }
 
-    const { data: stakes, isLoading, isError, error, refetch } = useQuery({
+    const { data: stakes, isLoading, isError, error, refetch } = useQuery<Stake[], Error>({ // Specify type parameters
         queryKey: ['stakes', showUnassignedOnly], // Include filter in query key
         queryFn: fetchStakes,
     });
@@ -232,6 +231,21 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
         setIsEditDialogOpen(true);
     };
 
+    if (isLoading || isLoadingMissions) {
+        return (
+            <div className="py-4">
+                <p className="text-center text-muted-foreground">Loading stakes...</p>
+            </div>
+        );
+    }
+
+    if (isError) {
+        return (
+            <div className="py-4 text-destructive">
+                <p>Error loading stakes: {error.message}. Please try again.</p>
+            </div>
+        );
+    }
 
     return (
         <Card>
@@ -330,81 +344,86 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
                 </div>
             </CardHeader>
             <CardContent>
-                {isLoading && <p className="text-center text-muted-foreground">Loading stakes...</p>}
-                {isError && <p className="text-destructive">Error: {error.message}</p>}
-                <div className="space-y-4">
-                    {stakes?.map(stake => (
-                        <Card key={stake.id}>
-                            <CardHeader>
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <CardTitle className="text-lg">{stake.name}</CardTitle>
-                                        <CardDescription>
-                                            {stake.wards?.length || 0} wards
-                                        </CardDescription>
+                {stakes && stakes.length > 0 ? (
+                    <div className="space-y-4">
+                        {stakes.map(stake => (
+                            <Card key={stake.id}>
+                                <CardHeader className="pb-2">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <CardTitle className="text-lg">{stake.name}</CardTitle>
+                                            <CardDescription>
+                                                {stake.description || 'No description provided'}
+                                            </CardDescription>
+                                        </div>
+                                        {stake.mission && ( // Display mission if assigned
+                                            <Badge variant="outline" className="flex items-center gap-1">
+                                                <MapPin className="h-3 w-3" /> {stake.mission.name}
+                                            </Badge>
+                                        )}
+                                        {!stake.mission && ( // Display 'Unassigned' if not assigned
+                                            <Badge variant="secondary" className="flex items-center gap-1 bg-yellow-100 text-yellow-800">
+                                                Unassigned
+                                            </Badge>
+                                        )}
                                     </div>
-                                    {stake.mission && (
-                                        <Badge variant="outline" className="flex items-center gap-1">
-                                            <Building className="h-3 w-3" /> {stake.mission.name}
-                                        </Badge>
-                                    )}
-                                    {!stake.mission && (
-                                        <Badge variant="secondary" className="flex items-center gap-1 bg-yellow-100 text-yellow-800">
-                                            Unassigned
-                                        </Badge>
-                                    )}
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex flex-wrap gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handleEditStake(stake)}
-                                    >
-                                        <Pencil className="h-4 w-4 mr-2" />
-                                        Edit
-                                    </Button>
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="destructive" size="sm">
-                                                <Trash className="h-4 w-4 mr-2" />
-                                                Delete
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    This action cannot be undone. This will permanently delete the
-                                                    <span className="font-bold text-gray-900 mx-1">{stake.name}</span> stake and any associated data (wards, missionaries).
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDeleteStake(stake.id)}>
+                                </CardHeader>
+                                <CardContent>
+                                    <p className="text-sm text-muted-foreground mb-2">{stake.wards?.length || 0} wards</p>
+                                    <div className="flex flex-wrap gap-2 mb-4"> {/* Added flex container for buttons */}
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleEditStake(stake)}
+                                        >
+                                            <Pencil className="h-4 w-4 mr-2" />
+                                            Edit
+                                        </Button>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="destructive" size="sm">
+                                                    <Trash className="h-4 w-4 mr-2" />
                                                     Delete
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </div>
-                                {stake.wards && stake.wards.length > 0 ? (
-                                    <div className="mt-4">
-                                        <h4 className="text-sm font-medium mb-2">Wards in this Stake:</h4>
-                                        <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
-                                            {stake.wards.map(ward => (
-                                                <li key={ward.id}>{ward.name}</li>
-                                            ))}
-                                        </ul>
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        This action cannot be undone. This will permanently delete the
+                                                        <span className="font-bold text-gray-900 mx-1">{stake.name}</span> stake and any associated data (wards, missionaries).
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDeleteStake(stake.id)}>
+                                                        Delete
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
                                     </div>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground mt-4">No wards in this stake yet.</p>
-                                )}
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
+                                    {stake.wards && stake.wards.length > 0 ? (
+                                        <div className="mt-4">
+                                            <h4 className="text-sm font-medium mb-2">Wards in this Stake:</h4>
+                                            <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
+                                                {stake.wards.map(ward => (
+                                                    <li key={ward.id}>{ward.name}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground mt-4">No wards in this stake yet.</p>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-8 bg-slate-50 border rounded-md">
+                        <p className="text-gray-500">No stakes have been created yet. Create your first stake to get started.</p>
+                    </div>
+                )}
             </CardContent>
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                 <DialogContent className="max-w-md">
@@ -414,7 +433,6 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
                             Update the stake's information.
                         </DialogDescription>
                     </DialogHeader>
-
                     {currentStake && (
                         <Form {...editForm}>
                             <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
@@ -431,7 +449,6 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
                                         </FormItem>
                                     )}
                                 />
-
                                 <FormField
                                     control={editForm.control}
                                     name="missionId"
@@ -463,7 +480,6 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
                                         </FormItem>
                                     )}
                                 />
-
                                 <FormField
                                     control={editForm.control}
                                     name="description"
@@ -481,7 +497,6 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
                                         </FormItem>
                                     )}
                                 />
-
                                 <DialogFooter className="mt-6">
                                     <Button
                                         type="submit"
