@@ -1,273 +1,228 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, Check, X, RefreshCw, MessageCircle, Plus } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
-import { EditMissionaryDialog } from "./edit-missionary-dialog";
-import { AddMissionaryDialog } from "./add-missionary-dialog";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+// client/src/components/missionary-list.tsx
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { PlusCircle, Edit, Trash2, Check, X, User, Search } from 'lucide-react'; // Import Search icon
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow
+} from './ui/table';
+import { Button } from './ui/button';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter
+} from './ui/dialog';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { toast } from './ui/use-toast';
+import { Loader2 } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from './ui/select';
+import { Switch } from './ui/switch';
+import { AddMissionaryDialog } from './add-missionary-dialog';
+import { EditMissionaryDialog } from './edit-missionary-dialog';
+import { EmailVerificationDialog } from './email-verification-dialog';
+
 
 interface Missionary {
   id: number;
   name: string;
-  type: "elders" | "sisters";
-  phoneNumber: string;
-  emailAddress?: string;
-  whatsappNumber?: string;
-  messengerAccount?: string;
-  preferredNotification: "email" | "whatsapp" | "text" | "messenger";
+  type: 'elders' | 'sisters';
+  congregationId: number;
+  phoneNumber?: string | null;
+  emailAddress?: string | null;
+  messengerAccount?: string | null;
   active: boolean;
-  notificationScheduleType: string;
-  hoursBefore?: number;
-  dayOfTime?: string;
-  weeklySummaryDay?: string;
-  weeklySummaryTime?: string;
-  dietaryRestrictions?: string;
-  congregationId: number;
-  // Consent management fields
-  consentStatus: "pending" | "granted" | "denied";
-  consentDate?: Date | null;
-  consentVerificationToken?: string | null;
-  consentVerificationSentAt?: Date | null;
+  preferredNotification: 'none' | 'email' | 'text' | 'messenger';
+  notificationScheduleType: 'before_meal' | 'day_of' | 'weekly_summary';
+  hoursBefore?: number | null;
+  dayOfTime?: string | null;
+  weeklySummaryDay?: string | null;
+  weeklySummaryTime?: string | null;
+  emailVerified: boolean;
+  consentStatus: 'pending' | 'granted' | 'denied';
 }
 
-interface MissionaryListProps {
-  congregationId: number;
+interface Congregation {
+  id: number;
+  name: string;
+  accessCode: string;
 }
 
-export default function MissionaryList({ congregationId }: MissionaryListProps) {
-  const [editingMissionary, setEditingMissionary] = useState<Missionary | null>(null);
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const { toast } = useToast();
+export function MissionaryList({ congregationId }: { congregationId?: number }) {
   const queryClient = useQueryClient();
+  const [isAddMissionaryDialogOpen, setIsAddMissionaryDialogOpen] = useState(false);
+  const [isEditMissionaryDialogOpen, setIsEditMissionaryDialogOpen] = useState(false);
+  const [isEmailVerificationDialogOpen, setIsEmailVerificationDialogOpen] = useState(false);
+  const [currentMissionary, setCurrentMissionary] = useState<Missionary | null>(null);
+  const [searchTerm, setSearchTerm] = useState(''); // New state for search term
+
+
+  const { data: missionaries, isLoading: isLoadingMissionaries, isError: isErrorMissionaries } = useQuery<Missionary[]>({
+    queryKey: ['missionaries', congregationId, searchTerm], // Add searchTerm to queryKey
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (searchTerm) {
+        params.append('searchTerm', searchTerm); // Pass searchTerm to the API
+      }
+
+      let url = '/api/missionaries';
+      if (congregationId) {
+        url = `/api/admin/missionaries/congregation/${congregationId}`;
+      }
+
+      const res = await fetch(`${url}?${params.toString()}`);
+      if (!res.ok) {
+        throw new Error('Failed to fetch missionaries');
+      }
+      return res.json();
+    },
+  });
 
   const deleteMissionaryMutation = useMutation({
-    mutationFn: async (missionaryId: number) => {
-      return apiRequest("DELETE", `/api/missionaries/${missionaryId}`);
-    },
-    onSuccess: () => {
-      toast({
-        title: "Missionary Deleted",
-        description: "The missionary has been removed from the system.",
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/missionaries/${id}`, {
+        method: 'DELETE',
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/missionaries/congregation", congregationId] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Delete Failed",
-        description: error.message || "Failed to delete missionary.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const { data: missionaries, isLoading, error } = useQuery({
-    queryKey: ["/api/admin/missionaries/congregation", congregationId],
-    queryFn: async () => {
-      const response = await fetch(`/api/admin/missionaries/congregation/${congregationId}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch missionaries");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Failed to delete missionary');
       }
-      const data = await response.json();
-      console.log("Missionaries data:", data); // Debug log
-      return data;
-    },
-    enabled: !!congregationId,
-  });
-
-  // Mutation to request consent from a missionary
-  const requestConsentMutation = useMutation({
-    mutationFn: async (missionaryId: number) => {
-      const response = await apiRequest(
-        "POST",
-        `/api/missionaries/${missionaryId}/request-consent`
-      );
-      return await response.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['missionaries'] });
       toast({
-        title: "Consent request sent",
-        description: "The missionary will receive a text message asking for consent.",
-        variant: "default",
+        title: 'Missionary Deleted',
+        description: 'The missionary has been successfully deleted.',
       });
-      // Refetch missionaries to update consent status
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/missionaries/congregation", congregationId] });
     },
     onError: (error) => {
-      console.error("Error sending consent request:", error);
       toast({
-        title: "Failed to send consent request",
-        description: "There was an error sending the consent request. Please try again.",
-        variant: "destructive",
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
       });
-    }
+    },
   });
 
-  // Helper function to format date
-  const formatDate = (dateString?: Date | null) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + " " + date.toLocaleTimeString();
+  const openEditDialog = (missionary: Missionary) => {
+    setCurrentMissionary(missionary);
+    setIsEditMissionaryDialogOpen(true);
   };
 
-  if (isLoading) {
+  const openEmailVerificationDialog = (missionary: Missionary) => {
+    setCurrentMissionary(missionary);
+    setIsEmailVerificationDialogOpen(true);
+  };
+
+  if (isLoadingMissionaries) {
     return (
-      <div className="space-y-4">
-        {[1, 2, 3].map((i) => (
-          <Card key={i} className="overflow-hidden">
-            <CardContent className="p-4">
-              <div className="flex justify-between items-center">
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-[250px]" />
-                  <Skeleton className="h-4 w-[200px]" />
-                </div>
-                <Skeleton className="h-6 w-14" />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="flex justify-center items-center h-48">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
 
-  if (error) {
+  if (isErrorMissionaries) {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-700">
-        Error loading missionaries. Please try again later.
-      </div>
+      <Alert variant="destructive">
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>Failed to load missionaries. Please try again later.</AlertDescription>
+      </Alert>
     );
   }
-
-  // Safe rendering function for the missionary list
-  const renderMissionaryList = () => {
-    try {
-      return (
-        <div className="space-y-4">
-          <div className="flex justify-end">
-             <Button onClick={() => setIsAddDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" /> Add Missionary
-             </Button>
-          </div>
-          {Array.isArray(missionaries) && missionaries.length > 0 ? missionaries.map((missionary: Missionary) => {
-            // Skip any invalid missionary data
-            if (!missionary || typeof missionary !== 'object') {
-              console.warn('Invalid missionary data:', missionary);
-              return null;
-            }
-
-            return (
-              <Card key={missionary.id || 'unknown'} className="overflow-hidden">
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-medium text-lg">{missionary.name || 'Unnamed Missionary'}</h3>
-                        <Badge variant={missionary.type === "elders" ? "default" : "secondary"}>
-                          {(missionary.type && typeof missionary.type === 'string')
-                            ? missionary.type.charAt(0).toUpperCase() + missionary.type.slice(1)
-                            : 'Unknown'}
-                        </Badge>
-                        {missionary.active !== false ? (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                            <Check className="h-3 w-3 mr-1" /> Active
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                            <X className="h-3 w-3 mr-1" /> Inactive
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        Email: {missionary.emailAddress || 'No email address'}
-                      </div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        Notifications: {
-                          (missionary.notificationScheduleType && typeof missionary.notificationScheduleType === 'string')
-                            ? missionary.notificationScheduleType.replace(/_/g, " ")
-                            : "default"
-                        }
-                        {missionary.notificationScheduleType === "before_meal" && missionary.hoursBefore &&
-                          ` (${missionary.hoursBefore} hours before)`}
-                      </div>
-
-                      {missionary.dietaryRestrictions && (
-                        <div className="text-xs text-amber-600 font-medium mt-1">
-                          Dietary: {missionary.dietaryRestrictions}
-                        </div>
-                      )}
-
-
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-2"
-                        onClick={() => setEditingMissionary(missionary)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-2 border-red-200 text-red-700 hover:bg-red-50"
-                        onClick={() => deleteMissionaryMutation.mutate(missionary.id)}
-                        disabled={deleteMissionaryMutation.isPending}
-                        title="Delete missionary"
-                      >
-                        {deleteMissionaryMutation.isPending ? (
-                          <RefreshCw className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          }) : (
-            <div className="p-6 bg-gray-50 border border-gray-200 rounded-md text-gray-500 text-center">
-              No missionaries found for this congregation. Add your first missionary.
-            </div>
-          )}
-        </div>
-      );
-    } catch (error) {
-      console.error('Error rendering missionary list:', error);
-      return (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-700">
-          An error occurred while displaying missionaries. Please try refreshing the page.
-        </div>
-      );
-    }
-  };
 
   return (
-    <>
-      {renderMissionaryList()}
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold flex items-center">
+          <User className="mr-2" /> Missionary List
+        </h2>
+        <div className="flex items-center space-x-4">
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search missionaries..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <AddMissionaryDialog
+            isOpen={isAddMissionaryDialogOpen}
+            onOpenChange={setIsAddMissionaryDialogOpen}
+            congregationId={congregationId}
+          />
+        </div>
+      </div>
 
-      {isAddDialogOpen && (
-        <AddMissionaryDialog
-          isOpen={isAddDialogOpen}
-          onClose={() => setIsAddDialogOpen(false)}
-          congregationId={congregationId}
-        />
-      )}
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Phone Number</TableHead>
+            <TableHead>Email Address</TableHead>
+            <TableHead>Active</TableHead>
+            <TableHead>Email Verified</TableHead>
+            <TableHead>Consent Status</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {missionaries?.map((missionary) => (
+            <TableRow key={missionary.id}>
+              <TableCell className="font-medium">{missionary.name}</TableCell>
+              <TableCell>{missionary.type}</TableCell>
+              <TableCell>{missionary.phoneNumber || 'N/A'}</TableCell>
+              <TableCell>
+                {missionary.emailAddress || 'N/A'}
+                {!missionary.emailVerified && missionary.emailAddress && (
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => openEmailVerificationDialog(missionary)}
+                    className="ml-2"
+                  >
+                    Verify
+                  </Button>
+                )}
+              </TableCell>
+              <TableCell>{missionary.active ? 'Yes' : 'No'}</TableCell>
+              <TableCell>{missionary.emailVerified ? 'Yes' : 'No'}</TableCell>
+              <TableCell>{missionary.consentStatus}</TableCell>
+              <TableCell className="text-right">
+                <Button variant="ghost" size="icon" onClick={() => openEditDialog(missionary)}>
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => deleteMissionaryMutation.mutate(missionary.id)}
+                  disabled={deleteMissionaryMutation.isPending}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
 
-      {editingMissionary && (
-        <EditMissionaryDialog
-          isOpen={!!editingMissionary}
-          onClose={() => setEditingMissionary(null)}
-          missionary={editingMissionary}
-        />
+      {currentMissionary && (
+        <>
+          <EditMissionaryDialog
+            isOpen={isEditMissionaryDialogOpen}
+            onOpenChange={setIsEditMissionaryDialogOpen}
+            missionary={currentMissionary}
+          />
+          <EmailVerificationDialog
+            isOpen={isEmailVerificationDialogOpen}
+            onOpenChange={setIsEmailVerificationDialogOpen}
+            missionary={currentMissionary}
+          />
+        </>
       )}
-    </>
+    </div>
   );
 }

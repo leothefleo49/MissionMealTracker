@@ -1,7 +1,7 @@
 // client/src/components/congregation-management.tsx
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { PlusCircle, Edit, Trash2, Check, X, Users, Filter } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Check, X, Users, Filter, Search } from 'lucide-react'; // Import Search icon
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from './ui/table';
@@ -47,11 +47,20 @@ export function CongregationManagement() {
   const [congregationActive, setCongregationActive] = useState(true);
   const [selectedStakeId, setSelectedStakeId] = useState<string | null>(null);
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(''); // New state for search term
+
 
   const { data: congregations, isLoading: isLoadingCongregations, isError: isErrorCongregations } = useQuery<Congregation[]>({
-    queryKey: ['congregations', showUnassignedOnly],
+    queryKey: ['congregations', showUnassignedOnly, searchTerm], // Add searchTerm to queryKey
     queryFn: async () => {
-      const res = await fetch(`/api/admin/congregations?unassignedOnly=${showUnassignedOnly}`);
+      const params = new URLSearchParams();
+      if (showUnassignedOnly) {
+        params.append('unassignedOnly', 'true');
+      }
+      if (searchTerm) {
+        params.append('searchTerm', searchTerm); // Pass searchTerm to the API
+      }
+      const res = await fetch(`/api/admin/congregations?${params.toString()}`);
       if (!res.ok) {
         throw new Error('Failed to fetch congregations');
       }
@@ -197,6 +206,16 @@ export function CongregationManagement() {
           <Users className="mr-2" /> Congregation Management
         </h2>
         <div className="flex items-center space-x-4">
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search congregations..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8"
+            />
+          </div>
           <div className="flex items-center space-x-2">
             <Switch
               id="unassigned-congregations-filter"
