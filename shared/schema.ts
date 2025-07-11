@@ -1,3 +1,4 @@
+// shared/schema.ts
 import { relations, sql } from "drizzle-orm";
 import { boolean, integer, pgTable, serial, text, timestamp, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -96,17 +97,17 @@ export const congregationsRelations = relations(congregations, ({ one, many }) =
 // CORRECTED SCHEMA FOR CONGREGATION INSERTION
 export const insertCongregationSchema = createInsertSchema(congregations, {
     description: z.string().optional(),
-    // accessCode is now REQUIRED, matching the DB's NOT NULL constraint
     accessCode: z.string().min(6, { message: "Access code must be at least 6 characters" }),
+    // stakeId is no longer omitted and is optional/nullable
+    stakeId: z.number().optional().nullable(),
     allowCombinedBookings: z.boolean().default(false),
     maxBookingsPerPeriod: z.number().min(0).default(0),
     maxBookingsPerAddress: z.number().min(0).default(1),
     maxBookingsPerPhone: z.number().min(0).default(1),
     bookingPeriodDays: z.number().min(1).default(30),
     active: z.boolean().default(true),
-}).omit({ // Omit fields not provided by client or auto-generated
+}).omit({ // Only omit auto-generated ID
   id: true,
-  stakeId: true, // Client does not provide stakeId for creation
 });
 
 
