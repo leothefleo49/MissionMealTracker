@@ -1,7 +1,7 @@
 // client/src/components/congregation-management.tsx
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { PlusCircle, Edit, Trash2, Check, X, Users, Filter, Search } from 'lucide-react'; // Import Search icon
+import { PlusCircle, Edit, Trash2, Check, X, Users, Filter, Search } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from './ui/table';
@@ -14,10 +14,8 @@ import { Label } from './ui/label';
 import { toast } from './ui/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from './ui/select';
 import { Switch } from './ui/switch';
+import { Combobox } from './ui/combobox'; // Import the new Combobox component
 
 
 interface Congregation {
@@ -47,18 +45,18 @@ export function CongregationManagement() {
   const [congregationActive, setCongregationActive] = useState(true);
   const [selectedStakeId, setSelectedStakeId] = useState<string | null>(null);
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
-  const [searchTerm, setSearchTerm] = useState(''); // New state for search term
+  const [searchTerm, setSearchTerm] = useState('');
 
 
   const { data: congregations, isLoading: isLoadingCongregations, isError: isErrorCongregations } = useQuery<Congregation[]>({
-    queryKey: ['congregations', showUnassignedOnly, searchTerm], // Add searchTerm to queryKey
+    queryKey: ['congregations', showUnassignedOnly, searchTerm],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (showUnassignedOnly) {
         params.append('unassignedOnly', 'true');
       }
       if (searchTerm) {
-        params.append('searchTerm', searchTerm); // Pass searchTerm to the API
+        params.append('searchTerm', searchTerm);
       }
       const res = await fetch(`/api/admin/congregations?${params.toString()}`);
       if (!res.ok) {
@@ -94,7 +92,7 @@ export function CongregationManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['congregations'] });
-      queryClient.invalidateQueries({ queryKey: ['stakes'] }); // Invalidate stakes to refresh hierarchy
+      queryClient.invalidateQueries({ queryKey: ['stakes'] });
       setIsAddDialogOpen(false);
       setCongregationName('');
       setCongregationAccessCode('');
@@ -129,7 +127,7 @@ export function CongregationManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['congregations'] });
-      queryClient.invalidateQueries({ queryKey: ['stakes'] }); // Invalidate stakes to refresh hierarchy
+      queryClient.invalidateQueries({ queryKey: ['stakes'] });
       setIsEditDialogOpen(false);
       setCurrentCongregation(null);
       setCongregationName('');
@@ -206,7 +204,6 @@ export function CongregationManagement() {
           <Users className="mr-2" /> Congregation Management
         </h2>
         <div className="flex items-center space-x-4">
-          {/* Search Input */}
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -272,22 +269,18 @@ export function CongregationManagement() {
                   <Label htmlFor="stake" className="text-right">
                     Stake
                   </Label>
-                  <Select
-                    onValueChange={(value) => setSelectedStakeId(value === 'null' ? null : value)}
-                    value={selectedStakeId || 'null'}
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select a Stake (Optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="null">Unassigned</SelectItem>
-                      {stakes?.map((stake) => (
-                        <SelectItem key={stake.id} value={String(stake.id)}>
-                          {stake.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    options={stakes || []}
+                    value={selectedStakeId}
+                    onValueChange={(value) => setSelectedStakeId(value)}
+                    placeholder="Select a Stake (Optional)"
+                    searchPlaceholder="Search stakes..."
+                    noResultsMessage="No stake found."
+                    displayKey="name"
+                    valueKey="id"
+                    className="col-span-3 w-full"
+                    contentClassName="max-h-[200px] overflow-y-auto" // Apply max height and scrolling
+                  />
                 </div>
               </div>
               <DialogFooter>
@@ -380,22 +373,18 @@ export function CongregationManagement() {
               <Label htmlFor="edit-stake" className="text-right">
                 Stake
               </Label>
-              <Select
-                onValueChange={(value) => setSelectedStakeId(value === 'null' ? null : value)}
-                value={selectedStakeId || 'null'}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select a Stake (Optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="null">Unassigned</SelectItem>
-                  {stakes?.map((stake) => (
-                    <SelectItem key={stake.id} value={String(stake.id)}>
-                      {stake.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                options={stakes || []}
+                value={selectedStakeId}
+                onValueChange={(value) => setSelectedStakeId(value)}
+                placeholder="Select a Stake (Optional)"
+                searchPlaceholder="Search stakes..."
+                noResultsMessage="No stake found."
+                displayKey="name"
+                valueKey="id"
+                className="col-span-3 w-full"
+                contentClassName="max-h-[200px] overflow-y-auto" // Apply max height and scrolling
+              />
             </div>
           </div>
           <DialogFooter>

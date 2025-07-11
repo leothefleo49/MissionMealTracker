@@ -1,7 +1,7 @@
 // client/src/components/mission-management.tsx
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { PlusCircle, Edit, Trash2, Check, X, Globe, Filter, Search } from 'lucide-react'; // Import Search icon
+import { PlusCircle, Edit, Trash2, Check, X, Globe, Filter, Search } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from './ui/table';
@@ -14,10 +14,8 @@ import { Label } from './ui/label';
 import { toast } from './ui/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from './ui/select';
 import { Switch } from './ui/switch';
+import { Combobox } from './ui/combobox'; // Import the new Combobox component
 
 
 interface Mission {
@@ -45,17 +43,17 @@ export function MissionManagement() {
   const [missionDescription, setMissionDescription] = useState('');
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
-  const [searchTerm, setSearchTerm] = useState(''); // New state for search term
+  const [searchTerm, setSearchTerm] = useState('');
 
   const { data: missions, isLoading: isLoadingMissions, isError: isErrorMissions } = useQuery<Mission[]>({
-    queryKey: ['missions', showUnassignedOnly, searchTerm], // Add searchTerm to queryKey
+    queryKey: ['missions', showUnassignedOnly, searchTerm],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (showUnassignedOnly) {
         params.append('unassignedOnly', 'true');
       }
       if (searchTerm) {
-        params.append('searchTerm', searchTerm); // Pass searchTerm to the API
+        params.append('searchTerm', searchTerm);
       }
       const res = await fetch(`/api/missions?${params.toString()}`);
       if (!res.ok) {
@@ -91,7 +89,7 @@ export function MissionManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['missions'] });
-      queryClient.invalidateQueries({ queryKey: ['regions'] }); // Invalidate regions to refresh hierarchy display
+      queryClient.invalidateQueries({ queryKey: ['regions'] });
       setIsAddDialogOpen(false);
       setMissionName('');
       setMissionDescription('');
@@ -125,7 +123,7 @@ export function MissionManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['missions'] });
-      queryClient.invalidateQueries({ queryKey: ['regions'] }); // Invalidate regions to refresh hierarchy display
+      queryClient.invalidateQueries({ queryKey: ['regions'] });
       setIsEditDialogOpen(false);
       setCurrentMission(null);
       setMissionName('');
@@ -157,7 +155,7 @@ export function MissionManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['missions'] });
-      queryClient.invalidateQueries({ queryKey: ['regions'] }); // Invalidate regions to refresh hierarchy display
+      queryClient.invalidateQueries({ queryKey: ['regions'] });
       toast({
         title: 'Mission Deleted',
         description: 'The mission has been successfully deleted.',
@@ -225,7 +223,6 @@ export function MissionManagement() {
           <Globe className="mr-2" /> Mission Management
         </h2>
         <div className="flex items-center space-x-4">
-          {/* Search Input */}
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -281,22 +278,18 @@ export function MissionManagement() {
                   <Label htmlFor="region" className="text-right">
                     Region
                   </Label>
-                  <Select
-                    onValueChange={(value) => setSelectedRegionId(value === 'null' ? null : value)}
-                    value={selectedRegionId || 'null'}
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select a Region (Optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="null">Unassigned</SelectItem>
-                      {regions?.map((region) => (
-                        <SelectItem key={region.id} value={String(region.id)}>
-                          {region.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    options={regions || []}
+                    value={selectedRegionId}
+                    onValueChange={(value) => setSelectedRegionId(value)}
+                    placeholder="Select a Region (Optional)"
+                    searchPlaceholder="Search regions..."
+                    noResultsMessage="No region found."
+                    displayKey="name"
+                    valueKey="id"
+                    className="col-span-3 w-full"
+                    contentClassName="max-h-[200px] overflow-y-auto" // Apply max height and scrolling
+                  />
                 </div>
               </div>
               <DialogFooter>
@@ -375,22 +368,18 @@ export function MissionManagement() {
               <Label htmlFor="edit-region" className="text-right">
                 Region
               </Label>
-              <Select
-                onValueChange={(value) => setSelectedRegionId(value === 'null' ? null : value)}
-                value={selectedRegionId || 'null'}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select a Region (Optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="null">Unassigned</SelectItem>
-                  {regions?.map((region) => (
-                    <SelectItem key={region.id} value={String(region.id)}>
-                      {region.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                options={regions || []}
+                value={selectedRegionId}
+                onValueChange={(value) => setSelectedRegionId(value)}
+                placeholder="Select a Region (Optional)"
+                searchPlaceholder="Search regions..."
+                noResultsMessage="No region found."
+                displayKey="name"
+                valueKey="id"
+                className="col-span-3 w-full"
+                contentClassName="max-h-[200px] overflow-y-auto" // Apply max height and scrolling
+              />
             </div>
           </div>
           <DialogFooter>

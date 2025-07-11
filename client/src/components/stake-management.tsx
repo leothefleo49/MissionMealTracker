@@ -1,7 +1,7 @@
 // client/src/components/stake-management.tsx
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { PlusCircle, Edit, Trash2, Check, X, Building, Filter, Search } from 'lucide-react'; // Import Search icon
+import { PlusCircle, Edit, Trash2, Check, X, Building, Filter, Search } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from './ui/table';
@@ -14,10 +14,8 @@ import { Label } from './ui/label';
 import { toast } from './ui/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from './ui/select';
 import { Switch } from './ui/switch';
+import { Combobox } from './ui/combobox'; // Import the new Combobox component
 
 
 interface Stake {
@@ -45,18 +43,18 @@ export function StakeManagement() {
   const [stakeDescription, setStakeDescription] = useState('');
   const [selectedMissionId, setSelectedMissionId] = useState<string | null>(null);
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
-  const [searchTerm, setSearchTerm] = useState(''); // New state for search term
+  const [searchTerm, setSearchTerm] = useState('');
 
 
   const { data: stakes, isLoading: isLoadingStakes, isError: isErrorStakes } = useQuery<Stake[]>({
-    queryKey: ['stakes', showUnassignedOnly, searchTerm], // Add searchTerm to queryKey
+    queryKey: ['stakes', showUnassignedOnly, searchTerm],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (showUnassignedOnly) {
         params.append('unassignedOnly', 'true');
       }
       if (searchTerm) {
-        params.append('searchTerm', searchTerm); // Pass searchTerm to the API
+        params.append('searchTerm', searchTerm);
       }
       const res = await fetch(`/api/stakes?${params.toString()}`);
       if (!res.ok) {
@@ -92,7 +90,7 @@ export function StakeManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stakes'] });
-      queryClient.invalidateQueries({ queryKey: ['missions'] }); // Invalidate missions to refresh hierarchy
+      queryClient.invalidateQueries({ queryKey: ['missions'] });
       setIsAddDialogOpen(false);
       setStakeName('');
       setStakeDescription('');
@@ -126,7 +124,7 @@ export function StakeManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stakes'] });
-      queryClient.invalidateQueries({ queryKey: ['missions'] }); // Invalidate missions to refresh hierarchy
+      queryClient.invalidateQueries({ queryKey: ['missions'] });
       setIsEditDialogOpen(false);
       setCurrentStake(null);
       setStakeName('');
@@ -158,7 +156,7 @@ export function StakeManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stakes'] });
-      queryClient.invalidateQueries({ queryKey: ['missions'] }); // Invalidate missions to refresh hierarchy
+      queryClient.invalidateQueries({ queryKey: ['missions'] });
       toast({
         title: 'Stake Deleted',
         description: 'The stake has been successfully deleted.',
@@ -226,7 +224,6 @@ export function StakeManagement() {
           <Building className="mr-2" /> Stake Management
         </h2>
         <div className="flex items-center space-x-4">
-          {/* Search Input */}
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -281,22 +278,18 @@ export function StakeManagement() {
                   <Label htmlFor="mission" className="text-right">
                     Mission
                   </Label>
-                  <Select
-                    onValueChange={(value) => setSelectedMissionId(value === 'null' ? null : value)}
-                    value={selectedMissionId || 'null'}
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select a Mission (Optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="null">Unassigned</SelectItem>
-                      {missions?.map((mission) => (
-                        <SelectItem key={mission.id} value={String(mission.id)}>
-                          {mission.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    options={missions || []}
+                    value={selectedMissionId}
+                    onValueChange={(value) => setSelectedMissionId(value)}
+                    placeholder="Select a Mission (Optional)"
+                    searchPlaceholder="Search missions..."
+                    noResultsMessage="No mission found."
+                    displayKey="name"
+                    valueKey="id"
+                    className="col-span-3 w-full"
+                    contentClassName="max-h-[200px] overflow-y-auto" // Apply max height and scrolling
+                  />
                 </div>
               </div>
               <DialogFooter>
@@ -375,22 +368,18 @@ export function StakeManagement() {
               <Label htmlFor="edit-mission" className="text-right">
                 Mission
               </Label>
-              <Select
-                onValueChange={(value) => setSelectedMissionId(value === 'null' ? null : value)}
-                value={selectedMissionId || 'null'}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select a Mission (Optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="null">Unassigned</SelectItem>
-                  {missions?.map((mission) => (
-                    <SelectItem key={mission.id} value={String(mission.id)}>
-                      {mission.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                options={missions || []}
+                value={selectedMissionId}
+                onValueChange={(value) => setSelectedMissionId(value)}
+                placeholder="Select a Mission (Optional)"
+                searchPlaceholder="Search missions..."
+                noResultsMessage="No mission found."
+                displayKey="name"
+                valueKey="id"
+                className="col-span-3 w-full"
+                contentClassName="max-h-[200px] overflow-y-auto" // Apply max height and scrolling
+              />
             </div>
           </div>
           <DialogFooter>
