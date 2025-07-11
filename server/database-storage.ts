@@ -11,7 +11,7 @@ import {
   stakes, type Stake
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc, sql, or, isNull } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql, or, isNull, ilike } from "drizzle-orm"; // Import ilike for case-insensitive search
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from './db';
@@ -72,8 +72,18 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
-  async getAllMissions(showUnassignedOnly?: boolean): Promise<Mission[]> {
-    let query = db
+  async getAllMissions(showUnassignedOnly?: boolean, searchTerm?: string): Promise<Mission[]> {
+    const conditions = [];
+
+    if (showUnassignedOnly) {
+      conditions.push(isNull(missions.regionId));
+    }
+
+    if (searchTerm) {
+      conditions.push(ilike(missions.name, `%${searchTerm}%`));
+    }
+
+    return await db
       .select({
         id: missions.id,
         name: missions.name,
@@ -85,14 +95,8 @@ export class DatabaseStorage implements IStorage {
         }
       })
       .from(missions)
-      .leftJoin(regions, eq(missions.regionId, regions.id));
-
-    if (showUnassignedOnly) {
-      // Filter for missions where regionId is null
-      query = query.where(isNull(missions.regionId));
-    }
-
-    return await query;
+      .leftJoin(regions, eq(missions.regionId, regions.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined);
   }
 
   async getMissionsByRegion(regionId: number): Promise<Mission[]> {
@@ -127,8 +131,18 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
-  async getAllStakes(showUnassignedOnly?: boolean): Promise<Stake[]> {
-    let query = db
+  async getAllStakes(showUnassignedOnly?: boolean, searchTerm?: string): Promise<Stake[]> {
+    const conditions = [];
+
+    if (showUnassignedOnly) {
+      conditions.push(isNull(stakes.missionId));
+    }
+
+    if (searchTerm) {
+      conditions.push(ilike(stakes.name, `%${searchTerm}%`));
+    }
+
+    return await db
       .select({
         id: stakes.id,
         name: stakes.name,
@@ -140,14 +154,8 @@ export class DatabaseStorage implements IStorage {
         }
       })
       .from(stakes)
-      .leftJoin(missions, eq(stakes.missionId, missions.id));
-
-    if (showUnassignedOnly) {
-      // Filter for stakes where missionId is null
-      query = query.where(isNull(stakes.missionId));
-    }
-
-    return await query;
+      .leftJoin(missions, eq(stakes.missionId, missions.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined);
   }
 
   async getStakesByMission(missionId: number): Promise<Stake[]> {
@@ -169,8 +177,18 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
-  async getAllCongregations(showUnassignedOnly?: boolean): Promise<Congregation[]> {
-    let query = db
+  async getAllCongregations(showUnassignedOnly?: boolean, searchTerm?: string): Promise<Congregation[]> {
+    const conditions = [];
+
+    if (showUnassignedOnly) {
+      conditions.push(isNull(congregations.stakeId));
+    }
+
+    if (searchTerm) {
+      conditions.push(ilike(congregations.name, `%${searchTerm}%`));
+    }
+
+    return await db
       .select({
         id: congregations.id,
         name: congregations.name,
@@ -183,14 +201,8 @@ export class DatabaseStorage implements IStorage {
         }
       })
       .from(congregations)
-      .leftJoin(stakes, eq(congregations.stakeId, stakes.id));
-
-    if (showUnassignedOnly) {
-      // Filter for congregations where stakeId is null
-      query = query.where(isNull(congregations.stakeId));
-    }
-
-    return await query;
+      .leftJoin(stakes, eq(congregations.stakeId, stakes.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined);
   }
 
   async getCongregationsByStake(stakeId: number): Promise<Congregation[]> {
@@ -227,23 +239,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   // User-Congregation relationship methods
-  async getUserCongregations(userId: number, showUnassignedOnly?: boolean): Promise<Congregation[]> {
+  async getUserCongregations(userId: number, showUnassignedOnly?: boolean, searchTerm?: string): Promise<Congregation[]> {
+    const conditions = [eq(userCongregations.userId, userId)];
+
+    if (showUnassignedOnly) {
+      conditions.push(isNull(congregations.stakeId));
+    }
+
+    if (searchTerm) {
+      conditions.push(ilike(congregations.name, `%${searchTerm}%`));
+    }
+
     const userCongregationResult = await db
       .select({
         congregation: congregations,
       })
       .from(userCongregations)
       .innerJoin(congregations, eq(userCongregations.congregationId, congregations.id))
-      .where(eq(userCongregations.userId, userId));
+      .where(and(...conditions));
 
-    let accessibleCongregations = userCongregationResult.map(result => result.congregation);
-
-    if (showUnassignedOnly) {
-        accessibleCongregations = accessibleCongregations.filter(c => c.stakeId === null || c.stakeId === undefined);
-    }
-    return accessibleCongregations;
-}
-
+    return userCongregationResult.map(result => result.congregation);
+  }
 
   async addUserToCongregation(userCongregation: InsertUserCongregation): Promise<UserCongregation> {
     const [newUserCongregation] = await db
@@ -306,15 +322,30 @@ export class DatabaseStorage implements IStorage {
       );
   }
 
-  async getMissionariesByCongregation(congregationId: number): Promise<Missionary[]> {
+  async getMissionariesByCongregation(congregationId: number, searchTerm?: string): Promise<Missionary[]> {
+    const conditions = [eq(missionaries.congregationId, congregationId)];
+
+    if (searchTerm) {
+      conditions.push(ilike(missionaries.name, `%${searchTerm}%`));
+    }
+
     return await db
       .select()
       .from(missionaries)
-      .where(eq(missionaries.congregationId, congregationId));
+      .where(and(...conditions));
   }
 
-  async getAllMissionaries(): Promise<Missionary[]> {
-    return await db.select().from(missionaries);
+  async getAllMissionaries(searchTerm?: string): Promise<Missionary[]> {
+    const conditions = [];
+
+    if (searchTerm) {
+      conditions.push(ilike(missionaries.name, `%${searchTerm}%`));
+    }
+
+    return await db
+      .select()
+      .from(missionaries)
+      .where(conditions.length > 0 ? and(...conditions) : undefined);
   }
 
   async createMissionary(insertMissionary: InsertMissionary): Promise<Missionary> {

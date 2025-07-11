@@ -256,8 +256,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Missions API Routes
   app.get('/api/missions', requireAdmin, async (req, res) => {
     try {
-      const showUnassignedOnly = req.query.unassignedOnly === 'true'; // Get query param
-      const missions = await storage.getAllMissions(showUnassignedOnly); // Pass to storage
+      const showUnassignedOnly = req.query.unassignedOnly === 'true';
+      const searchTerm = req.query.searchTerm as string | undefined; // Get new search term param
+      const missions = await storage.getAllMissions(showUnassignedOnly, searchTerm); // Pass to storage
       res.json(missions);
     } catch (err) {
       console.error('Error fetching missions:', err);
@@ -317,7 +318,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/stakes', requireAdmin, async (req, res) => {
     try {
       const showUnassignedOnly = req.query.unassignedOnly === 'true'; // Get query param
-      const stakes = await storage.getAllStakes(showUnassignedOnly); // Pass to storage
+      const searchTerm = req.query.searchTerm as string | undefined; // Get new search term param
+      const stakes = await storage.getAllStakes(showUnassignedOnly, searchTerm); // Pass to storage
       res.json(stakes);
     } catch (err) {
       console.error('Error fetching stakes:', err);
@@ -378,7 +380,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all missionaries
   app.get('/api/missionaries', async (req, res) => {
     try {
-      const missionaries = await storage.getAllMissionaries();
+      const searchTerm = req.query.searchTerm as string | undefined; // Get new search term param
+      const missionaries = await storage.getAllMissionaries(searchTerm); // Pass to storage
       res.json(missionaries);
     } catch (err) {
       console.error('Error fetching missionaries:', err);
@@ -423,6 +426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { congregationId } = req.params;
       const parsedCongregationId = parseInt(congregationId, 10);
+      const searchTerm = req.query.searchTerm as string | undefined; // Get new search term param
 
       if (isNaN(parsedCongregationId)) {
         return res.status(400).json({ message: 'Invalid congregation ID' });
@@ -438,7 +442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const missionaries = await storage.getMissionariesByCongregation(parsedCongregationId);
+      const missionaries = await storage.getMissionariesByCongregation(parsedCongregationId, searchTerm); // Pass to storage
       res.json(missionaries);
     } catch (err) {
       console.error('Error fetching missionaries by congregation:', err);
@@ -1247,13 +1251,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       let congregations;
       const showUnassignedOnly = req.query.unassignedOnly === 'true'; // Get query param
+      const searchTerm = req.query.searchTerm as string | undefined; // Get new search term param
+
 
       if (req.user!.role === 'ultra') {
-        congregations = await storage.getAllCongregations(showUnassignedOnly);
+        congregations = await storage.getAllCongregations(showUnassignedOnly, searchTerm);
       } else {
         // For non-ultra admins, only return congregations they have access to
         // If unassignedOnly is requested, filter from their accessible congregations
-        congregations = await storage.getUserCongregations(req.user!.id, showUnassignedOnly);
+        congregations = await storage.getUserCongregations(req.user!.id, showUnassignedOnly, searchTerm);
       }
 
       res.json(congregations);
@@ -1838,7 +1844,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (success) {
-        res.json({ message: "Consent request sent successfully" });
+        res.status(200).json({ message: "Consent request sent successfully" });
       } else {
         res.status(500).json({ message: "Failed to send consent request" });
       }
