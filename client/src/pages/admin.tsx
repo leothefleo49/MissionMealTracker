@@ -6,12 +6,13 @@ import {
   Building, Users, Calendar, Settings, LogOut, LucideIcon
 } from "lucide-react";
 import { CongregationManagement } from "@/components/congregation-management";
-import { MissionaryList } from "@/components/missionary-list"; // Corrected: Changed to named import
+import { MissionaryList } from "@/components/missionary-list";
 import { MessageStatsComponent } from "@/components/message-stats";
 import { TestMessageForm } from "@/components/test-message-form";
 import { StakeManagement } from "@/components/stake-management";
 import { MissionManagement } from "@/components/mission-management";
 import { RegionManagement } from "@/components/region-management";
+import { WardManagement } from "@/components/ward-management"; // Import WardManagement
 import {
   Tabs, TabsContent, TabsList, TabsTrigger
 } from "@/components/ui/tabs";
@@ -84,29 +85,29 @@ export function AdminPage() {
       value: "congregations",
       label: "Congregations",
       icon: Building,
-      component: <CongregationManagement />,
-      roles: ['ultra', 'region', 'mission', 'stake'], // Only SuperAdmins and UltraAdmin
+      component: <WardManagement />, // Changed to WardManagement
+      roles: ['ultra', 'region', 'mission', 'stake'],
     },
     {
       value: "stakes",
       label: "Stakes",
       icon: Building,
       component: <StakeManagement />,
-      roles: ['ultra', 'region', 'mission'], // Only Ultra and Region/Mission Admins
+      roles: ['ultra', 'region', 'mission'],
     },
     {
       value: "missions",
       label: "Missions",
       icon: Globe,
       component: <MissionManagement />,
-      roles: ['ultra', 'region'], // Only Ultra and Region Admins
+      roles: ['ultra', 'region'],
     },
     {
       value: "regions",
       label: "Regions",
       icon: Globe,
       component: <RegionManagement />,
-      roles: ['ultra'], // Only Ultra Admins
+      roles: ['ultra'],
     },
     {
       value: "messages",
@@ -118,11 +119,10 @@ export function AdminPage() {
     {
       value: "test-message",
       label: "Test Message",
-      icon: Settings, // Using Settings as a generic icon
+      icon: Settings,
       component: <TestMessageForm />,
       roles: ['ultra', 'region', 'mission', 'stake', 'ward'],
     },
-    // Future: Meal statistics, user management
   ].filter(tab => user && tab.roles.includes(user.role));
 
   if (!user) {
@@ -134,7 +134,6 @@ export function AdminPage() {
     );
   }
 
-  // Determine the default active tab based on roles
   React.useEffect(() => {
     if (user && adminTabs.length > 0 && !adminTabs.some(tab => tab.value === activeTab)) {
       setActiveTab(adminTabs[0].value);

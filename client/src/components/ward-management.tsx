@@ -1,11 +1,12 @@
+// client/src/components/ward-management.tsx
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "../hooks/use-toast";
 import { useState } from "react";
-import { Pencil, Plus, RefreshCw, Trash, Check, X, Copy, QrCode } from "lucide-react";
+import { Pencil, Plus, RefreshCw, Trash, Check, X, Copy, QrCode, Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -50,6 +51,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { WardUsers } from "./ward-users";
 import { QrCodeDialog } from "./qr-code-dialog";
+import { Label } from "@/components/ui/label";
 
 // Define the zod schema for new ward creation
 const createWardSchema = z.object({
@@ -85,6 +87,8 @@ export function WardManagement() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isQrCodeDialogOpen, setIsQrCodeDialogOpen] = useState(false);
   const [currentWard, setCurrentWard] = useState<Ward | null>(null);
+  const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Create form
   const createForm = useForm<CreateWardFormValues>({
@@ -117,18 +121,23 @@ export function WardManagement() {
 
   // Fetch wards
   const { data: wards, isLoading, error, refetch } = useQuery({
-    queryKey: ["/api/admin/congregations"], // Corrected queryKey
+    queryKey: ["/api/admin/congregations", showUnassignedOnly, searchTerm],
     queryFn: async () => {
-      const response = await fetch('/api/admin/congregations');
+      const params = new URLSearchParams();
+      if (showUnassignedOnly) {
+        params.append('unassignedOnly', 'true');
+      }
+      if (searchTerm) {
+        params.append('searchTerm', searchTerm);
+      }
+      const response = await fetch(`/api/admin/congregations?${params.toString()}`);
       if (!response.ok) {
-        // If response is not OK, throw an error to be caught by react-query
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to fetch wards');
       }
       return response.json();
     },
-    // Keep staleTime low to allow quick refetches if new ward is added
-    staleTime: 1000, 
+    staleTime: 1000,
   });
 
   // Generate a random access code
@@ -145,7 +154,6 @@ export function WardManagement() {
   // Create ward mutation
   const createWardMutation = useMutation({
     mutationFn: async (data: CreateWardFormValues) => {
-      // If no access code provided, generate one
       if (!data.accessCode) {
         data.accessCode = generateAccessCode();
       }
@@ -168,7 +176,7 @@ export function WardManagement() {
         bookingPeriodDays: 30,
         active: true,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/congregations"] }); // Corrected queryKey
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/congregations"] });
     },
     onError: (error: Error) => {
       toast({
@@ -192,7 +200,7 @@ export function WardManagement() {
       });
       setIsEditDialogOpen(false);
       editForm.reset();
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/congregations"] }); // Corrected queryKey
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/congregations"] });
     },
     onError: (error: Error) => {
       toast({
@@ -207,7 +215,6 @@ export function WardManagement() {
   const regenerateAccessCodeMutation = useMutation({
     mutationFn: async (wardId: number) => {
       const newAccessCode = generateAccessCode();
-      // The API endpoint should be PATCH /api/admin/wards/:id with { accessCode: newAccessCode }
       const res = await apiRequest("PATCH", `/api/admin/congregations/${wardId}`, { accessCode: newAccessCode });
       return await res.json();
     },
@@ -216,14 +223,12 @@ export function WardManagement() {
         title: "Access code regenerated",
         description: "A new access code has been generated for this ward.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/congregations"] }); // Corrected queryKey
-      // Update the currentWard state if it's the one being regenerated
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/congregations"] });
       if(currentWard && currentWard.id === data.id) {
         setCurrentWard({...currentWard, accessCode: data.accessCode});
       }
-      // Re-open QR code dialog if it was open for this ward
       if(isQrCodeDialogOpen && currentWard?.id === data.id) {
-        setIsQrCodeDialogOpen(true); // This will re-render with new QR code
+        setIsQrCodeDialogOpen(true);
       }
     },
     onError: (error: Error) => {
@@ -300,172 +305,191 @@ export function WardManagement() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">Ward Management</h2>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Ward
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Ward</DialogTitle>
-              <DialogDescription>
-                Add a new ward to the system. You will need to provide a name and optionally a custom access code.
-              </DialogDescription>
-            </DialogHeader>
+        <div className="flex items-center space-x-4">
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search wards..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="unassigned-wards-filter"
+              checked={showUnassignedOnly}
+              onCheckedChange={setShowUnassignedOnly}
+            />
+            <Label htmlFor="unassigned-wards-filter">Show Unassigned Only</Label>
+          </div>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Ward
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create New Ward</DialogTitle>
+                <DialogDescription>
+                  Add a new ward to the system. You will need to provide a name and optionally a custom access code.
+                </DialogDescription>
+              </DialogHeader>
 
-            <Form {...createForm}>
-              <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
-                <FormField
-                  control={createForm.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Ward Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. North Ward" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={createForm.control}
-                  name="accessCode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Access Code (Optional)</FormLabel>
-                      <div className="flex gap-2">
-                        <FormControl>
-                          <Input 
-                            placeholder="Leave blank to auto-generate" 
-                            {...field} 
-                            value={field.value || ''} 
-                          />
-                        </FormControl>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          onClick={() => createForm.setValue("accessCode", generateAccessCode())}
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <FormDescription>
-                        This code will be used in the URL for ward-specific pages
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={createForm.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description (Optional)</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Enter a brief description of this ward" 
-                          {...field} 
-                          value={field.value || ''} 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="bg-slate-50 p-4 rounded-md border">
-                  <h3 className="text-sm font-medium mb-3">Scheduling Settings</h3>
-
+              <Form {...createForm}>
+                <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
                   <FormField
                     control={createForm.control}
-                    name="allowCombinedBookings"
+                    name="name"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 mb-3">
+                      <FormItem>
+                        <FormLabel>Ward Name</FormLabel>
                         <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
+                          <Input placeholder="e.g. North Ward" {...field} />
                         </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>Allow Elders and Sisters to be booked together</FormLabel>
-                          <FormDescription>
-                            When enabled, both types of missionaries can be scheduled at the same address on the same day
-                          </FormDescription>
-                        </div>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
 
-                  <div className="grid md:grid-cols-2 gap-3 mt-3">
-                    <FormField
-                      control={createForm.control}
-                      name="maxBookingsPerPeriod"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Max bookings per period</FormLabel>
+                  <FormField
+                    control={createForm.control}
+                    name="accessCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Access Code (Optional)</FormLabel>
+                        <div className="flex gap-2">
                           <FormControl>
                             <Input
-                              type="number"
-                              min="0"
-                              placeholder="0"
+                              placeholder="Leave blank to auto-generate"
                               {...field}
-                              onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                              value={field.value || ''}
                             />
                           </FormControl>
-                          <FormDescription>
-                            0 for unlimited
-                          </FormDescription>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={createForm.control}
-                      name="bookingPeriodDays"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Booking period (days)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="1"
-                              placeholder="30"
-                              {...field}
-                              onChange={(e) => field.onChange(parseInt(e.target.value) || 30)}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Time period for booking limits
-                          </FormDescription>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-
-                <DialogFooter className="mt-6">
-                  <Button 
-                    type="submit" 
-                    disabled={createWardMutation.isPending}
-                  >
-                    {createWardMutation.isPending ? (
-                      <>Creating...</>
-                    ) : (
-                      <>Create Ward</>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => createForm.setValue("accessCode", generateAccessCode())}
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <FormDescription>
+                          This code will be used in the URL for ward-specific pages
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+                  />
+
+                  <FormField
+                    control={createForm.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description (Optional)</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Enter a brief description of this ward"
+                            {...field}
+                            value={field.value || ''}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="bg-slate-50 p-4 rounded-md border">
+                    <h3 className="text-sm font-medium mb-3">Scheduling Settings</h3>
+
+                    <FormField
+                      control={createForm.control}
+                      name="allowCombinedBookings"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 mb-3">
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Allow Elders and Sisters to be booked together</FormLabel>
+                            <FormDescription>
+                              When enabled, both types of missionaries can be scheduled at the same address on the same day
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid md:grid-cols-2 gap-3 mt-3">
+                      <FormField
+                        control={createForm.control}
+                        name="maxBookingsPerPeriod"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Max bookings per period</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                placeholder="0"
+                                {...field}
+                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              0 for unlimited
+                            </FormDescription>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={createForm.control}
+                        name="bookingPeriodDays"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Booking period (days)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="1"
+                                placeholder="30"
+                                {...field}
+                                onChange={(e) => field.onChange(parseInt(e.target.value) || 30)}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Time period for booking limits
+                            </FormDescription>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <DialogFooter className="mt-6">
+                    <Button
+                      type="submit"
+                      disabled={createWardMutation.isPending}
+                    >
+                      {createWardMutation.isPending ? (
+                        <>Creating...</>
+                      ) : (
+                        <>Create Ward</>
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Conditional rendering based on whether wards exist */}
@@ -497,10 +521,10 @@ export function WardManagement() {
                       <p className="text-sm font-medium mb-1">Access Code:</p>
                       <div className="flex items-center gap-2 max-w-full overflow-x-auto">
                         <code className="bg-slate-100 px-2 py-1 rounded text-sm truncate max-w-[180px] sm:max-w-full">{ward.accessCode}</code>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 w-8 p-0 flex-shrink-0" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 flex-shrink-0"
                           onClick={() => copyAccessCodeToClipboard(ward.accessCode)}
                         >
                           <Copy className="h-4 w-4" />
@@ -512,10 +536,10 @@ export function WardManagement() {
                         <code className="bg-slate-100 px-2 py-1 rounded text-sm truncate max-w-[180px] sm:max-w-full">
                           {window.location.origin}/ward/{ward.accessCode}
                         </code>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 w-8 p-0 flex-shrink-0" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 flex-shrink-0"
                           onClick={() => {
                             const url = `${window.location.origin}/ward/${ward.accessCode}`;
                             navigator.clipboard.writeText(url);
@@ -532,9 +556,9 @@ export function WardManagement() {
                     <div className="flex flex-wrap gap-2">
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                          <Button
+                            variant="outline"
+                            size="sm"
                             className="whitespace-nowrap"
                           >
                             <RefreshCw className="h-4 w-4 mr-2" />
@@ -556,17 +580,17 @@ export function WardManagement() {
                         </AlertDialogContent>
                       </AlertDialog>
 
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={() => handleShowQrCode(ward)}
                       >
                         <QrCode className="h-4 w-4 mr-2" />
                         Show QR
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleEditWard(ward)}
                       >
                         <Pencil className="h-4 w-4 mr-2" />
@@ -644,10 +668,10 @@ export function WardManagement() {
                     <FormItem>
                       <FormLabel>Description</FormLabel>
                       <FormControl>
-                        <Textarea 
-                          placeholder="Enter a brief description" 
-                          {...field} 
-                          value={field.value || ''} 
+                        <Textarea
+                          placeholder="Enter a brief description"
+                          {...field}
+                          value={field.value || ''}
                         />
                       </FormControl>
                       <FormMessage />
@@ -750,8 +774,8 @@ export function WardManagement() {
                 />
 
                 <DialogFooter className="mt-6">
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     disabled={editWardMutation.isPending}
                   >
                     {editWardMutation.isPending ? "Saving..." : "Save Changes"}
