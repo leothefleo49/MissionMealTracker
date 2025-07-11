@@ -387,7 +387,7 @@ var init_db = __esm({
 });
 
 // server/database-storage.ts
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq, and, gte, lte, isNull } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 var PostgresSessionStore, DatabaseStorage;
@@ -439,11 +439,35 @@ var init_database_storage = __esm({
         await db.delete(regions).where(eq(regions.id, id));
         return true;
       }
-      async getAllMissions() {
-        return await db.select().from(missions);
+      async getAllMissions(showUnassignedOnly) {
+        let query = db.select({
+          id: missions.id,
+          name: missions.name,
+          regionId: missions.regionId,
+          description: missions.description,
+          region: {
+            // Include region details
+            id: regions.id,
+            name: regions.name
+          }
+        }).from(missions).leftJoin(regions, eq(missions.regionId, regions.id));
+        if (showUnassignedOnly) {
+          query = query.where(isNull(missions.regionId));
+        }
+        return await query;
       }
       async getMissionsByRegion(regionId) {
-        return await db.select().from(missions).where(eq(missions.regionId, regionId));
+        return await db.select({
+          id: missions.id,
+          name: missions.name,
+          regionId: missions.regionId,
+          description: missions.description,
+          region: {
+            // Include region details
+            id: regions.id,
+            name: regions.name
+          }
+        }).from(missions).leftJoin(regions, eq(missions.regionId, regions.id)).where(eq(missions.regionId, regionId));
       }
       async createMission(mission) {
         const [newMission] = await db.insert(missions).values(mission).returning();
@@ -457,8 +481,22 @@ var init_database_storage = __esm({
         await db.delete(missions).where(eq(missions.id, id));
         return true;
       }
-      async getAllStakes() {
-        return await db.select().from(stakes);
+      async getAllStakes(showUnassignedOnly) {
+        let query = db.select({
+          id: stakes.id,
+          name: stakes.name,
+          missionId: stakes.missionId,
+          description: stakes.description,
+          mission: {
+            // Include mission details for display
+            id: missions.id,
+            name: missions.name
+          }
+        }).from(stakes).leftJoin(missions, eq(stakes.missionId, missions.id));
+        if (showUnassignedOnly) {
+          query = query.where(isNull(stakes.missionId));
+        }
+        return await query;
       }
       async getStakesByMission(missionId) {
         return await db.select().from(stakes).where(eq(stakes.missionId, missionId));
@@ -2197,7 +2235,8 @@ async function registerRoutes(app) {
   });
   app.get("/api/stakes", requireAdmin, async (req, res) => {
     try {
-      const stakes2 = await storage.getAllStakes();
+      const showUnassignedOnly = req.query.unassignedOnly === "true";
+      const stakes2 = await storage.getAllStakes(showUnassignedOnly);
       res.json(stakes2);
     } catch (err) {
       console.error("Error fetching stakes:", err);
@@ -2486,8 +2525,7 @@ async function registerRoutes(app) {
             const verificationCode = generateVerificationCode();
             await storage.updateMissionary(missionary.id, {
               consentVerificationToken: verificationCode,
-              consentVerificationSentAt: /* @__PURE__ */ new Date(),
-              consentStatus: "pending"
+              consentVerificationSentAt: /* @__PURE__ */ new Date()
             });
             const consentMessage = `This is the Ward Missionary Meal Scheduler. To receive meal notifications, reply with YES ${verificationCode}. Reply STOP at any time to opt out of messages. Msg & data rates may apply.`;
             if (notificationManager.smsService && notificationManager.smsService.twilioClient) {
@@ -3300,7 +3338,6 @@ async function registerRoutes(app) {
       try {
         if (testMissionary.preferredNotification === "messenger" && testMissionary.messengerAccount) {
           console.log(`[MESSENGER CONSENT REQUEST] Sending to ${testMissionary.messengerAccount}: ${consentMessage}`);
-          success = true;
         } else {
           if (notificationManager.smsService && notificationManager.smsService.twilioClient) {
             await notificationManager.smsService.twilioClient.messages.create({
