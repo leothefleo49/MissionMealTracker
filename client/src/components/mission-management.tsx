@@ -1,11 +1,11 @@
 // client/src/components/mission-management.tsx
-import React from 'react';
+import React, { useState } from 'react'; // Import useState
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { hc } from 'hono/client';
 import type { AppType } from '../../../server/routes';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
-import { PlusCircle, Pencil, Trash, Globe, MapPin } from 'lucide-react';
+import { PlusCircle, Pencil, Trash, Globe, MapPin, Search } from 'lucide-react'; // Import Search
 import { Badge } from './ui/badge';
 import {
     Dialog,
@@ -80,9 +80,10 @@ interface MissionManagementProps {
 
 export function MissionManagement({ showUnassignedOnly }: MissionManagementProps) {
     const { toast } = useToast();
-    const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
-    const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
-    const [currentMission, setCurrentMission] = React.useState<Mission | null>(null);
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+    const [currentMission, setCurrentMission] = useState<Mission | null>(null);
+    const [searchTerm, setSearchTerm] = useState(''); // New state for search term
 
     const createForm = useForm<CreateMissionFormValues>({
         resolver: zodResolver(createMissionSchema),
@@ -117,8 +118,15 @@ export function MissionManagement({ showUnassignedOnly }: MissionManagementProps
     });
 
     const fetchMissions = async (): Promise<Mission[]> => {
+        const params = new URLSearchParams();
+        if (showUnassignedOnly) {
+          params.append('unassignedOnly', 'true');
+        }
+        if (searchTerm) { // Add search term to parameters
+          params.append('searchTerm', searchTerm);
+        }
         const res = await client.api.missions.$get({
-            query: { unassignedOnly: showUnassignedOnly ? 'true' : 'false' }
+            query: { unassignedOnly: showUnassignedOnly ? 'true' : 'false', searchTerm: searchTerm || undefined } // Pass searchTerm to hono client
         });
         if (!res.ok) {
             const errorData = await res.json();
@@ -128,7 +136,7 @@ export function MissionManagement({ showUnassignedOnly }: MissionManagementProps
     }
 
     const { data: missions, isLoading, isError, error, refetch } = useQuery<Mission[], Error>({
-        queryKey: ['missions', showUnassignedOnly],
+        queryKey: ['missions', showUnassignedOnly, searchTerm], // Add searchTerm to query key
         queryFn: fetchMissions,
     });
 
@@ -249,86 +257,97 @@ export function MissionManagement({ showUnassignedOnly }: MissionManagementProps
                         <CardTitle>Mission Management</CardTitle>
                         <CardDescription>Create and manage missions within your region.</CardDescription>
                     </div>
-                    <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button>
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Add Mission
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-md">
-                            <DialogHeader>
-                                <DialogTitle>Create New Mission</DialogTitle>
-                                <DialogDescription>
-                                    Add a new mission to the system and assign it to a region.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <Form {...createForm}>
-                                <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
-                                    <FormField
-                                        control={createForm.control}
-                                        name="name"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Mission Name</FormLabel>
-                                                <FormControl>
-                                                    <Input placeholder="e.g. Europe Area" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={createForm.control}
-                                        name="regionId"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Region (Optional)</FormLabel>
-                                                <Combobox
-                                                    options={regions || []}
-                                                    value={field.value !== null && field.value !== undefined ? String(field.value) : "null"}
-                                                    onValueChange={(value) => field.onChange(value === "null" ? null : Number(value))}
-                                                    placeholder="Select a region"
-                                                    searchPlaceholder="Search regions..."
-                                                    noResultsMessage="No region found."
-                                                    displayKey="name"
-                                                    valueKey="id"
-                                                    className="w-full"
-                                                    contentClassName="max-h-[200px] overflow-y-auto" // Added max-height and overflow
-                                                />
-                                                <FormDescription>
-                                                    Assign this mission to a specific region.
-                                                </FormDescription>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={createForm.control}
-                                        name="description"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Description (Optional)</FormLabel>
-                                                <FormControl>
-                                                    <Textarea
-                                                        placeholder="Enter a brief description of this mission"
-                                                        {...field}
-                                                        value={field.value || ""}
+                    <div className="flex items-center space-x-4"> {/* Added a div for layout */}
+                        <div className="relative">
+                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                            placeholder="Search missions..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-8"
+                            />
+                        </div>
+                        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button>
+                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                    Add Mission
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-md">
+                                <DialogHeader>
+                                    <DialogTitle>Create New Mission</DialogTitle>
+                                    <DialogDescription>
+                                        Add a new mission to the system and assign it to a region.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <Form {...createForm}>
+                                    <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
+                                        <FormField
+                                            control={createForm.control}
+                                            name="name"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Mission Name</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="e.g. Europe Area" {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={createForm.control}
+                                            name="regionId"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Region (Optional)</FormLabel>
+                                                    <Combobox
+                                                        options={regions || []}
+                                                        value={field.value !== null && field.value !== undefined ? String(field.value) : "null"}
+                                                        onValueChange={(value) => field.onChange(value === "null" ? null : Number(value))}
+                                                        placeholder="Select a region"
+                                                        searchPlaceholder="Search regions..."
+                                                        noResultsMessage="No region found."
+                                                        displayKey="name"
+                                                        valueKey="id"
+                                                        className="w-full"
+                                                        contentClassName="max-h-[200px] overflow-y-auto" // Added max-height and overflow
                                                     />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <DialogFooter className="mt-6">
-                                        <Button type="submit" disabled={createMissionMutation.isPending}>
-                                            {createMissionMutation.isPending ? "Creating..." : "Create Mission"}
-                                        </Button>
-                                    </DialogFooter>
-                                </form>
-                            </Form>
-                        </DialogContent>
-                    </Dialog>
+                                                    <FormDescription>
+                                                        Assign this mission to a specific region.
+                                                    </FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={createForm.control}
+                                            name="description"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Description (Optional)</FormLabel>
+                                                    <FormControl>
+                                                        <Textarea
+                                                            placeholder="Enter a brief description of this mission"
+                                                            {...field}
+                                                            value={field.value || ""}
+                                                        />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <DialogFooter className="mt-6">
+                                            <Button type="submit" disabled={createMissionMutation.isPending}>
+                                                {createMissionMutation.isPending ? "Creating..." : "Create Mission"}
+                                            </Button>
+                                        </DialogFooter>
+                                    </form>
+                                </Form>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
                 </div>
             </CardHeader>
             <CardContent>
@@ -339,7 +358,7 @@ export function MissionManagement({ showUnassignedOnly }: MissionManagementProps
                                 <CardHeader className="pb-2">
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <CardTitle className="text-lg">{mission.name}</CardTitle>
+                                            <CardTitle className="lg:text-lg">{mission.name}</CardTitle> {/* Changed text size for better readability */}
                                             <CardDescription>
                                                 {mission.description || 'No description provided'}
                                             </CardDescription>

@@ -425,7 +425,12 @@ var init_database_storage = __esm({
       }
       // Congregation Hierarchy methods
       async getAllRegions() {
-        return await db.select().from(regions);
+        return await db.query.regions.findMany({
+          with: {
+            missions: true
+            // Eager-load all missions associated with each region
+          }
+        });
       }
       async createRegion(region) {
         const [newRegion] = await db.insert(regions).values(region).returning();
@@ -447,30 +452,25 @@ var init_database_storage = __esm({
         if (searchTerm) {
           conditions.push(ilike(missions.name, `%${searchTerm}%`));
         }
-        return await db.select({
-          id: missions.id,
-          name: missions.name,
-          regionId: missions.regionId,
-          description: missions.description,
-          region: {
+        return await db.query.missions.findMany({
+          where: conditions.length > 0 ? and(...conditions) : void 0,
+          with: {
+            region: true,
             // Include region details
-            id: regions.id,
-            name: regions.name
+            stakes: true
+            // Eager-load all stakes associated with each mission
           }
-        }).from(missions).leftJoin(regions, eq(missions.regionId, regions.id)).where(conditions.length > 0 ? and(...conditions) : void 0);
+        });
       }
       async getMissionsByRegion(regionId) {
-        return await db.select({
-          id: missions.id,
-          name: missions.name,
-          regionId: missions.regionId,
-          description: missions.description,
-          region: {
-            // Include region details
-            id: regions.id,
-            name: regions.name
+        return await db.query.missions.findMany({
+          where: eq(missions.regionId, regionId),
+          with: {
+            region: true,
+            stakes: true
+            // Eager-load associated stakes
           }
-        }).from(missions).leftJoin(regions, eq(missions.regionId, regions.id)).where(eq(missions.regionId, regionId));
+        });
       }
       async createMission(mission) {
         const [newMission] = await db.insert(missions).values(mission).returning();
@@ -492,20 +492,25 @@ var init_database_storage = __esm({
         if (searchTerm) {
           conditions.push(ilike(stakes.name, `%${searchTerm}%`));
         }
-        return await db.select({
-          id: stakes.id,
-          name: stakes.name,
-          missionId: stakes.missionId,
-          description: stakes.description,
-          mission: {
+        return await db.query.stakes.findMany({
+          where: conditions.length > 0 ? and(...conditions) : void 0,
+          with: {
+            mission: true,
             // Include mission details for display
-            id: missions.id,
-            name: missions.name
+            congregations: true
+            // Eager-load all congregations associated with each stake
           }
-        }).from(stakes).leftJoin(missions, eq(stakes.missionId, missions.id)).where(conditions.length > 0 ? and(...conditions) : void 0);
+        });
       }
       async getStakesByMission(missionId) {
-        return await db.select().from(stakes).where(eq(stakes.missionId, missionId));
+        return await db.query.stakes.findMany({
+          where: eq(stakes.missionId, missionId),
+          with: {
+            mission: true,
+            congregations: true
+            // Eager-load associated congregations
+          }
+        });
       }
       async createStake(stake) {
         const [newStake] = await db.insert(stakes).values(stake).returning();
@@ -527,21 +532,21 @@ var init_database_storage = __esm({
         if (searchTerm) {
           conditions.push(ilike(congregations.name, `%${searchTerm}%`));
         }
-        return await db.select({
-          id: congregations.id,
-          name: congregations.name,
-          accessCode: congregations.accessCode,
-          stakeId: congregations.stakeId,
-          active: congregations.active,
-          stake: {
+        return await db.query.congregations.findMany({
+          where: conditions.length > 0 ? and(...conditions) : void 0,
+          with: {
+            stake: true
             // Include stake details for display
-            id: stakes.id,
-            name: stakes.name
           }
-        }).from(congregations).leftJoin(stakes, eq(congregations.stakeId, stakes.id)).where(conditions.length > 0 ? and(...conditions) : void 0);
+        });
       }
       async getCongregationsByStake(stakeId) {
-        return await db.select().from(congregations).where(eq(congregations.stakeId, stakeId));
+        return await db.query.congregations.findMany({
+          where: eq(congregations.stakeId, stakeId),
+          with: {
+            stake: true
+          }
+        });
       }
       // Congregation methods
       async getCongregation(id) {
@@ -569,9 +574,18 @@ var init_database_storage = __esm({
         if (searchTerm) {
           conditions.push(ilike(congregations.name, `%${searchTerm}%`));
         }
-        const userCongregationResult = await db.select({
-          congregation: congregations
-        }).from(userCongregations).innerJoin(congregations, eq(userCongregations.congregationId, congregations.id)).where(and(...conditions));
+        const userCongregationResult = await db.query.userCongregations.findMany({
+          where: and(...conditions),
+          with: {
+            congregation: {
+              // Include the full congregation object
+              with: {
+                stake: true
+                // Also include stake details for the congregation
+              }
+            }
+          }
+        });
         return userCongregationResult.map((result) => result.congregation);
       }
       async addUserToCongregation(userCongregation) {
