@@ -53,8 +53,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Congregation Hierarchy methods
-  async getAllRegions(): Promise<Region[]> {
-    return await db.select().from(regions);
+  async getAllRegions(): Promise<(Region & { missions: Mission[] })[]> {
+    return await db.query.regions.findMany({
+      with: {
+        missions: true, // Eager-load all missions associated with each region
+      }
+    });
   }
 
   async createRegion(region: { name: string, description?: string }): Promise<Region> {
@@ -72,7 +76,7 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
-  async getAllMissions(showUnassignedOnly?: boolean, searchTerm?: string): Promise<Mission[]> {
+  async getAllMissions(showUnassignedOnly?: boolean, searchTerm?: string): Promise<(Mission & { region?: Region | null, stakes: Stake[] })[]> {
     const conditions = [];
 
     if (showUnassignedOnly) {
@@ -83,37 +87,24 @@ export class DatabaseStorage implements IStorage {
       conditions.push(ilike(missions.name, `%${searchTerm}%`));
     }
 
-    return await db
-      .select({
-        id: missions.id,
-        name: missions.name,
-        regionId: missions.regionId,
-        description: missions.description,
-        region: { // Include region details
-          id: regions.id,
-          name: regions.name
-        }
-      })
-      .from(missions)
-      .leftJoin(regions, eq(missions.regionId, regions.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined);
+    // Eager-load associated stakes for each mission
+    return await db.query.missions.findMany({
+      where: conditions.length > 0 ? and(...conditions) : undefined,
+      with: {
+        region: true, // Include region details
+        stakes: true, // Eager-load all stakes associated with each mission
+      }
+    });
   }
 
-  async getMissionsByRegion(regionId: number): Promise<Mission[]> {
-    return await db
-      .select({
-        id: missions.id,
-        name: missions.name,
-        regionId: missions.regionId,
-        description: missions.description,
-        region: { // Include region details
-          id: regions.id,
-          name: regions.name
-        }
-      })
-      .from(missions)
-      .leftJoin(regions, eq(missions.regionId, regions.id))
-      .where(eq(missions.regionId, regionId));
+  async getMissionsByRegion(regionId: number): Promise<(Mission & { region?: Region | null, stakes: Stake[] })[]> {
+    return await db.query.missions.findMany({
+      where: eq(missions.regionId, regionId),
+      with: {
+        region: true,
+        stakes: true, // Eager-load associated stakes
+      }
+    });
   }
 
   async createMission(mission: { name: string; regionId?: number | null, description?: string }): Promise<Mission> {
@@ -131,7 +122,7 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
-  async getAllStakes(showUnassignedOnly?: boolean, searchTerm?: string): Promise<Stake[]> {
+  async getAllStakes(showUnassignedOnly?: boolean, searchTerm?: string): Promise<(Stake & { mission?: Mission | null, congregations: Congregation[] })[]> {
     const conditions = [];
 
     if (showUnassignedOnly) {
@@ -142,24 +133,24 @@ export class DatabaseStorage implements IStorage {
       conditions.push(ilike(stakes.name, `%${searchTerm}%`));
     }
 
-    return await db
-      .select({
-        id: stakes.id,
-        name: stakes.name,
-        missionId: stakes.missionId,
-        description: stakes.description,
-        mission: { // Include mission details for display
-          id: missions.id,
-          name: missions.name
-        }
-      })
-      .from(stakes)
-      .leftJoin(missions, eq(stakes.missionId, missions.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined);
+    // Eager-load associated congregations for each stake
+    return await db.query.stakes.findMany({
+      where: conditions.length > 0 ? and(...conditions) : undefined,
+      with: {
+        mission: true, // Include mission details for display
+        congregations: true, // Eager-load all congregations associated with each stake
+      }
+    });
   }
 
-  async getStakesByMission(missionId: number): Promise<Stake[]> {
-    return await db.select().from(stakes).where(eq(stakes.missionId, missionId));
+  async getStakesByMission(missionId: number): Promise<(Stake & { mission?: Mission | null, congregations: Congregation[] })[]> {
+    return await db.query.stakes.findMany({
+      where: eq(stakes.missionId, missionId),
+      with: {
+        mission: true,
+        congregations: true, // Eager-load associated congregations
+      }
+    });
   }
 
   async createStake(stake: { name: string; missionId?: number | null, description?: string }): Promise<Stake> {
@@ -177,7 +168,7 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
-  async getAllCongregations(showUnassignedOnly?: boolean, searchTerm?: string): Promise<Congregation[]> {
+  async getAllCongregations(showUnassignedOnly?: boolean, searchTerm?: string): Promise<(Congregation & { stake?: Stake | null })[]> {
     const conditions = [];
 
     if (showUnassignedOnly) {
@@ -188,25 +179,21 @@ export class DatabaseStorage implements IStorage {
       conditions.push(ilike(congregations.name, `%${searchTerm}%`));
     }
 
-    return await db
-      .select({
-        id: congregations.id,
-        name: congregations.name,
-        accessCode: congregations.accessCode,
-        stakeId: congregations.stakeId,
-        active: congregations.active,
-        stake: { // Include stake details for display
-          id: stakes.id,
-          name: stakes.name
-        }
-      })
-      .from(congregations)
-      .leftJoin(stakes, eq(congregations.stakeId, stakes.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined);
+    return await db.query.congregations.findMany({
+      where: conditions.length > 0 ? and(...conditions) : undefined,
+      with: {
+        stake: true, // Include stake details for display
+      }
+    });
   }
 
-  async getCongregationsByStake(stakeId: number): Promise<Congregation[]> {
-    return await db.select().from(congregations).where(eq(congregations.stakeId, stakeId));
+  async getCongregationsByStake(stakeId: number): Promise<(Congregation & { stake?: Stake | null })[]> {
+    return await db.query.congregations.findMany({
+      where: eq(congregations.stakeId, stakeId),
+      with: {
+        stake: true,
+      }
+    });
   }
 
   // Congregation methods
@@ -218,10 +205,9 @@ export class DatabaseStorage implements IStorage {
   async getCongregationByAccessCode(accessCode: string): Promise<Congregation | undefined> {
     const [congregation] = await db.select().from(congregations).where(eq(congregations.accessCode, accessCode));
     return congregation || undefined;
-  }
 
 
-  async createCongregation(congregation: InsertCongregation): Promise<Congregation> {
+  }async createCongregation(congregation: InsertCongregation): Promise<Congregation> {
     const [newCongregation] = await db
       .insert(congregations)
       .values(congregation)
@@ -239,7 +225,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // User-Congregation relationship methods
-  async getUserCongregations(userId: number, showUnassignedOnly?: boolean, searchTerm?: string): Promise<Congregation[]> {
+  async getUserCongregations(userId: number, showUnassignedOnly?: boolean, searchTerm?: string): Promise<(Congregation & { stake?: Stake | null })[]> {
     const conditions = [eq(userCongregations.userId, userId)];
 
     if (showUnassignedOnly) {
@@ -250,13 +236,16 @@ export class DatabaseStorage implements IStorage {
       conditions.push(ilike(congregations.name, `%${searchTerm}%`));
     }
 
-    const userCongregationResult = await db
-      .select({
-        congregation: congregations,
-      })
-      .from(userCongregations)
-      .innerJoin(congregations, eq(userCongregations.congregationId, congregations.id))
-      .where(and(...conditions));
+    const userCongregationResult = await db.query.userCongregations.findMany({
+      where: and(...conditions),
+      with: {
+        congregation: { // Include the full congregation object
+          with: {
+            stake: true, // Also include stake details for the congregation
+          },
+        },
+      },
+    });
 
     return userCongregationResult.map(result => result.congregation);
   }

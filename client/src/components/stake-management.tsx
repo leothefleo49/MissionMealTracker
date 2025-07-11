@@ -62,7 +62,7 @@ type Stake = {
     missionId?: number | null;
     description?: string;
     mission?: { id: number; name: string };
-    wards: { id: number; name: string }[] | null;
+    congregations: { id: number; name: string }[] | null; // Updated to include congregations
 };
 
 const createStakeSchema = z.object({
@@ -145,7 +145,7 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
             setIsCreateDialogOpen(false);
             createForm.reset({ name: "", missionId: null, description: "" });
             queryClient.invalidateQueries({ queryKey: ["stakes"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/missions"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/missions"] }); // Invalidate missions query as stakes are now tied to missions
         },
         onError: (error: Error) => {
             toast({
@@ -169,7 +169,7 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
             setIsEditDialogOpen(false);
             editForm.reset();
             queryClient.invalidateQueries({ queryKey: ["stakes"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/missions"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/missions"] }); // Invalidate missions query as stakes are now tied to missions
         },
         onError: (error: Error) => {
             toast({
@@ -190,7 +190,7 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
                 description: "Stake has been successfully deleted.",
             });
             queryClient.invalidateQueries({ queryKey: ["stakes"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/missions"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/missions"] }); // Invalidate missions query
         },
         onError: (error: Error) => {
             toast({
@@ -294,7 +294,7 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
                                                     displayKey="name"
                                                     valueKey="id"
                                                     className="w-full"
-                                                    contentClassName="max-h-[200px] overflow-y-auto"
+                                                    contentClassName="max-h-[200px] overflow-y-auto" // Added max-height and overflow
                                                 />
                                                 <FormDescription>
                                                     Assign this stake to a specific mission.
@@ -357,7 +357,7 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
                                     </div>
                                 </CardHeader>
                                 <CardContent>
-                                    <p className="text-sm text-muted-foreground mb-2">{stake.wards?.length || 0} wards</p>
+                                    <p className="text-sm text-muted-foreground mb-2">{stake.congregations?.length || 0} wards</p>
                                     <div className="flex flex-wrap gap-2 mb-4">
                                         <Button
                                             variant="outline"
@@ -391,12 +391,12 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
                                             </AlertDialogContent>
                                         </AlertDialog>
                                     </div>
-                                    {stake.wards && stake.wards.length > 0 ? (
+                                    {stake.congregations && stake.congregations.length > 0 ? (
                                         <div className="mt-4">
                                             <h4 className="text-sm font-medium mb-2">Wards in this Stake:</h4>
                                             <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
-                                                {stake.wards.map(ward => (
-                                                    <li key={ward.id}>{ward.name}</li>
+                                                {stake.congregations.map(congregation => (
+                                                    <li key={congregation.id}>{congregation.name}</li>
                                                 ))}
                                             </ul>
                                         </div>
@@ -453,7 +453,7 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
                                                 displayKey="name"
                                                 valueKey="id"
                                                 className="w-full"
-                                                contentClassName="max-h-[200px] overflow-y-auto"
+                                                contentClassName="max-h-[200px] overflow-y-auto" // Added max-height and overflow
                                             />
                                             <FormDescription>
                                                 Assign this stake to a specific mission.

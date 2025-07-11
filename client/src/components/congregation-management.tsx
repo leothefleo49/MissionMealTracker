@@ -92,7 +92,7 @@ export function CongregationManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['congregations'] });
-      queryClient.invalidateQueries({ queryKey: ['stakes'] });
+      queryClient.invalidateQueries({ queryKey: ['stakes'] }); // Invalidate stakes query
       setIsAddDialogOpen(false);
       setCongregationName('');
       setCongregationAccessCode('');
@@ -127,7 +127,7 @@ export function CongregationManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['congregations'] });
-      queryClient.invalidateQueries({ queryKey: ['stakes'] });
+      queryClient.invalidateQueries({ queryKey: ['stakes'] }); // Invalidate stakes query
       setIsEditDialogOpen(false);
       setCurrentCongregation(null);
       setCongregationName('');
@@ -279,7 +279,7 @@ export function CongregationManagement() {
                     displayKey="name"
                     valueKey="id"
                     className="col-span-3 w-full"
-                    contentClassName="max-h-[200px] overflow-y-auto"
+                    contentClassName="max-h-[200px] overflow-y-auto" // Added max-height and overflow
                   />
                 </div>
               </div>
@@ -383,7 +383,7 @@ export function CongregationManagement() {
                 displayKey="name"
                 valueKey="id"
                 className="col-span-3 w-full"
-                contentClassName="max-h-[200px] overflow-y-auto"
+                contentClassName="max-h-[200px] overflow-y-auto" // Added max-height and overflow
               />
             </div>
           </div>
