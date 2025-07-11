@@ -169,6 +169,30 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
+  async getAllCongregations(showUnassignedOnly?: boolean): Promise<Congregation[]> {
+    let query = db
+      .select({
+        id: congregations.id,
+        name: congregations.name,
+        accessCode: congregations.accessCode,
+        stakeId: congregations.stakeId,
+        active: congregations.active,
+        stake: { // Include stake details for display
+          id: stakes.id,
+          name: stakes.name
+        }
+      })
+      .from(congregations)
+      .leftJoin(stakes, eq(congregations.stakeId, stakes.id));
+
+    if (showUnassignedOnly) {
+      // Filter for congregations where stakeId is null
+      query = query.where(isNull(congregations.stakeId));
+    }
+
+    return await query;
+  }
+
   async getCongregationsByStake(stakeId: number): Promise<Congregation[]> {
     return await db.select().from(congregations).where(eq(congregations.stakeId, stakeId));
   }
@@ -184,9 +208,6 @@ export class DatabaseStorage implements IStorage {
     return congregation || undefined;
   }
 
-  async getAllCongregations(): Promise<Congregation[]> {
-    return await db.select().from(congregations);
-  }
 
   async createCongregation(congregation: InsertCongregation): Promise<Congregation> {
     const [newCongregation] = await db
@@ -206,7 +227,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // User-Congregation relationship methods
-  async getUserCongregations(userId: number): Promise<Congregation[]> {
+  async getUserCongregations(userId: number, showUnassignedOnly?: boolean): Promise<Congregation[]> {
     const userCongregationResult = await db
       .select({
         congregation: congregations,
@@ -215,8 +236,14 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(congregations, eq(userCongregations.congregationId, congregations.id))
       .where(eq(userCongregations.userId, userId));
 
-    return userCongregationResult.map(result => result.congregation);
-  }
+    let accessibleCongregations = userCongregationResult.map(result => result.congregation);
+
+    if (showUnassignedOnly) {
+        accessibleCongregations = accessibleCongregations.filter(c => c.stakeId === null || c.stakeId === undefined);
+    }
+    return accessibleCongregations;
+}
+
 
   async addUserToCongregation(userCongregation: InsertUserCongregation): Promise<UserCongregation> {
     const [newUserCongregation] = await db
