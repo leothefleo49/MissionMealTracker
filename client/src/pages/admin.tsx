@@ -1,174 +1,209 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/use-auth";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Building, Users, Calendar, Settings, LogOut, LucideIcon } from "lucide-react";
+// client/src/pages/admin.tsx
+import React, { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  Building, Users, Calendar, Settings, LogOut, LucideIcon
+} from "lucide-react";
 import { CongregationManagement } from "@/components/congregation-management";
-import MissionaryList from "@/components/missionary-list";
+import { MissionaryList } from "@/components/missionary-list"; // Corrected: Changed to named import
 import { MessageStatsComponent } from "@/components/message-stats";
 import { TestMessageForm } from "@/components/test-message-form";
-import { Skeleton } from "@/components/ui/skeleton";
-import { MealManagement } from "@/components/meal-management";
+import { StakeManagement } from "@/components/stake-management";
+import { MissionManagement } from "@/components/mission-management";
+import { RegionManagement } from "@/components/region-management";
+import {
+  Tabs, TabsContent, TabsList, TabsTrigger
+} from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type Tab = {
-  id: string;
+
+interface TabItem {
+  value: string;
   label: string;
   icon: LucideIcon;
-  roles?: string[];
+  component: React.ReactNode;
+  roles: string[]; // Roles that can see this tab
 }
 
-export default function Admin() {
-  const { user, logoutMutation, isLoading: isAuthLoading, userCongregations } = useAuth();
-  const [selectedCongregation, setSelectedCongregation] = useState<{ id: number; name: string } | null>(null);
+export function AdminPage() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user, logout } = useAuth();
+  const [activeTab, setActiveTab] = useState("dashboard"); // Default to dashboard
 
-  const [activeTab, setActiveTab] = useState(user?.role === 'ward' ? "missionaries" : "hierarchy");
-
-  useEffect(() => {
-    if (user?.role === 'ward' && userCongregations && userCongregations.length > 0) {
-      setSelectedCongregation(userCongregations[0]);
-    }
-  }, [user, userCongregations]);
-
-  if (isAuthLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Skeleton className="h-64 w-full max-w-4xl" />
-      </div>
-    );
-  }
-
-  if (!user || !['ultra', 'region', 'mission', 'stake', 'ward'].includes(user.role)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Access Denied</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600">
-              You don't have permission to access the admin dashboard.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const tabs: Tab[] = [
-    { id: "hierarchy", label: "Wards Management", icon: Building, roles: ['ultra', 'region', 'mission', 'stake'] },
-    { id: "missionaries", label: "Missionaries", icon: Users },
-    { id: "meals", label: "Meals", icon: Calendar },
-    { id: "settings", label: "Settings", icon: Settings },
-  ];
-
-  const renderContent = () => {
-    if (activeTab === "hierarchy") {
-      return <CongregationManagement onSelectCongregation={setSelectedCongregation} />;
-    }
-
-    if (selectedCongregation) {
-      switch (activeTab) {
-        case "missionaries":
-          return <MissionaryList congregationId={selectedCongregation.id} />;
-        case "meals":
-          return <MealManagement congregationId={selectedCongregation.id} />;
-        case "settings":
-          return (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Message Statistics</CardTitle>
-                  <CardDescription>
-                    View message statistics for {selectedCongregation.name}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <MessageStatsComponent congregationId={selectedCongregation.id} />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Test Messages</CardTitle>
-                  <CardDescription>
-                    Send test messages to verify your notification settings for {selectedCongregation.name}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <TestMessageForm congregationId={selectedCongregation.id} />
-                </CardContent>
-              </Card>
-            </div>
-          );
-        default:
-          return null;
-      }
-    } else if (user?.role !== 'ward') {
-        return (
-            <Card className="mt-6">
-                <CardContent className="pt-6 text-center">
-                    <Building className="mx-auto h-12 w-12 text-gray-300" />
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No Ward Selected</h3>
-                    <p className="mt-1 text-sm text-gray-500">Please select a ward from the hierarchy to view its details.</p>
-                </CardContent>
-            </Card>
-        )
-    }
+  const handleLogout = async () => {
+    await logout();
+    navigate("/auth");
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 space-y-3 sm:space-y-0">
-            <div className="flex flex-col">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-              <div className="flex flex-wrap items-center gap-2 mt-1">
-                <p className="text-sm text-gray-600">Welcome, {user?.username}</p>
-                 {user?.role === 'ultra' && <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">Ultra Admin</Badge>}
-                 {user?.role === 'region' && <Badge variant="secondary" className="text-xs bg-red-100 text-red-800">Region Admin</Badge>}
-                 {user?.role === 'mission' && <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">Mission Admin</Badge>}
-                 {user?.role === 'stake' && <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">Stake Admin</Badge>}
-                 {user?.role === 'ward' && <Badge variant="outline" className="text-xs">Ward Admin</Badge>}
-              </div>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => logoutMutation.mutate()} className="flex items-center gap-2 w-auto">
-              <LogOut className="h-4 w-4" />
-              Logout
-            </Button>
-          </div>
-        </div>
-      </header>
-      <nav className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap gap-1 sm:gap-2 py-2 overflow-x-auto">
-            {tabs.map((tab) => {
-              if (tab.roles && !tab.roles.includes(user.role)) return null;
-              if (user.role === 'ward' && tab.id === 'hierarchy') return null;
+  // Define tabs based on user roles
+  const adminTabs: TabItem[] = [
+    {
+      value: "dashboard",
+      label: "Dashboard",
+      icon: Calendar, // Using Calendar as a generic icon for dashboard
+      component: (
+        <Alert>
+          <AlertTitle>Welcome!</AlertTitle>
+          <AlertDescription>
+            This is your admin dashboard. Use the tabs above to manage different aspects of the application.
+          </AlertDescription>
+        </Alert>
+      ),
+      roles: ['ultra', 'region', 'mission', 'stake', 'ward'],
+    },
+    {
+      value: "missionaries",
+      label: "Missionaries",
+      icon: Users,
+      component: <MissionaryList />,
+      roles: ['ultra', 'region', 'mission', 'stake', 'ward'],
+    },
+    {
+      value: "congregations",
+      label: "Congregations",
+      icon: Building,
+      component: <CongregationManagement />,
+      roles: ['ultra', 'region', 'mission', 'stake'], // Only SuperAdmins and UltraAdmin
+    },
+    {
+      value: "stakes",
+      label: "Stakes",
+      icon: Building,
+      component: <StakeManagement />,
+      roles: ['ultra', 'region', 'mission'], // Only Ultra and Region/Mission Admins
+    },
+    {
+      value: "missions",
+      label: "Missions",
+      icon: Globe,
+      component: <MissionManagement />,
+      roles: ['ultra', 'region'], // Only Ultra and Region Admins
+    },
+    {
+      value: "regions",
+      label: "Regions",
+      icon: Globe,
+      component: <RegionManagement />,
+      roles: ['ultra'], // Only Ultra Admins
+    },
+    {
+      value: "messages",
+      label: "Messages",
+      icon: Settings,
+      component: <MessageStatsComponent />,
+      roles: ['ultra', 'region', 'mission', 'stake', 'ward'],
+    },
+    {
+      value: "test-message",
+      label: "Test Message",
+      icon: Settings, // Using Settings as a generic icon
+      component: <TestMessageForm />,
+      roles: ['ultra', 'region', 'mission', 'stake', 'ward'],
+    },
+    // Future: Meal statistics, user management
+  ].filter(tab => user && tab.roles.includes(user.role));
 
-              const isDisabled = (tab.id !== 'hierarchy') && !selectedCongregation && user.role !== 'ward';
-              return (
-                <Button
-                  key={tab.id}
-                  variant={activeTab === tab.id ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setActiveTab(tab.id)}
-                  disabled={isDisabled}
-                  className="flex items-center gap-2 whitespace-nowrap flex-shrink-0 min-w-0"
-                >
-                  <tab.icon className="h-4 w-4" />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                  <span className="sm:hidden">{tab.label.slice(0, 4)}</span>
+  if (!user) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <p className="ml-2">Loading user data...</p>
+      </div>
+    );
+  }
+
+  // Determine the default active tab based on roles
+  React.useEffect(() => {
+    if (user && adminTabs.length > 0 && !adminTabs.some(tab => tab.value === activeTab)) {
+      setActiveTab(adminTabs[0].value);
+    }
+  }, [user, adminTabs, activeTab]);
+
+
+  return (
+    <div className="flex h-screen bg-gray-100">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white shadow-md p-6 flex flex-col justify-between">
+        <div>
+          <h1 className="text-2xl font-bold mb-6 text-center">Admin Panel</h1>
+          <nav>
+            <Tabs value={activeTab} onValueChange={setActiveTab} orientation="vertical" className="space-y-4">
+              <TabsList className="flex flex-col h-auto p-0">
+                {adminTabs.map((tab) => (
+                  <TabsTrigger
+                    key={tab.value}
+                    value={tab.value}
+                    className="w-full justify-start py-2 px-4 data-[state=active]:bg-blue-500 data-[state=active]:text-white"
+                  >
+                    <tab.icon className="mr-2 h-4 w-4" />
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </nav>
+        </div>
+        <div className="mt-auto">
+          <Separator className="my-4" />
+          <div className="flex items-center space-x-3">
+            <Avatar>
+              <AvatarImage src="https://github.com/shadcn.png" alt="@shadcn" />
+              <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="text-sm font-medium">{user.username}</p>
+              <p className="text-xs text-gray-500 capitalize">{user.role} Admin</p>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="ml-auto">
+                  <Settings className="h-4 w-4" />
                 </Button>
-              );
-            })}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Log Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
-      </nav>
-      <main className="flex-grow">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 overflow-x-hidden">
-          {renderContent()}
-        </div>
+      </aside>
+
+      {/* Main content */}
+      <main className="flex-1 p-8 overflow-auto">
+        <ScrollArea className="h-full pr-4">
+          {adminTabs.map((tab) => (
+            <TabsContent key={tab.value} value={tab.value}>
+              {tab.component}
+            </TabsContent>
+          ))}
+        </ScrollArea>
       </main>
     </div>
   );

@@ -1,108 +1,51 @@
-import { Switch, Route, useLocation, Redirect } from "wouter";
+// client/src/App.tsx
+import React from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { ThemeProvider } from "next-themes";
-import { AuthProvider } from "@/hooks/use-auth";
-import { ProtectedRoute } from "@/lib/protected-route";
-import NotFound from "@/pages/not-found";
-import HomePage from "@/pages/home-page";
-import Admin from "@/pages/admin";
-import MissionaryPortal from "@/pages/missionary-portal";
-import MissionaryRegister from "@/pages/missionary-register";
-import MissionaryForgotPassword from "@/pages/missionary-forgot-password";
-import AuthPage from "@/pages/auth-page";
-import CongregationPage from "@/pages/congregation-page";
-import SetupPage from "@/pages/setup-page";
-import { useEffect } from "react";
+import { AuthProvider } from "./hooks/use-auth";
+import { ProtectedRoute } from "./lib/protected-route"; // Corrected: Changed to named import
+import NotFound from "@/pages/not-found"; // Default export
+import HomePage from "@/pages/home-page"; // Default import
+import { AdminPage } from "@/pages/admin"; // Named import
+import MissionaryPortal from "@/pages/missionary-portal"; // Default import
+import MissionaryRegister from "@/pages/missionary-register"; // Default import
+import MissionaryForgotPassword from "./pages/missionary-forgot-password"; // Default export
+import SetupPage from "./pages/setup-page"; // Default export
+import AuthPage from "./pages/auth-page"; // Default export
+import CongregationPage from "./pages/congregation-page"; // Default import
 
-function AppRouter() {
-  const { data, isLoading, error } = useQuery<{ isSetupMode: boolean }>({
-    queryKey: ['/api/auth/is-setup'],
-    queryFn: async () => {
-        const res = await fetch('/api/auth/is-setup');
-        if (!res.ok) {
-            throw new Error('Could not fetch setup status');
-        }
-        return res.json();
-    },
-    retry: 1, // Retry once on failure
-  });
-  const [location, setLocation] = useLocation();
 
-  useEffect(() => {
-    // If we are not in setup mode and somehow on the setup page, redirect to home
-    if (data && !data.isSetupMode && location === '/setup') {
-      setLocation('/');
-    }
-    // If we are in setup mode and not on the setup page, redirect to it
-    else if (data && data.isSetupMode && location !== '/setup') {
-      setLocation('/setup');
-    }
-  }, [data, location, setLocation]);
+import "./index.css";
 
-  if (isLoading) {
-    return (
-        <div className="min-h-screen flex items-center justify-center">
-            <div>Loading application...</div>
-        </div>
-    );
-  }
-
-  if (error) {
-    return (
-        <div className="min-h-screen flex items-center justify-center text-red-600">
-            <div>Error: Could not connect to the server. Please ensure the server is running and refresh the page.</div>
-        </div>
-    )
-  }
-
-  // If in setup mode, only the setup route is available
-  if (data?.isSetupMode) {
-      return (
-          <Switch>
-            <Route path="/setup" component={SetupPage} />
-            <Route>
-                <Redirect to="/setup" />
-            </Route>
-          </Switch>
-      )
-  }
-
-  // Normal application routing
-  return (
-    <Switch>
-      <Route path="/" component={HomePage} />
-      <Route path="/auth" component={AuthPage} />
-      <Route path="/missionary-register" component={MissionaryRegister} />
-      <Route path="/missionary-register/:accessCode" component={MissionaryRegister} />
-      <Route path="/missionary-forgot-password/:accessCode" component={MissionaryForgotPassword} />
-      <Route path="/missionary-portal" component={MissionaryPortal} />
-      <ProtectedRoute path="/admin" component={Admin} />
-      <Route path="/congregation/:accessCode" component={CongregationPage} />
-      <Route path="/missionary-portal/:accessCode" component={MissionaryPortal} />
-      <Route path="/setup">
-        <Redirect to="/" />
-      </Route>
-      <Route component={NotFound} />
-    </Switch>
-  );
-}
-
-function App() {
+export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="light">
-        <TooltipProvider>
-          <AuthProvider>
-            <Toaster />
-            <AppRouter />
-          </AuthProvider>
-        </TooltipProvider>
-      </ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<HomePage />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/setup" element={<SetupPage />} />
+            <Route path="/missionary-portal" element={<MissionaryPortal />} />
+            <Route path="/missionary-register" element={<MissionaryRegister />} />
+            <Route path="/missionary-forgot-password" element={<MissionaryForgotPassword />} />
+            <Route path="/congregation/:accessCode" element={<CongregationPage />} />
+
+
+            {/* Protected Routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/admin" element={<AdminPage />} />
+            </Route>
+
+            {/* Catch-all for 404 */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+        <Toaster />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
-
-export default App;

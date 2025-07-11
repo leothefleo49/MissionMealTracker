@@ -1,10 +1,12 @@
+// client/src/main.tsx
 import { createRoot } from "react-dom/client";
-import App from "./App";
+import { App } from "./App"; // Corrected: Changed to named import
 import "./index.css";
 
-const root = document.getElementById("root");
-if (!root) throw new Error("Root element not found");
-
-document.title = "Missionary Meal Calendar";
-
-createRoot(root).render(<App />);
+const container = document.getElementById("root");
+if (container) {
+  const root = createRoot(container);
+  root.render(<App />);
+} else {
+  console.error("Root element not found");
+}

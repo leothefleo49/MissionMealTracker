@@ -387,7 +387,7 @@ var init_db = __esm({
 });
 
 // server/database-storage.ts
-import { eq, and, gte, lte, isNull } from "drizzle-orm";
+import { eq, and, gte, lte, isNull, ilike } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 var PostgresSessionStore, DatabaseStorage;
@@ -439,8 +439,15 @@ var init_database_storage = __esm({
         await db.delete(regions).where(eq(regions.id, id));
         return true;
       }
-      async getAllMissions(showUnassignedOnly) {
-        let query = db.select({
+      async getAllMissions(showUnassignedOnly, searchTerm) {
+        const conditions = [];
+        if (showUnassignedOnly) {
+          conditions.push(isNull(missions.regionId));
+        }
+        if (searchTerm) {
+          conditions.push(ilike(missions.name, `%${searchTerm}%`));
+        }
+        return await db.select({
           id: missions.id,
           name: missions.name,
           regionId: missions.regionId,
@@ -450,11 +457,7 @@ var init_database_storage = __esm({
             id: regions.id,
             name: regions.name
           }
-        }).from(missions).leftJoin(regions, eq(missions.regionId, regions.id));
-        if (showUnassignedOnly) {
-          query = query.where(isNull(missions.regionId));
-        }
-        return await query;
+        }).from(missions).leftJoin(regions, eq(missions.regionId, regions.id)).where(conditions.length > 0 ? and(...conditions) : void 0);
       }
       async getMissionsByRegion(regionId) {
         return await db.select({
@@ -481,8 +484,15 @@ var init_database_storage = __esm({
         await db.delete(missions).where(eq(missions.id, id));
         return true;
       }
-      async getAllStakes(showUnassignedOnly) {
-        let query = db.select({
+      async getAllStakes(showUnassignedOnly, searchTerm) {
+        const conditions = [];
+        if (showUnassignedOnly) {
+          conditions.push(isNull(stakes.missionId));
+        }
+        if (searchTerm) {
+          conditions.push(ilike(stakes.name, `%${searchTerm}%`));
+        }
+        return await db.select({
           id: stakes.id,
           name: stakes.name,
           missionId: stakes.missionId,
@@ -492,11 +502,7 @@ var init_database_storage = __esm({
             id: missions.id,
             name: missions.name
           }
-        }).from(stakes).leftJoin(missions, eq(stakes.missionId, missions.id));
-        if (showUnassignedOnly) {
-          query = query.where(isNull(stakes.missionId));
-        }
-        return await query;
+        }).from(stakes).leftJoin(missions, eq(stakes.missionId, missions.id)).where(conditions.length > 0 ? and(...conditions) : void 0);
       }
       async getStakesByMission(missionId) {
         return await db.select().from(stakes).where(eq(stakes.missionId, missionId));
@@ -513,6 +519,27 @@ var init_database_storage = __esm({
         await db.delete(stakes).where(eq(stakes.id, id));
         return true;
       }
+      async getAllCongregations(showUnassignedOnly, searchTerm) {
+        const conditions = [];
+        if (showUnassignedOnly) {
+          conditions.push(isNull(congregations.stakeId));
+        }
+        if (searchTerm) {
+          conditions.push(ilike(congregations.name, `%${searchTerm}%`));
+        }
+        return await db.select({
+          id: congregations.id,
+          name: congregations.name,
+          accessCode: congregations.accessCode,
+          stakeId: congregations.stakeId,
+          active: congregations.active,
+          stake: {
+            // Include stake details for display
+            id: stakes.id,
+            name: stakes.name
+          }
+        }).from(congregations).leftJoin(stakes, eq(congregations.stakeId, stakes.id)).where(conditions.length > 0 ? and(...conditions) : void 0);
+      }
       async getCongregationsByStake(stakeId) {
         return await db.select().from(congregations).where(eq(congregations.stakeId, stakeId));
       }
@@ -525,9 +552,6 @@ var init_database_storage = __esm({
         const [congregation] = await db.select().from(congregations).where(eq(congregations.accessCode, accessCode));
         return congregation || void 0;
       }
-      async getAllCongregations() {
-        return await db.select().from(congregations);
-      }
       async createCongregation(congregation) {
         const [newCongregation] = await db.insert(congregations).values(congregation).returning();
         return newCongregation;
@@ -537,10 +561,17 @@ var init_database_storage = __esm({
         return updatedCongregation || void 0;
       }
       // User-Congregation relationship methods
-      async getUserCongregations(userId) {
+      async getUserCongregations(userId, showUnassignedOnly, searchTerm) {
+        const conditions = [eq(userCongregations.userId, userId)];
+        if (showUnassignedOnly) {
+          conditions.push(isNull(congregations.stakeId));
+        }
+        if (searchTerm) {
+          conditions.push(ilike(congregations.name, `%${searchTerm}%`));
+        }
         const userCongregationResult = await db.select({
           congregation: congregations
-        }).from(userCongregations).innerJoin(congregations, eq(userCongregations.congregationId, congregations.id)).where(eq(userCongregations.userId, userId));
+        }).from(userCongregations).innerJoin(congregations, eq(userCongregations.congregationId, congregations.id)).where(and(...conditions));
         return userCongregationResult.map((result) => result.congregation);
       }
       async addUserToCongregation(userCongregation) {
@@ -583,11 +614,19 @@ var init_database_storage = __esm({
           )
         );
       }
-      async getMissionariesByCongregation(congregationId) {
-        return await db.select().from(missionaries).where(eq(missionaries.congregationId, congregationId));
+      async getMissionariesByCongregation(congregationId, searchTerm) {
+        const conditions = [eq(missionaries.congregationId, congregationId)];
+        if (searchTerm) {
+          conditions.push(ilike(missionaries.name, `%${searchTerm}%`));
+        }
+        return await db.select().from(missionaries).where(and(...conditions));
       }
-      async getAllMissionaries() {
-        return await db.select().from(missionaries);
+      async getAllMissionaries(searchTerm) {
+        const conditions = [];
+        if (searchTerm) {
+          conditions.push(ilike(missionaries.name, `%${searchTerm}%`));
+        }
+        return await db.select().from(missionaries).where(conditions.length > 0 ? and(...conditions) : void 0);
       }
       async createMissionary(insertMissionary) {
         const missionaryData = {
@@ -2181,7 +2220,8 @@ async function registerRoutes(app) {
   app.get("/api/missions", requireAdmin, async (req, res) => {
     try {
       const showUnassignedOnly = req.query.unassignedOnly === "true";
-      const missions2 = await storage.getAllMissions(showUnassignedOnly);
+      const searchTerm = req.query.searchTerm;
+      const missions2 = await storage.getAllMissions(showUnassignedOnly, searchTerm);
       res.json(missions2);
     } catch (err) {
       console.error("Error fetching missions:", err);
@@ -2236,7 +2276,8 @@ async function registerRoutes(app) {
   app.get("/api/stakes", requireAdmin, async (req, res) => {
     try {
       const showUnassignedOnly = req.query.unassignedOnly === "true";
-      const stakes2 = await storage.getAllStakes(showUnassignedOnly);
+      const searchTerm = req.query.searchTerm;
+      const stakes2 = await storage.getAllStakes(showUnassignedOnly, searchTerm);
       res.json(stakes2);
     } catch (err) {
       console.error("Error fetching stakes:", err);
@@ -2290,7 +2331,8 @@ async function registerRoutes(app) {
   });
   app.get("/api/missionaries", async (req, res) => {
     try {
-      const missionaries2 = await storage.getAllMissionaries();
+      const searchTerm = req.query.searchTerm;
+      const missionaries2 = await storage.getAllMissionaries(searchTerm);
       res.json(missionaries2);
     } catch (err) {
       console.error("Error fetching missionaries:", err);
@@ -2323,6 +2365,7 @@ async function registerRoutes(app) {
     try {
       const { congregationId } = req.params;
       const parsedCongregationId = parseInt(congregationId, 10);
+      const searchTerm = req.query.searchTerm;
       if (isNaN(parsedCongregationId)) {
         return res.status(400).json({ message: "Invalid congregation ID" });
       }
@@ -2333,7 +2376,7 @@ async function registerRoutes(app) {
           return res.status(403).json({ message: "You do not have access to this congregation" });
         }
       }
-      const missionaries2 = await storage.getMissionariesByCongregation(parsedCongregationId);
+      const missionaries2 = await storage.getMissionariesByCongregation(parsedCongregationId, searchTerm);
       res.json(missionaries2);
     } catch (err) {
       console.error("Error fetching missionaries by congregation:", err);
@@ -2911,10 +2954,11 @@ async function registerRoutes(app) {
     try {
       let congregations2;
       const showUnassignedOnly = req.query.unassignedOnly === "true";
+      const searchTerm = req.query.searchTerm;
       if (req.user.role === "ultra") {
-        congregations2 = await storage.getAllCongregations(showUnassignedOnly);
+        congregations2 = await storage.getAllCongregations(showUnassignedOnly, searchTerm);
       } else {
-        congregations2 = await storage.getUserCongregations(req.user.id, showUnassignedOnly);
+        congregations2 = await storage.getUserCongregations(req.user.id, showUnassignedOnly, searchTerm);
       }
       res.json(congregations2);
     } catch (err) {
@@ -3356,7 +3400,7 @@ async function registerRoutes(app) {
         success = false;
       }
       if (success) {
-        res.json({ message: "Consent request sent successfully" });
+        res.status(200).json({ message: "Consent request sent successfully" });
       } else {
         res.status(500).json({ message: "Failed to send consent request" });
       }

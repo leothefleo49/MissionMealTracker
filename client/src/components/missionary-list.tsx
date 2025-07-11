@@ -1,7 +1,7 @@
 // client/src/components/missionary-list.tsx
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { PlusCircle, Edit, Trash2, Check, X, User, Search } from 'lucide-react'; // Import Search icon
+import { PlusCircle, Edit, Trash2, Check, X, User, Search } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from './ui/table';
@@ -11,7 +11,7 @@ import {
 } from './ui/dialog';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { toast } from './ui/use-toast';
+import { toast } from '../hooks/use-toast'; // Corrected import path for use-toast
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import {
@@ -54,15 +54,15 @@ export function MissionaryList({ congregationId }: { congregationId?: number }) 
   const [isEditMissionaryDialogOpen, setIsEditMissionaryDialogOpen] = useState(false);
   const [isEmailVerificationDialogOpen, setIsEmailVerificationDialogOpen] = useState(false);
   const [currentMissionary, setCurrentMissionary] = useState<Missionary | null>(null);
-  const [searchTerm, setSearchTerm] = useState(''); // New state for search term
+  const [searchTerm, setSearchTerm] = useState('');
 
 
   const { data: missionaries, isLoading: isLoadingMissionaries, isError: isErrorMissionaries } = useQuery<Missionary[]>({
-    queryKey: ['missionaries', congregationId, searchTerm], // Add searchTerm to queryKey
+    queryKey: ['missionaries', congregationId, searchTerm],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (searchTerm) {
-        params.append('searchTerm', searchTerm); // Pass searchTerm to the API
+        params.append('searchTerm', searchTerm);
       }
 
       let url = '/api/missionaries';
@@ -138,7 +138,6 @@ export function MissionaryList({ congregationId }: { congregationId?: number }) 
           <User className="mr-2" /> Missionary List
         </h2>
         <div className="flex items-center space-x-4">
-          {/* Search Input */}
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input

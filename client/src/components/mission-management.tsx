@@ -11,11 +11,11 @@ import {
 } from './ui/dialog';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { toast } from './ui/use-toast';
+import { toast } from '../hooks/use-toast'; // Corrected import path for use-toast
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Switch } from './ui/switch';
-import { Combobox } from './ui/combobox'; // Import the new Combobox component
+import { Combobox } from './ui/combobox';
 
 
 interface Mission {
@@ -288,7 +288,7 @@ export function MissionManagement() {
                     displayKey="name"
                     valueKey="id"
                     className="col-span-3 w-full"
-                    contentClassName="max-h-[200px] overflow-y-auto" // Apply max height and scrolling
+                    contentClassName="max-h-[200px] overflow-y-auto"
                   />
                 </div>
               </div>
@@ -378,7 +378,7 @@ export function MissionManagement() {
                 displayKey="name"
                 valueKey="id"
                 className="col-span-3 w-full"
-                contentClassName="max-h-[200px] overflow-y-auto" // Apply max height and scrolling
+                contentClassName="max-h-[200px] overflow-y-auto"
               />
             </div>
           </div>
