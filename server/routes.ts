@@ -316,7 +316,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Stakes API Routes
   app.get('/api/stakes', requireAdmin, async (req, res) => {
     try {
-      const stakes = await storage.getAllStakes();
+      const showUnassignedOnly = req.query.unassignedOnly === 'true'; // Get query param
+      const stakes = await storage.getAllStakes(showUnassignedOnly); // Pass to storage
       res.json(stakes);
     } catch (err) {
       console.error('Error fetching stakes:', err);
@@ -726,7 +727,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.updateMissionary(missionary.id, {
               consentVerificationToken: verificationCode,
               consentVerificationSentAt: new Date(),
-              consentStatus: 'pending'
             });
 
             // Prepare consent message
@@ -1818,7 +1818,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         if (testMissionary.preferredNotification === 'messenger' && testMissionary.messengerAccount) {
           console.log(`[MESSENGER CONSENT REQUEST] Sending to ${testMissionary.messengerAccount}: ${consentMessage}`);
-          success = true;
         } else {
           // For SMS notifications - using Twilio client directly to bypass consent checks
           if (notificationManager.smsService && notificationManager.smsService.twilioClient) {
@@ -1989,7 +1988,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         consentVerificationSentAt: missionary.consentVerificationSentAt
       });
     } catch (err) {
-      console.error("Error fetching consent status:", err);
+      console.error('Error fetching consent status:', err);
       res.status(500).json({ message: 'Failed to fetch consent status' });
     }
   });

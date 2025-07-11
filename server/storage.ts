@@ -1,3 +1,4 @@
+// server/storage.ts
 import {
   User, InsertUser,
   Congregation, InsertCongregation,
@@ -27,13 +28,13 @@ export interface IStorage {
   updateRegion(id: number, data: Partial<Region>): Promise<Region | undefined>;
   deleteRegion(id: number): Promise<boolean>;
 
-  getAllMissions(): Promise<Mission[]>;
+  getAllMissions(showUnassignedOnly?: boolean): Promise<Mission[]>;
   getMissionsByRegion(regionId: number): Promise<Mission[]>;
   createMission(mission: { name: string; regionId?: number | null, description?: string }): Promise<Mission>;
   updateMission(id: number, data: Partial<Mission>): Promise<Mission | undefined>;
   deleteMission(id: number): Promise<boolean>;
 
-  getAllStakes(): Promise<Stake[]>;
+  getAllStakes(showUnassignedOnly?: boolean): Promise<Stake[]>; // Modified this line
   getStakesByMission(missionId: number): Promise<Stake[]>;
   createStake(stake: { name: string; missionId?: number | null, description?: string }): Promise<Stake>;
   updateStake(id: number, data: Partial<Stake>): Promise<Stake | undefined>;

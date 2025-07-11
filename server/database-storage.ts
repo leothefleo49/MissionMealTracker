@@ -1,3 +1,4 @@
+// server/database-storage.ts
 import { IStorage } from './storage';
 import {
   users, type User, type InsertUser,
@@ -71,12 +72,44 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
-  async getAllMissions(): Promise<Mission[]> {
-    return await db.select().from(missions);
+  async getAllMissions(showUnassignedOnly?: boolean): Promise<Mission[]> {
+    let query = db
+      .select({
+        id: missions.id,
+        name: missions.name,
+        regionId: missions.regionId,
+        description: missions.description,
+        region: { // Include region details
+          id: regions.id,
+          name: regions.name
+        }
+      })
+      .from(missions)
+      .leftJoin(regions, eq(missions.regionId, regions.id));
+
+    if (showUnassignedOnly) {
+      // Filter for missions where regionId is null
+      query = query.where(isNull(missions.regionId));
+    }
+
+    return await query;
   }
 
   async getMissionsByRegion(regionId: number): Promise<Mission[]> {
-    return await db.select().from(missions).where(eq(missions.regionId, regionId));
+    return await db
+      .select({
+        id: missions.id,
+        name: missions.name,
+        regionId: missions.regionId,
+        description: missions.description,
+        region: { // Include region details
+          id: regions.id,
+          name: regions.name
+        }
+      })
+      .from(missions)
+      .leftJoin(regions, eq(missions.regionId, regions.id))
+      .where(eq(missions.regionId, regionId));
   }
 
   async createMission(mission: { name: string; regionId?: number | null, description?: string }): Promise<Mission> {
@@ -94,8 +127,27 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
-  async getAllStakes(): Promise<Stake[]> {
-    return await db.select().from(stakes);
+  async getAllStakes(showUnassignedOnly?: boolean): Promise<Stake[]> {
+    let query = db
+      .select({
+        id: stakes.id,
+        name: stakes.name,
+        missionId: stakes.missionId,
+        description: stakes.description,
+        mission: { // Include mission details for display
+          id: missions.id,
+          name: missions.name
+        }
+      })
+      .from(stakes)
+      .leftJoin(missions, eq(stakes.missionId, missions.id));
+
+    if (showUnassignedOnly) {
+      // Filter for stakes where missionId is null
+      query = query.where(isNull(stakes.missionId));
+    }
+
+    return await query;
   }
 
   async getStakesByMission(missionId: number): Promise<Stake[]> {
