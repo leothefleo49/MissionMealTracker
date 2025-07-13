@@ -5,7 +5,7 @@ import { hc } from 'hono/client';
 import type { AppType } from '../../../server/routes';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
-import { PlusCircle, Pencil, Trash, Building, MapPin } from 'lucide-react';
+import { PlusCircle, Pencil, Trash, Building, MapPin, Search, Filter } from 'lucide-react';
 import { Badge } from './ui/badge';
 import {
     Dialog,
@@ -52,6 +52,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Combobox } from './ui/combobox'; // Import Combobox
+import { Switch } from './ui/switch'; // Import Switch
 
 
 const client = hc<AppType>('/');
@@ -78,11 +79,13 @@ interface StakeManagementProps {
     showUnassignedOnly?: boolean;
 }
 
-export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
+export function StakeManagement({ showUnassignedOnly: initialShowUnassignedOnly = false }: StakeManagementProps) {
     const { toast } = useToast();
     const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
     const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
     const [currentStake, setCurrentStake] = React.useState<Stake | null>(null);
+    const [showUnassignedOnly, setShowUnassignedOnly] = React.useState(initialShowUnassignedOnly); // State for the filter
+    const [searchTerm, setSearchTerm] = React.useState(''); // State for search term
 
     const createForm = useForm<CreateStakeFormValues>({
         resolver: zodResolver(createStakeSchema),
@@ -117,8 +120,15 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
     });
 
     const fetchStakes = async (): Promise<Stake[]> => {
+        const params = new URLSearchParams();
+        if (showUnassignedOnly) {
+            params.append('unassignedOnly', 'true');
+        }
+        if (searchTerm) {
+            params.append('searchTerm', searchTerm);
+        }
         const res = await client.api.stakes.$get({
-            query: { unassignedOnly: showUnassignedOnly ? 'true' : 'false' }
+            query: { unassignedOnly: showUnassignedOnly ? 'true' : 'false', searchTerm: searchTerm || undefined }
         });
         if (!res.ok) {
             const errorData = await res.json();
@@ -128,7 +138,7 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
     }
 
     const { data: stakes, isLoading, isError, error, refetch } = useQuery<Stake[], Error>({
-        queryKey: ['stakes', showUnassignedOnly],
+        queryKey: ['stakes', showUnassignedOnly, searchTerm], // Add searchTerm to query key
         queryFn: fetchStakes,
     });
 
@@ -146,6 +156,7 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
             createForm.reset({ name: "", missionId: null, description: "" });
             queryClient.invalidateQueries({ queryKey: ["stakes"] });
             queryClient.invalidateQueries({ queryKey: ["/api/missions"] }); // Invalidate missions query as stakes are now tied to missions
+            queryClient.invalidateQueries({ queryKey: ["/api/admin/congregations"] }); // Invalidate congregations for display updates
         },
         onError: (error: Error) => {
             toast({
@@ -170,6 +181,7 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
             editForm.reset();
             queryClient.invalidateQueries({ queryKey: ["stakes"] });
             queryClient.invalidateQueries({ queryKey: ["/api/missions"] }); // Invalidate missions query as stakes are now tied to missions
+            queryClient.invalidateQueries({ queryKey: ["/api/admin/congregations"] }); // Invalidate congregations for display updates
         },
         onError: (error: Error) => {
             toast({
@@ -191,6 +203,7 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
             });
             queryClient.invalidateQueries({ queryKey: ["stakes"] });
             queryClient.invalidateQueries({ queryKey: ["/api/missions"] }); // Invalidate missions query
+            queryClient.invalidateQueries({ queryKey: ["/api/admin/congregations"] }); // Invalidate congregations for display updates
         },
         onError: (error: Error) => {
             toast({
@@ -249,86 +262,105 @@ export function StakeManagement({ showUnassignedOnly }: StakeManagementProps) {
                         <CardTitle>Stake Management</CardTitle>
                         <CardDescription>Create and manage stakes within your mission.</CardDescription>
                     </div>
-                    <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button>
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Add Stake
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-md">
-                            <DialogHeader>
-                                <DialogTitle>Create New Stake</DialogTitle>
-                                <DialogDescription>
-                                    Add a new stake to the system and assign it to a mission.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <Form {...createForm}>
-                                <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
-                                    <FormField
-                                        control={createForm.control}
-                                        name="name"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Stake Name</FormLabel>
-                                                <FormControl>
-                                                    <Input placeholder="e.g. Springfield Stake" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={createForm.control}
-                                        name="missionId"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Mission (Optional)</FormLabel>
-                                                <Combobox
-                                                    options={missions || []}
-                                                    value={field.value !== null && field.value !== undefined ? String(field.value) : "null"}
-                                                    onValueChange={(value) => field.onChange(value === "null" ? null : Number(value))}
-                                                    placeholder="Select a mission"
-                                                    searchPlaceholder="Search missions..."
-                                                    noResultsMessage="No mission found."
-                                                    displayKey="name"
-                                                    valueKey="id"
-                                                    className="w-full"
-                                                    contentClassName="max-h-[200px] overflow-y-auto" // Added max-height and overflow
-                                                />
-                                                <FormDescription>
-                                                    Assign this stake to a specific mission.
-                                                </FormDescription>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={createForm.control}
-                                        name="description"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Description (Optional)</FormLabel>
-                                                <FormControl>
-                                                    <Textarea
-                                                        placeholder="Enter a brief description of this stake"
-                                                        {...field}
-                                                        value={field.value || ""}
+                    <div className="flex items-center space-x-4">
+                        <div className="relative">
+                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search stakes..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-8"
+                            />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <Switch
+                                id="unassigned-stakes-filter"
+                                checked={showUnassignedOnly}
+                                onCheckedChange={setShowUnassignedOnly}
+                            />
+                            <Label htmlFor="unassigned-stakes-filter">Show Unassigned Only</Label>
+                        </div>
+                        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button>
+                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                    Add Stake
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-md">
+                                <DialogHeader>
+                                    <DialogTitle>Create New Stake</DialogTitle>
+                                    <DialogDescription>
+                                        Add a new stake to the system and assign it to a mission.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <Form {...createForm}>
+                                    <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
+                                        <FormField
+                                            control={createForm.control}
+                                            name="name"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Stake Name</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="e.g. Springfield Stake" {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={createForm.control}
+                                            name="missionId"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Mission (Optional)</FormLabel>
+                                                    <Combobox
+                                                        options={missions || []}
+                                                        value={field.value !== null && field.value !== undefined ? String(field.value) : "null"}
+                                                        onValueChange={(value) => field.onChange(value === "null" ? null : Number(value))}
+                                                        placeholder="Select a mission"
+                                                        searchPlaceholder="Search missions..."
+                                                        noResultsMessage="No mission found."
+                                                        displayKey="name"
+                                                        valueKey="id"
+                                                        className="w-full"
+                                                        contentClassName="max-h-[200px] overflow-y-auto" // Added max-height and overflow
                                                     />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <DialogFooter className="mt-6">
-                                        <Button type="submit" disabled={createStakeMutation.isPending}>
-                                            {createStakeMutation.isPending ? "Creating..." : "Create Stake"}
-                                        </Button>
-                                    </DialogFooter>
-                                </form>
-                            </Form>
-                        </DialogContent>
-                    </Dialog>
+                                                    <FormDescription>
+                                                        Assign this stake to a specific mission.
+                                                    </FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={createForm.control}
+                                            name="description"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Description (Optional)</FormLabel>
+                                                    <FormControl>
+                                                        <Textarea
+                                                            placeholder="Enter a brief description of this stake"
+                                                            {...field}
+                                                            value={field.value || ""}
+                                                        />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <DialogFooter className="mt-6">
+                                            <Button type="submit" disabled={createStakeMutation.isPending}>
+                                                {createStakeMutation.isPending ? "Creating..." : "Create Stake"}
+                                            </Button>
+                                        </DialogFooter>
+                                    </form>
+                                </Form>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
                 </div>
             </CardHeader>
             <CardContent>

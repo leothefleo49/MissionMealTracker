@@ -52,6 +52,7 @@ import { Switch } from "@/components/ui/switch";
 import { WardUsers } from "./ward-users";
 import { QrCodeDialog } from "./qr-code-dialog";
 import { Label } from "@/components/ui/label";
+import { Combobox } from "./ui/combobox"; // Import Combobox
 
 // Define the zod schema for new ward creation
 const createWardSchema = z.object({
@@ -64,6 +65,7 @@ const createWardSchema = z.object({
   maxBookingsPerPeriod: z.number().min(0).default(0),
   bookingPeriodDays: z.number().min(1).default(30),
   active: z.boolean().default(true),
+  stakeId: z.number().optional().nullable(), // Added stakeId
 });
 
 type Ward = {
@@ -77,6 +79,8 @@ type Ward = {
   maxBookingsPerPeriod: number;
   bookingPeriodDays: number;
   active: boolean;
+  stakeId?: number | null; // Added stakeId
+  stake?: { id: number; name: string } | null; // Added stake for display
 };
 
 type CreateWardFormValues = z.infer<typeof createWardSchema>;
@@ -101,6 +105,7 @@ export function WardManagement() {
       maxBookingsPerPeriod: 0,
       bookingPeriodDays: 30,
       active: true,
+      stakeId: null, // Default to null
     },
   });
 
@@ -115,8 +120,23 @@ export function WardManagement() {
       allowCombinedBookings: false,
       maxBookingsPerPeriod: 0,
       bookingPeriodDays: 30,
-      active: true
+      active: true,
+      stakeId: null, // Default to null
     },
+  });
+
+  // Fetch stakes for combobox
+  const { data: stakes, isLoading: isLoadingStakes } = useQuery({
+    queryKey: ["/api/stakes"],
+    queryFn: async () => {
+      const response = await fetch('/api/stakes');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch stakes');
+      }
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000,
   });
 
   // Fetch wards
@@ -175,8 +195,10 @@ export function WardManagement() {
         maxBookingsPerPeriod: 0,
         bookingPeriodDays: 30,
         active: true,
+        stakeId: null,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/congregations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stakes"] }); // Invalidate stakes query as wards are now tied to stakes
     },
     onError: (error: Error) => {
       toast({
@@ -201,6 +223,7 @@ export function WardManagement() {
       setIsEditDialogOpen(false);
       editForm.reset();
       queryClient.invalidateQueries({ queryKey: ["/api/admin/congregations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stakes"] }); // Invalidate stakes query as wards are now tied to stakes
     },
     onError: (error: Error) => {
       toast({
@@ -260,6 +283,7 @@ export function WardManagement() {
       maxBookingsPerPeriod: ward.maxBookingsPerPeriod,
       bookingPeriodDays: ward.bookingPeriodDays,
       active: ward.active,
+      stakeId: ward.stakeId === undefined ? null : ward.stakeId, // Set stakeId for edit form
     });
     setIsEditDialogOpen(true);
   }
@@ -285,7 +309,7 @@ export function WardManagement() {
     setIsQrCodeDialogOpen(true);
   }
 
-  if (isLoading) {
+  if (isLoading || isLoadingStakes) {
     return (
       <div className="py-4">
         <p>Loading wards...</p>
@@ -378,6 +402,32 @@ export function WardManagement() {
                         </div>
                         <FormDescription>
                           This code will be used in the URL for ward-specific pages
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={createForm.control}
+                    name="stakeId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Stake (Optional)</FormLabel>
+                        <Combobox
+                          options={stakes || []}
+                          value={field.value !== null && field.value !== undefined ? String(field.value) : "null"}
+                          onValueChange={(value) => field.onChange(value === "null" ? null : Number(value))}
+                          placeholder="Select a stake"
+                          searchPlaceholder="Search stakes..."
+                          noResultsMessage="No stake found."
+                          displayKey="name"
+                          valueKey="id"
+                          className="w-full"
+                          contentClassName="max-h-[200px] overflow-y-auto"
+                        />
+                        <FormDescription>
+                          Assign this ward to a specific stake.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -505,6 +555,16 @@ export function WardManagement() {
                       {ward.description || 'No description provided'}
                     </CardDescription>
                   </div>
+                  {ward.stake && (
+                      <Badge variant="outline" className="flex items-center gap-1">
+                          <Filter className="h-3 w-3" /> {ward.stake.name}
+                      </Badge>
+                  )}
+                  {!ward.stake && (
+                      <Badge variant="secondary" className="flex items-center gap-1 bg-yellow-100 text-yellow-800">
+                          Unassigned
+                      </Badge>
+                  )}
                   <Badge variant={ward.active ? "default" : "secondary"}>
                     {ward.active ? (
                       <><Check className="h-3 w-3 mr-1" /> Active</>
@@ -659,6 +719,50 @@ export function WardManagement() {
                       <FormMessage />
                     </FormItem>
                   )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="accessCode" // Access code is visible in edit dialog for context
+                  render={({ field }) => (
+                      <FormItem>
+                          <FormLabel>Access Code</FormLabel>
+                          <FormControl>
+                              {/* Display only, prevent direct editing here to encourage regeneration */}
+                              <Input {...field} disabled value={field.value || ''} />
+                          </FormControl>
+                          <FormDescription>
+                              Access code can only be regenerated, not manually edited.
+                          </FormDescription>
+                          <FormMessage />
+                      </FormItem>
+                  )}
+                />
+
+                <FormField
+                    control={editForm.control}
+                    name="stakeId"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Stake (Optional)</FormLabel>
+                            <Combobox
+                                options={stakes || []}
+                                value={field.value !== null && field.value !== undefined ? String(field.value) : "null"}
+                                onValueChange={(value) => field.onChange(value === "null" ? null : Number(value))}
+                                placeholder="Select a stake"
+                                searchPlaceholder="Search stakes..."
+                                noResultsMessage="No stake found."
+                                displayKey="name"
+                                valueKey="id"
+                                className="w-full"
+                                contentClassName="max-h-[200px] overflow-y-auto"
+                            />
+                            <FormDescription>
+                                Assign this ward to a specific stake.
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
                 />
 
                 <FormField
