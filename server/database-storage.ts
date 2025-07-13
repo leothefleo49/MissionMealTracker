@@ -52,6 +52,16 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getUsersInCongregation(congregationId: number): Promise<User[]> {
+    const usersInCong = await db.query.userCongregations.findMany({
+      where: eq(userCongregations.congregationId, congregationId),
+      with: {
+        user: true,
+      },
+    });
+    return usersInCong.map(uc => uc.user);
+  }
+
   // Congregation Hierarchy methods
   async getAllRegions(): Promise<(Region & { missions: Mission[] })[]> {
     return await db.query.regions.findMany({
@@ -205,12 +215,12 @@ export class DatabaseStorage implements IStorage {
   async getCongregationByAccessCode(accessCode: string): Promise<Congregation | undefined> {
     const [congregation] = await db.select().from(congregations).where(eq(congregations.accessCode, accessCode));
     return congregation || undefined;
+  }
 
-
-  }async createCongregation(congregation: InsertCongregation): Promise<Congregation> {
+  async createCongregation(insertCongregation: InsertCongregation): Promise<Congregation> {
     const [newCongregation] = await db
       .insert(congregations)
-      .values(congregation)
+      .values(insertCongregation)
       .returning();
     return newCongregation;
   }
@@ -228,26 +238,33 @@ export class DatabaseStorage implements IStorage {
   async getUserCongregations(userId: number, showUnassignedOnly?: boolean, searchTerm?: string): Promise<(Congregation & { stake?: Stake | null })[]> {
     const conditions = [eq(userCongregations.userId, userId)];
 
-    if (showUnassignedOnly) {
-      conditions.push(isNull(congregations.stakeId));
-    }
-
-    if (searchTerm) {
-      conditions.push(ilike(congregations.name, `%${searchTerm}%`));
-    }
-
-    const userCongregationResult = await db.query.userCongregations.findMany({
+    // Apply showUnassignedOnly and searchTerm filters to the congregations table
+    // by joining with congregations and filtering on its fields
+    const userCongregationResults = await db.query.userCongregations.findMany({
       where: and(...conditions),
       with: {
-        congregation: { // Include the full congregation object
+        congregation: {
           with: {
-            stake: true, // Also include stake details for the congregation
+            stake: true,
+          },
+          where: (congregations, { isNull: isNullFunc, ilike: ilikeFunc, and: andFunc }) => {
+            const congregationConditions = [];
+            if (showUnassignedOnly) {
+              congregationConditions.push(isNullFunc(congregations.stakeId));
+            }
+            if (searchTerm) {
+              congregationConditions.push(ilikeFunc(congregations.name, `%${searchTerm}%`));
+            }
+            return congregationConditions.length > 0 ? andFunc(...congregationConditions) : undefined;
           },
         },
       },
     });
 
-    return userCongregationResult.map(result => result.congregation);
+    // Filter out results where congregation might be null due to filtering on it
+    return userCongregationResults
+        .filter(result => result.congregation !== null)
+        .map(result => result.congregation);
   }
 
   async addUserToCongregation(userCongregation: InsertUserCongregation): Promise<UserCongregation> {
