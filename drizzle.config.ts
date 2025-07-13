@@ -1,14 +1,13 @@
-import { defineConfig } from "drizzle-kit";
+// drizzle.config.ts
+import type { Config } from 'drizzle-kit';
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL, ensure the database is provisioned");
-}
-
-export default defineConfig({
-  out: "./migrations",
-  schema: "./shared/schema.ts",
-  dialect: "postgresql",
+export default {
+  schema: './shared/schema.ts', // Ensure this path is correct relative to drizzle.config.ts
+  out: './drizzle', // Directory for migration files
+  driver: 'pg',
   dbCredentials: {
-    url: process.env.DATABASE_URL,
+    connectionString: process.env.DATABASE_URL!,
   },
-});
+  verbose: true, // Enable verbose logging to see more details during push/migrate
+  strict: true, // Enable strict mode for schema checks
+} satisfies Config;
