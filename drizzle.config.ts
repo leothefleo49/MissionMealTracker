@@ -4,11 +4,11 @@ import type { Config } from 'drizzle-kit';
 export default {
   schema: './shared/schema.ts', // Ensure this path is correct relative to drizzle.config.ts
   out: './drizzle', // Directory for migration files
-  dialect: 'postgresql', // ADDED: Specify the database dialect
-  driver: 'pg',
+  dialect: 'postgresql',
+  driver: 'neon', // CHANGED: from 'pg' to 'neon' to align with common serverless PostgreSQL setups like NeonDB
   dbCredentials: {
     connectionString: process.env.DATABASE_URL!,
   },
-  verbose: true, // Enable verbose logging to see more details during push/migrate
-  strict: true, // Enable strict mode for schema checks
+  verbose: true,
+  strict: true,
 } satisfies Config;

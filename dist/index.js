@@ -64,11 +64,101 @@ var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
     userRoleEnum = pgEnum("user_role", ["ultra", "region", "mission", "stake", "ward"]);
+<<<<<<< HEAD
     missionaryTypeEnum = pgEnum("missionary_type", ["elders", "sisters"]);
     notificationPreferenceEnum = pgEnum("notification_preference", ["email", "text", "messenger", "none"]);
     consentStatusEnum = pgEnum("consent_status", ["pending", "granted", "denied"]);
     mealStatusEnum = pgEnum("meal_status", ["confirmed", "pending_host_confirm", "cancelled"]);
     notificationScheduleTypeEnum = pgEnum("notification_schedule_type", ["none", "before_meal", "day_of", "weekly_summary"]);
+=======
+    regions = pgTable("regions", {
+      id: serial("id").primaryKey(),
+      name: text("name").notNull(),
+      description: text("description")
+    });
+    insertRegionSchema = createInsertSchema(regions, {
+      description: z.string().optional()
+    }).pick({
+      name: true,
+      description: true
+    });
+    regionsRelations = relations(regions, ({ many }) => ({
+      missions: many(missions),
+      users: many(users)
+    }));
+    missions = pgTable("missions", {
+      id: serial("id").primaryKey(),
+      name: text("name").notNull(),
+      regionId: integer("region_id").references(() => regions.id, { onDelete: "set null" }),
+      description: text("description")
+    });
+    insertMissionSchema = createInsertSchema(missions, {
+      regionId: z.number().optional().nullable(),
+      description: z.string().optional()
+    }).pick({
+      name: true,
+      regionId: true,
+      description: true
+    });
+    missionsRelations = relations(missions, ({ one, many }) => ({
+      region: one(regions, { fields: [missions.regionId], references: [regions.id] }),
+      stakes: many(stakes),
+      users: many(users)
+    }));
+    stakes = pgTable("stakes", {
+      id: serial("id").primaryKey(),
+      name: text("name").notNull(),
+      missionId: integer("mission_id").references(() => missions.id, { onDelete: "set null" }),
+      description: text("description")
+    });
+    insertStakeSchema = createInsertSchema(stakes, {
+      missionId: z.number().optional().nullable(),
+      description: z.string().optional()
+    }).pick({
+      name: true,
+      missionId: true,
+      description: true
+    });
+    stakesRelations = relations(stakes, ({ one, many }) => ({
+      mission: one(missions, { fields: [stakes.missionId], references: [missions.id] }),
+      congregations: many(congregations),
+      users: many(users)
+    }));
+    congregations = pgTable("congregations", {
+      id: serial("id").primaryKey(),
+      name: text("name").notNull(),
+      accessCode: text("access_code").notNull().unique(),
+      description: text("description"),
+      stakeId: integer("stake_id").references(() => stakes.id, { onDelete: "set null" }),
+      allowCombinedBookings: boolean("allow_combined_bookings").default(false),
+      maxBookingsPerPeriod: integer("max_bookings_per_period").default(1),
+      bookingPeriodDays: integer("booking_period_days").default(30),
+      active: boolean("active").default(true),
+      maxBookingsPerAddress: integer("max_bookings_per_address").default(1),
+      maxBookingsPerPhone: integer("max_bookings_per_phone").default(1)
+    });
+    congregationsRelations = relations(congregations, ({ one, many }) => ({
+      stake: one(stakes, { fields: [congregations.stakeId], references: [stakes.id] }),
+      missionaries: many(missionaries),
+      userAccess: many(userCongregations)
+    }));
+    insertCongregationSchema = createInsertSchema(congregations, {
+      description: z.string().optional(),
+      // accessCode is now REQUIRED, matching the DB's NOT NULL constraint
+      accessCode: z.string().min(6, { message: "Access code must be at least 6 characters" }),
+      allowCombinedBookings: z.boolean().default(false),
+      maxBookingsPerPeriod: z.number().min(0).default(0),
+      maxBookingsPerAddress: z.number().min(0).default(1),
+      maxBookingsPerPhone: z.number().min(0).default(1),
+      bookingPeriodDays: z.number().min(1).default(30),
+      active: z.boolean().default(true)
+    }).omit({
+      // Omit fields not provided by client or auto-generated
+      id: true,
+      stakeId: true
+      // Client does not provide stakeId for creation
+    });
+>>>>>>> parent of c8b398f (yaaaaa budddyyyyy)
     users = pgTable("users", {
       id: serial("id").primaryKey(),
       username: text("username").unique().notNull(),

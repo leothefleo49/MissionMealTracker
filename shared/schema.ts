@@ -1,6 +1,12 @@
+<<<<<<< HEAD
 // shared/schema.ts
 import { pgTable, serial, text, timestamp, boolean, integer, pgEnum } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+=======
+import { relations, sql } from "drizzle-orm";
+import { boolean, integer, pgTable, serial, text, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+>>>>>>> parent of c8b398f (yaaaaa budddyyyyy)
 import { z } from "zod";
 
 // --- Enums ---
@@ -14,6 +20,74 @@ export const notificationScheduleTypeEnum = pgEnum("notification_schedule_type",
 
 // --- Tables ---
 
+<<<<<<< HEAD
+=======
+// Stakes table
+export const stakes = pgTable("stakes", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  missionId: integer("mission_id").references(() => missions.id, { onDelete: "set null" }),
+  description: text("description"),
+});
+
+export const insertStakeSchema = createInsertSchema(stakes, {
+    missionId: z.number().optional().nullable(),
+    description: z.string().optional(),
+}).pick({
+    name: true,
+    missionId: true,
+    description: true,
+});
+
+export const stakesRelations = relations(stakes, ({ one, many }) => ({
+  mission: one(missions, { fields: [stakes.missionId], references: [missions.id] }),
+  congregations: many(congregations),
+  users: many(users),
+}));
+
+// Congregations (formerly Wards) table
+export const congregations = pgTable("congregations", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  accessCode: text("access_code").notNull().unique(),
+  description: text("description"),
+  stakeId: integer("stake_id").references(() => stakes.id, { onDelete: "set null" }),
+  allowCombinedBookings: boolean("allow_combined_bookings").default(false),
+  maxBookingsPerPeriod: integer("max_bookings_per_period").default(1),
+  bookingPeriodDays: integer("booking_period_days").default(30),
+  active: boolean("active").default(true),
+  maxBookingsPerAddress: integer("max_bookings_per_address").default(1),
+  maxBookingsPerPhone: integer("max_bookings_per_phone").default(1),
+});
+
+export const congregationsRelations = relations(congregations, ({ one, many }) => ({
+  stake: one(stakes, { fields: [congregations.stakeId], references: [stakes.id] }),
+  missionaries: many(missionaries),
+  userAccess: many(userCongregations),
+}));
+
+// CORRECTED SCHEMA FOR CONGREGATION INSERTION
+export const insertCongregationSchema = createInsertSchema(congregations, {
+    description: z.string().optional(),
+    // accessCode is now REQUIRED, matching the DB's NOT NULL constraint
+    accessCode: z.string().min(6, { message: "Access code must be at least 6 characters" }),
+    allowCombinedBookings: z.boolean().default(false),
+    maxBookingsPerPeriod: z.number().min(0).default(0),
+    maxBookingsPerAddress: z.number().min(0).default(1),
+    maxBookingsPerPhone: z.number().min(0).default(1),
+    bookingPeriodDays: z.number().min(1).default(30),
+    active: z.boolean().default(true),
+}).omit({ // Omit fields not provided by client or auto-generated
+  id: true,
+  stakeId: true, // Client does not provide stakeId for creation
+});
+
+
+export type InsertCongregation = z.infer<typeof insertCongregationSchema>;
+export type Congregation = typeof congregations.$inferSelect;
+
+// Users table
+>>>>>>> parent of c8b398f (yaaaaa budddyyyyy)
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").unique().notNull(),

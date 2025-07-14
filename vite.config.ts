@@ -1,21 +1,38 @@
 // vite.config.ts
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react-swc';
-import path from 'path';
+import react from '@vitejs/plugin-react';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import path from 'path'; // Import path module
 
-// https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
-  root: './client',
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, './client/src'),
+  root: 'client', // Specifies that the client-side application root is the 'client' directory
+  plugins: [
+    react(),
+    nodePolyfills({
+      exclude: ['fs'],
+      globals: {
+        Buffer: true,
+        process: true,
+      },
+      protocolGlobals: true,
+    }),
+  ],
+  server: {
+    proxy: {
+      '/api': 'http://localhost:3000',
     },
   },
   build: {
     outDir: '../dist/public',
-    rollupOptions: {
-      external: ['react-router-dom'], // Re-added 'react-router-dom' to external
+    emptyOutDir: true,
+  },
+  resolve: { // NEW: Add resolve configuration for path aliases
+    alias: {
+      "@": path.resolve(__dirname, "./client/src"), // Maps @/ to the client's source directory from project root
+      "@shared": path.resolve(__dirname, "./shared"), // Maps @shared/ to the shared directory from project root
     },
+  },
+  optimizeDeps: {
+    exclude: ['@hono/node-server'],
   },
 });

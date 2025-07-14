@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
 
@@ -20,11 +20,12 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
-    "baseUrl": ".",
+    // Path mapping for client-side aliases, adjusted for 'root: client' in vite.config.ts
+    "baseUrl": ".", // baseUrl is still project root
     "paths": {
-      "@/*": ["./client/src/*"],
-      "@shared/*": ["./shared/*"] // <--- ADDED THIS LINE
+      "@/*": ["./client/src/*"], // This path should point to the actual source from baseUrl
+      "@shared/*": ["./shared/*"]
     }
   },
-  "include": ["client/src", "server/**/*.ts", "drizzle.config.ts", "shared/**/*.ts", "vite.config.ts"]
+  "include": ["client/src", "shared", "server"]
 }
