@@ -1,405 +1,637 @@
 // client/src/components/region-management.tsx
-import React from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { hc } from 'hono/client';
-import type { AppType } from '../../../server/routes';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from '../hooks/use-toast';
 import { Button } from './ui/button';
-import { PlusCircle, Pencil, Trash, Globe } from 'lucide-react';
-import { Badge } from './ui/badge';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-    DialogFooter,
-} from './ui/dialog';
 import { Input } from './ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Label } from './ui/label';
-import { useToast } from '../hooks/use-toast';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from './ui/alert-dialog';
-import {
-    Form,
-    FormControl,
-    FormDescription,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from './ui/form';
-import { Textarea } from './ui/textarea';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { apiRequest, queryClient } from '@/lib/queryClient';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { PlusCircle, Search, XCircle } from 'lucide-react';
+import { Switch } from './ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from './ui/command';
+import { CaretSortIcon, CheckIcon } from '@radix-ui/react-icons';
+import { cn } from '../lib/utils';
+import type { Region, Mission } from '@shared/schema';
 
+// Re-using the Combobox component from stake-management.tsx/congregation-management.tsx
+interface ComboboxProps {
+  options: { label: string; value: string | number }[];
+  value: string | number | undefined;
+  onChange: (value: string | number | undefined) => void;
+  placeholder: string;
+  className?: string;
+  maxHeight?: string;
+}
 
-const client = hc<AppType>('/');
+const Combobox = ({ options, value, onChange, placeholder, className, maxHeight = "200px" }: ComboboxProps) => {
+  const [open, setOpen] = useState(false);
 
-type Region = {
-    id: number;
-    name: string;
-    description?: string;
-    missions: { id: number; name: string }[] | null; // Added missions to Region type
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn("w-[200px] justify-between", className)}
+        >
+          {value
+            ? options.find((option) => option.value === value)?.label
+            : placeholder}
+          <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-0">
+        <Command>
+          <CommandInput placeholder="Search..." className="h-9" />
+          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandGroup style={{ maxHeight: maxHeight, overflowY: 'auto' }}>
+            {options.map((option) => (
+              <CommandItem
+                key={option.value}
+                value={option.label} // Use label for searchability
+                onSelect={() => {
+                  onChange(option.value === value ? undefined : option.value);
+                  setOpen(false);
+                }}
+              >
+                {option.label}
+                <CheckIcon
+                  className={cn(
+                    "ml-auto h-4 w-4",
+                    option.value === value ? "opacity-100" : "opacity-0"
+                  )}
+                />
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 };
 
-const createRegionSchema = z.object({
-    name: z.string().min(2, { message: "Region name must be at least 2 characters" }),
-    description: z.string().optional(),
-});
-
-type CreateRegionFormValues = z.infer<typeof createRegionSchema>;
-
-
 export function RegionManagement() {
-    const { toast } = useToast();
-    const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
-    const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
-    const [currentRegion, setCurrentRegion] = React.useState<Region | null>(null);
+  const queryClient = useQueryClient();
+  const [isAddRegionDialogOpen, setIsAddRegionDialogOpen] = useState(false);
+  const [newRegionName, setNewRegionName] = useState('');
+  const [newRegionDescription, setNewRegionDescription] = useState('');
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [currentRegion, setCurrentRegion] = useState<Region | null>(null);
+  const [editedRegionName, setEditedRegionName] = useState('');
+  const [editedRegionDescription, setEditedRegionDescription] = useState('');
+  const [isAddMissionDialogOpen, setIsAddMissionDialogOpen] = useState(false);
+  const [newMissionName, setNewMissionName] = useState('');
+  const [newMissionDescription, setNewMissionDescription] = useState('');
+  const [newMissionRegionId, setNewMissionRegionId] = useState<number | null>(null);
+  const [isEditMissionDialogOpen, setIsEditMissionDialogOpen] = useState(false);
+  const [currentMission, setCurrentMission] = useState<Mission | null>(null);
+  const [editedMissionName, setEditedMissionName] = useState('');
+  const [editedMissionDescription, setEditedMissionDescription] = useState('');
+  const [editedMissionRegionId, setEditedMissionRegionId] = useState<number | null>(null);
+  const [showUnassignedMissionsOnly, setShowUnassignedMissionsOnly] = useState(false);
+  const [missionSearchTerm, setMissionSearchTerm] = useState('');
 
-    const createForm = useForm<CreateRegionFormValues>({
-        resolver: zodResolver(createRegionSchema),
-        defaultValues: {
-            name: "",
-            description: "",
-        },
+
+  // Fetch all regions with their associated missions
+  const { data: regions, isLoading: isLoadingRegions, error: regionsError } = useQuery<(Region & { missions: Mission[] })[]>({
+    queryKey: ['regions'], // No filter for regions themselves, just for their embedded missions
+    queryFn: async () => {
+      const response = await fetch('/api/regions');
+      if (!response.ok) {
+        throw new Error('Failed to fetch regions');
+      }
+      return response.json();
+    },
+  });
+
+  // Fetch all missions for assignment dropdown and separate management view
+  const { data: allMissions, isLoading: isLoadingAllMissions } = useQuery<Mission[]>({
+    queryKey: ['missions', showUnassignedMissionsOnly, missionSearchTerm], // Add filters for missions list
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (showUnassignedMissionsOnly) {
+        params.append('unassignedOnly', 'true');
+      }
+      if (missionSearchTerm) {
+        params.append('searchTerm', missionSearchTerm);
+      }
+      const response = await fetch(`/api/missions?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch missions');
+      }
+      return response.json();
+    },
+  });
+
+  const regionOptions = regions?.map(region => ({
+    label: region.name,
+    value: region.id,
+  })) || [];
+
+  const addRegionMutation = useMutation({
+    mutationFn: async (newRegionData: { name: string; description?: string }) => {
+      const response = await fetch('/api/regions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRegionData),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to create region');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['regions'] });
+      toast({ title: 'Region created successfully.' });
+      setIsAddRegionDialogOpen(false);
+      setNewRegionName('');
+      setNewRegionDescription('');
+    },
+    onError: (error) => {
+      toast({ title: 'Failed to create region.', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const updateRegionMutation = useMutation({
+    mutationFn: async (updatedRegionData: Partial<Region> & { id: number }) => {
+      const response = await fetch(`/api/regions/${updatedRegionData.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedRegionData),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update region');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['regions'] });
+      toast({ title: 'Region updated successfully.' });
+      setIsEditDialogOpen(false);
+      setCurrentRegion(null);
+    },
+    onError: (error) => {
+      toast({ title: 'Failed to update region.', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const deleteRegionMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`/api/regions/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete region');
+      }
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['regions'] });
+      toast({ title: 'Region deleted successfully.' });
+    },
+    onError: (error) => {
+      toast({ title: 'Failed to delete region.', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const addMissionMutation = useMutation({
+    mutationFn: async (newMissionData: { name: string; description?: string; regionId?: number | null }) => {
+      const response = await fetch('/api/missions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newMissionData),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to create mission');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['missions'] });
+      queryClient.invalidateQueries({ queryKey: ['regions'] }); // Invalidate regions to update child missions
+      toast({ title: 'Mission created successfully.' });
+      setIsAddMissionDialogOpen(false);
+      setNewMissionName('');
+      setNewMissionDescription('');
+      setNewMissionRegionId(null);
+    },
+    onError: (error) => {
+      toast({ title: 'Failed to create mission.', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const updateMissionMutation = useMutation({
+    mutationFn: async (updatedMissionData: Partial<Mission> & { id: number }) => {
+      const response = await fetch(`/api/missions/${updatedMissionData.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedMissionData),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update mission');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['missions'] });
+      queryClient.invalidateQueries({ queryKey: ['regions'] }); // Invalidate regions to update child missions
+      toast({ title: 'Mission updated successfully.' });
+      setIsEditMissionDialogOpen(false);
+      setCurrentMission(null);
+    },
+    onError: (error) => {
+      toast({ title: 'Failed to update mission.', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const deleteMissionMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`/api/missions/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete mission');
+      }
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['missions'] });
+      queryClient.invalidateQueries({ queryKey: ['regions'] }); // Invalidate regions
+      toast({ title: 'Mission deleted successfully.' });
+    },
+    onError: (error) => {
+      toast({ title: 'Failed to delete mission.', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const handleAddRegion = () => {
+    addRegionMutation.mutate({
+      name: newRegionName,
+      description: newRegionDescription || undefined,
     });
+  };
 
-    const editForm = useForm<Partial<Region> & { id?: number }>({
-        resolver: zodResolver(createRegionSchema.partial()),
-        defaultValues: {
-            id: undefined,
-            name: "",
-            description: "",
-        },
-    });
+  const handleEditRegion = (region: Region) => {
+    setCurrentRegion(region);
+    setEditedRegionName(region.name);
+    setEditedRegionDescription(region.description || '');
+    setIsEditDialogOpen(true);
+  };
 
-    const fetchRegions = async (): Promise<Region[]> => {
-        const res = await client.api.regions.$get();
-        if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(errorData.message || 'Failed to fetch regions');
-        }
-        return res.json();
+  const handleUpdateRegion = () => {
+    if (currentRegion) {
+      updateRegionMutation.mutate({
+        id: currentRegion.id,
+        name: editedRegionName,
+        description: editedRegionDescription || undefined,
+      });
     }
+  };
 
-    const { data: regions, isLoading, isError, error, refetch } = useQuery<Region[], Error>({
-        queryKey: ['regions'],
-        queryFn: fetchRegions,
-    });
-
-    const createRegionMutation = useMutation({
-        mutationFn: async (data: CreateRegionFormValues) => {
-            const res = await apiRequest("POST", "/api/regions", data);
-            return await res.json();
-        },
-        onSuccess: () => {
-            toast({
-                title: "Region created",
-                description: "Region has been successfully created.",
-            });
-            setIsCreateDialogOpen(false);
-            createForm.reset({ name: "", description: "" });
-            queryClient.invalidateQueries({ queryKey: ["regions"] }); // Invalidate regions query
-        },
-        onError: (error: Error) => {
-            toast({
-                title: "Error",
-                description: error.message || "Failed to create region. Please try again.",
-                variant: "destructive",
-            });
-        },
-    });
-
-    const editRegionMutation = useMutation({
-        mutationFn: async (data: Partial<Region> & { id: number }) => {
-            const res = await apiRequest("PATCH", `/api/regions/${data.id}`, data);
-            return await res.json();
-        },
-        onSuccess: () => {
-            toast({
-                title: "Region updated",
-                description: "Region has been successfully updated.",
-            });
-            setIsEditDialogOpen(false);
-            editForm.reset();
-            queryClient.invalidateQueries({ queryKey: ["regions"] }); // Invalidate regions query
-        },
-        onError: (error: Error) => {
-            toast({
-                title: "Error",
-                description: error.message || "Failed to update region. Please try again.",
-                variant: "destructive",
-            });
-        },
-    });
-
-    const deleteRegionMutation = useMutation({
-        mutationFn: async (regionId: number) => {
-            await apiRequest("DELETE", `/api/regions/${regionId}`);
-        },
-        onSuccess: () => {
-            toast({
-                title: "Region deleted",
-                description: "Region has been successfully deleted.",
-            });
-            queryClient.invalidateQueries({ queryKey: ["regions"] }); // Invalidate regions query
-            queryClient.invalidateQueries({ queryKey: ["missions"] }); // Invalidate missions query as they might become unassigned
-        },
-        onError: (error: Error) => {
-            toast({
-                title: "Error",
-                description: error.message || "Failed to delete region. Please try again.",
-                variant: "destructive",
-            });
-        },
-    });
-
-    const onCreateSubmit = (values: CreateRegionFormValues) => {
-        createRegionMutation.mutate(values);
-    };
-
-    const onEditSubmit = (values: Partial<Region>) => {
-        if (currentRegion?.id) {
-            editRegionMutation.mutate({ ...values, id: currentRegion.id });
-        }
-    };
-
-    const handleDeleteRegion = (regionId: number) => {
-        deleteRegionMutation.mutate(regionId);
-    };
-
-    const handleEditRegion = (region: Region) => {
-        setCurrentRegion(region);
-        editForm.reset({
-            name: region.name,
-            description: region.description || "",
-        });
-        setIsEditDialogOpen(true);
-    };
-
-    if (isLoading) {
-        return (
-            <div className="py-4">
-                <p className="text-center text-muted-foreground">Loading regions...</p>
-            </div>
-        );
+  const handleDeleteRegion = (id: number) => {
+    if (window.confirm('Are you sure you want to delete this region? This will also unassign any missions linked to it.')) {
+      deleteRegionMutation.mutate(id);
     }
+  };
 
-    if (isError) {
-        return (
-            <div className="py-4 text-destructive">
-                <p>Error loading regions: {error.message}. Please try again.</p>
-            </div>
-        );
+  const handleAddMission = () => {
+    addMissionMutation.mutate({
+      name: newMissionName,
+      description: newMissionDescription || undefined,
+      regionId: newMissionRegionId,
+    });
+  };
+
+  const handleEditMission = (mission: Mission) => {
+    setCurrentMission(mission);
+    setEditedMissionName(mission.name);
+    setEditedMissionDescription(mission.description || '');
+    setEditedMissionRegionId(mission.regionId || null);
+    setIsEditMissionDialogOpen(true);
+  };
+
+  const handleUpdateMission = () => {
+    if (currentMission) {
+      updateMissionMutation.mutate({
+        id: currentMission.id,
+        name: editedMissionName,
+        description: editedMissionDescription || undefined,
+        regionId: editedMissionRegionId,
+      });
     }
+  };
 
-    return (
-        <Card>
-            <CardHeader>
-                <div className="flex justify-between items-center">
-                    <div>
-                        <CardTitle>Region Management</CardTitle>
-                        <CardDescription>Create and manage regions for your organization.</CardDescription>
-                    </div>
-                    <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button>
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Add Region
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-md">
-                            <DialogHeader>
-                                <DialogTitle>Create New Region</DialogTitle>
-                                <DialogDescription>
-                                    Add a new geographical region to the system.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <Form {...createForm}>
-                                <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
-                                    <FormField
-                                        control={createForm.control}
-                                        name="name"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Region Name</FormLabel>
-                                                <FormControl>
-                                                    <Input placeholder="e.g. North America" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={createForm.control}
-                                        name="description"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Description (Optional)</FormLabel>
-                                                <FormControl>
-                                                    <Textarea
-                                                        placeholder="Enter a brief description of this region"
-                                                        {...field}
-                                                        value={field.value || ""}
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <DialogFooter className="mt-6">
-                                        <Button type="submit" disabled={createRegionMutation.isPending}>
-                                            {createRegionMutation.isPending ? "Creating..." : "Create Region"}
-                                        </Button>
-                                    </DialogFooter>
-                                </form>
-                            </Form>
-                        </DialogContent>
-                    </Dialog>
-                </div>
-            </CardHeader>
-            <CardContent>
-                {regions && regions.length > 0 ? (
-                    <div className="space-y-4">
-                        {regions.map(region => (
-                            <Card key={region.id}>
-                                <CardHeader className="pb-2">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <CardTitle className="text-lg">{region.name}</CardTitle>
-                                            <CardDescription>
-                                                {region.description || 'No description provided'}
-                                            </CardDescription>
-                                        </div>
-                                        <Badge variant="outline" className="flex items-center gap-1">
-                                            <Globe className="h-3 w-3" /> Region
-                                        </Badge>
-                                    </div>
-                                </CardHeader>
-                                <CardContent>
-                                    <p className="text-sm text-muted-foreground mb-2">{region.missions?.length || 0} missions</p>
-                                    <div className="flex flex-wrap gap-2 mb-4">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handleEditRegion(region)}
-                                        >
-                                            <Pencil className="h-4 w-4 mr-2" />
-                                            Edit
-                                        </Button>
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="destructive" size="sm">
-                                                    <Trash className="h-4 w-4 mr-2" />
-                                                    Delete
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        This action cannot be undone. This will permanently delete the
-                                                        <span className="font-bold text-gray-900 mx-1">{region.name}</span> region and any associated data (missions, stakes, wards, missionaries).
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDeleteRegion(region.id)}>
-                                                        Delete
-                                                    </AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    </div>
-                                    {region.missions && region.missions.length > 0 ? (
-                                        <div className="mt-4">
-                                            <h4 className="text-sm font-medium mb-2">Missions in this Region:</h4>
-                                            <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
-                                                {region.missions.map(mission => (
-                                                    <li key={mission.id}>{mission.name}</li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    ) : (
-                                        <p className="text-sm text-muted-foreground mt-4">No missions in this region yet.</p>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-8 bg-slate-50 border rounded-md">
-                        <p className="text-gray-500">No regions have been created yet. Create your first region to get started.</p>
-                    </div>
+  const handleDeleteMission = (id: number) => {
+    if (window.confirm('Are you sure you want to delete this mission? This action cannot be undone.')) {
+      deleteMissionMutation.mutate(id);
+    }
+  };
+
+  if (isLoadingRegions || isLoadingAllMissions) {
+    return <div>Loading regions and missions...</div>;
+  }
+
+  if (regionsError) {
+    return <div>Error: {regionsError.message}</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex justify-between items-center">
+            Region Definitions
+            <Button onClick={() => setIsAddRegionDialogOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Region
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Missions Count</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {regions?.map((region) => (
+                <TableRow key={region.id}>
+                  <TableCell className="font-medium">{region.name}</TableCell>
+                  <TableCell>{region.description || 'N/A'}</TableCell>
+                  <TableCell>{region.missions.length}</TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="sm" onClick={() => handleEditRegion(region)}>Edit</Button>
+                    <Button variant="destructive" size="sm" onClick={() => handleDeleteRegion(region.id)}>Delete</Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex justify-between items-center">
+            Mission Definitions
+            <div className="flex items-center space-x-2">
+              <div className="relative">
+                <Input
+                  placeholder="Search missions..."
+                  value={missionSearchTerm}
+                  onChange={(e) => setMissionSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                {missionSearchTerm && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1.5 top-1.5 h-6 w-6 p-0"
+                    onClick={() => setMissionSearchTerm('')}
+                  >
+                    <XCircle className="h-4 w-4 text-muted-foreground" />
+                  </Button>
                 )}
-            </CardContent>
-            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Edit Region</DialogTitle>
-                        <DialogDescription>
-                            Update the region's information.
-                        </DialogDescription>
-                    </DialogHeader>
-                    {currentRegion && (
-                        <Form {...editForm}>
-                            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
-                                <FormField
-                                    control={editForm.control}
-                                    name="name"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Region Name</FormLabel>
-                                            <FormControl>
-                                                <Input {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={editForm.control}
-                                    name="description"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Description</FormLabel>
-                                            <FormControl>
-                                                <Textarea
-                                                    placeholder="Enter a brief description"
-                                                    {...field}
-                                                    value={field.value || ""}
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <DialogFooter className="mt-6">
-                                    <Button
-                                        type="submit"
-                                        disabled={editRegionMutation.isPending}
-                                    >
-                                        {editRegionMutation.isPending ? "Saving..." : "Save Changes"}
-                                    </Button>
-                                </DialogFooter>
-                            </form>
-                        </Form>
-                    )}
-                </DialogContent>
-            </Dialog>
-        </Card>
-    );
+              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center space-x-1">
+                      <Label htmlFor="unassigned-missions-mode">Show Unassigned Only</Label>
+                      <Switch
+                        id="unassigned-missions-mode"
+                        checked={showUnassignedMissionsOnly}
+                        onCheckedChange={setShowUnassignedMissionsOnly}
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Toggle to display only missions not assigned to any region.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <Button onClick={() => setIsAddMissionDialogOpen(true)}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Mission
+              </Button>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Assigned Region</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {allMissions?.map((mission) => (
+                <TableRow key={mission.id}>
+                  <TableCell className="font-medium">{mission.name}</TableCell>
+                  <TableCell>{mission.description || 'N/A'}</TableCell>
+                  <TableCell>{mission.region?.name || 'Unassigned'}</TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="sm" onClick={() => handleEditMission(mission)}>Edit</Button>
+                    <Button variant="destructive" size="sm" onClick={() => handleDeleteMission(mission.id)}>Delete</Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+
+      {/* Add Region Dialog */}
+      <Dialog open={isAddRegionDialogOpen} onOpenChange={setIsAddRegionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Region</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="region-name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="region-name"
+                value={newRegionName}
+                onChange={(e) => setNewRegionName(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="region-description" className="text-right">
+                Description
+              </Label>
+              <Input
+                id="region-description"
+                value={newRegionDescription}
+                onChange={(e) => setNewRegionDescription(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddRegionDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddRegion} disabled={addRegionMutation.isPending}>
+              {addRegionMutation.isPending ? 'Creating...' : 'Add Region'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Region Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Region</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-region-name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="edit-region-name"
+                value={editedRegionName}
+                onChange={(e) => setEditedRegionName(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-region-description" className="text-right">
+                Description
+              </Label>
+              <Input
+                id="edit-region-description"
+                value={editedRegionDescription}
+                onChange={(e) => setEditedRegionDescription(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateRegion} disabled={updateRegionMutation.isPending}>
+              {updateRegionMutation.isPending ? 'Updating...' : 'Update Region'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Mission Dialog */}
+      <Dialog open={isAddMissionDialogOpen} onOpenChange={setIsAddMissionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Mission</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="mission-name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="mission-name"
+                value={newMissionName}
+                onChange={(e) => setNewMissionName(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="mission-description" className="text-right">
+                Description
+              </Label>
+              <Input
+                id="mission-description"
+                value={newMissionDescription}
+                onChange={(e) => setNewMissionDescription(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="assign-region" className="text-right">
+                Assign to Region
+              </Label>
+              <Combobox
+                options={regionOptions}
+                value={newMissionRegionId || ''}
+                onChange={(value) => setNewMissionRegionId(value as number | null)}
+                placeholder="Select a region..."
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddMissionDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddMission} disabled={addMissionMutation.isPending}>
+              {addMissionMutation.isPending ? 'Creating...' : 'Add Mission'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Mission Dialog */}
+      <Dialog open={isEditMissionDialogOpen} onOpenChange={setIsEditMissionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Mission</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-mission-name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="edit-mission-name"
+                value={editedMissionName}
+                onChange={(e) => setEditedMissionName(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-mission-description" className="text-right">
+                Description
+              </Label>
+              <Input
+                id="edit-mission-description"
+                value={editedMissionDescription}
+                onChange={(e) => setEditedMissionDescription(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-assign-region" className="text-right">
+                Assign to Region
+              </Label>
+              <Combobox
+                options={regionOptions}
+                value={editedMissionRegionId || ''}
+                onChange={(value) => setEditedMissionRegionId(value as number | null)}
+                placeholder="Select a region..."
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditMissionDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateMission} disabled={updateMissionMutation.isPending}>
+              {updateMissionMutation.isPending ? 'Updating...' : 'Update Mission'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }

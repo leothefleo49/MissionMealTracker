@@ -1,54 +1,96 @@
 // client/src/components/congregation-management.tsx
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { PlusCircle, Edit, Trash2, Check, X, Users, Filter, Search } from 'lucide-react';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow
-} from './ui/table';
+import { toast } from '../hooks/use-toast';
 import { Button } from './ui/button';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter
-} from './ui/dialog';
 import { Input } from './ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Label } from './ui/label';
-import { toast } from '../hooks/use-toast'; // Corrected import path for use-toast
-import { Loader2 } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { PlusCircle, Search, XCircle } from 'lucide-react';
 import { Switch } from './ui/switch';
-import { Combobox } from './ui/combobox';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from './ui/command';
+import { CaretSortIcon, CheckIcon } from '@radix-ui/react-icons';
+import { cn } from '../lib/utils';
+import type { Congregation, Stake } from '@shared/schema';
 
-
-interface Congregation {
-  id: number;
-  name: string;
-  accessCode: string;
-  active: boolean;
-  stakeId?: number | null;
-  stake?: {
-    id: number;
-    name: string;
-  } | null;
+// Re-using the Combobox component from stake-management.tsx, or assuming it's a shared utility
+interface ComboboxProps {
+  options: { label: string; value: string | number }[];
+  value: string | number | undefined;
+  onChange: (value: string | number | undefined) => void;
+  placeholder: string;
+  className?: string;
+  maxHeight?: string;
 }
 
-interface Stake {
-  id: number;
-  name: string;
-}
+const Combobox = ({ options, value, onChange, placeholder, className, maxHeight = "200px" }: ComboboxProps) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn("w-[200px] justify-between", className)}
+        >
+          {value
+            ? options.find((option) => option.value === value)?.label
+            : placeholder}
+          <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-0">
+        <Command>
+          <CommandInput placeholder="Search..." className="h-9" />
+          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandGroup style={{ maxHeight: maxHeight, overflowY: 'auto' }}>
+            {options.map((option) => (
+              <CommandItem
+                key={option.value}
+                value={option.label} // Use label for searchability
+                onSelect={() => {
+                  onChange(option.value === value ? undefined : option.value);
+                  setOpen(false);
+                }}
+              >
+                {option.label}
+                <CheckIcon
+                  className={cn(
+                    "ml-auto h-4 w-4",
+                    option.value === value ? "opacity-100" : "opacity-0"
+                  )}
+                />
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 export function CongregationManagement() {
   const queryClient = useQueryClient();
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isAddCongregationDialogOpen, setIsAddCongregationDialogOpen] = useState(false);
+  const [newCongregationName, setNewCongregationName] = useState('');
+  const [newCongregationAccessCode, setNewCongregationAccessCode] = useState('');
+  const [newCongregationStakeId, setNewCongregationStakeId] = useState<number | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentCongregation, setCurrentCongregation] = useState<Congregation | null>(null);
-  const [congregationName, setCongregationName] = useState('');
-  const [congregationAccessCode, setCongregationAccessCode] = useState('');
-  const [congregationActive, setCongregationActive] = useState(true);
-  const [selectedStakeId, setSelectedStakeId] = useState<string | null>(null);
+  const [editedCongregationName, setEditedCongregationName] = useState('');
+  const [editedCongregationAccessCode, setEditedCongregationAccessCode] = useState('');
+  const [editedCongregationStakeId, setEditedCongregationStakeId] = useState<number | null>(null);
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-
-  const { data: congregations, isLoading: isLoadingCongregations, isError: isErrorCongregations } = useQuery<Congregation[]>({
+  // Fetch all congregations with filtering and search
+  const { data: congregations, isLoading: isLoadingCongregations, error: congregationsError } = useQuery<Congregation[]>({
     queryKey: ['congregations', showUnassignedOnly, searchTerm],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -58,343 +100,294 @@ export function CongregationManagement() {
       if (searchTerm) {
         params.append('searchTerm', searchTerm);
       }
-      const res = await fetch(`/api/admin/congregations?${params.toString()}`);
-      if (!res.ok) {
+      const response = await fetch(`/api/admin/congregations?${params.toString()}`);
+      if (!response.ok) {
         throw new Error('Failed to fetch congregations');
       }
-      return res.json();
+      return response.json();
     },
   });
 
+  // Fetch all stakes for assignment dropdown
   const { data: stakes, isLoading: isLoadingStakes } = useQuery<Stake[]>({
     queryKey: ['stakes'],
     queryFn: async () => {
-      const res = await fetch('/api/stakes');
-      if (!res.ok) {
+      const response = await fetch('/api/stakes');
+      if (!response.ok) {
         throw new Error('Failed to fetch stakes');
       }
-      return res.json();
+      return response.json();
     },
   });
 
+  const stakeOptions = stakes?.map(stake => ({
+    label: stake.name,
+    value: stake.id,
+  })) || [];
+
   const addCongregationMutation = useMutation({
-    mutationFn: async (newCongregation: { name: string; accessCode: string; active: boolean; stakeId?: number | null }) => {
-      const res = await fetch('/api/admin/congregations', {
+    mutationFn: async (newCongregationData: { name: string; accessCode: string; stakeId?: number | null }) => {
+      const response = await fetch('/api/admin/congregations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newCongregation),
+        body: JSON.stringify(newCongregationData),
       });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || 'Failed to add congregation');
+      if (!response.ok) {
+        throw new Error('Failed to create congregation');
       }
-      return res.json();
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['congregations'] });
-      queryClient.invalidateQueries({ queryKey: ['stakes'] }); // Invalidate stakes query
-      setIsAddDialogOpen(false);
-      setCongregationName('');
-      setCongregationAccessCode('');
-      setCongregationActive(true);
-      setSelectedStakeId(null);
-      toast({
-        title: 'Congregation Added',
-        description: 'The new congregation has been successfully added.',
-      });
+      queryClient.invalidateQueries({ queryKey: ['stakes'] }); // Invalidate stakes to update child congregations
+      setIsAddCongregationDialogOpen(false);
+      setNewCongregationName('');
+      setNewCongregationAccessCode('');
+      setNewCongregationStakeId(null);
+      toast({ title: 'Congregation created successfully.' });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Failed to create congregation.', description: error.message, variant: 'destructive' });
     },
   });
 
   const updateCongregationMutation = useMutation({
-    mutationFn: async (updatedCongregation: Partial<Congregation> & { id: number }) => {
-      const res = await fetch(`/api/admin/congregations/${updatedCongregation.id}`, {
+    mutationFn: async (updatedCongregationData: Partial<Congregation> & { id: number }) => {
+      const response = await fetch(`/api/admin/congregations/${updatedCongregationData.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedCongregation),
+        body: JSON.stringify(updatedCongregationData),
       });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || 'Failed to update congregation');
+      if (!response.ok) {
+        throw new Error('Failed to update congregation');
       }
-      return res.json();
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['congregations'] });
-      queryClient.invalidateQueries({ queryKey: ['stakes'] }); // Invalidate stakes query
+      queryClient.invalidateQueries({ queryKey: ['stakes'] }); // Invalidate stakes to update child congregations
       setIsEditDialogOpen(false);
       setCurrentCongregation(null);
-      setCongregationName('');
-      setCongregationAccessCode('');
-      setCongregationActive(true);
-      setSelectedStakeId(null);
-      toast({
-        title: 'Congregation Updated',
-        description: 'The congregation has been successfully updated.',
-      });
+      toast({ title: 'Congregation updated successfully.' });
     },
     onError: (error) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Failed to update congregation.', description: error.message, variant: 'destructive' });
     },
   });
 
+  // No delete mutation for congregations provided in the original file, assuming it's not needed for now
+  // Or it might be handled differently, e.g., soft delete, which is a future feature.
+
   const handleAddCongregation = () => {
-    const newCongregation = {
-      name: congregationName,
-      accessCode: congregationAccessCode,
-      active: congregationActive,
-      stakeId: selectedStakeId ? parseInt(selectedStakeId, 10) : null,
-    };
-    addCongregationMutation.mutate(newCongregation);
+    addCongregationMutation.mutate({
+      name: newCongregationName,
+      accessCode: newCongregationAccessCode,
+      stakeId: newCongregationStakeId,
+    });
   };
 
-  const handleEditCongregation = () => {
-    if (currentCongregation) {
-      const updatedCongregation = {
-        id: currentCongregation.id,
-        name: congregationName,
-        accessCode: congregationAccessCode,
-        active: congregationActive,
-        stakeId: selectedStakeId ? parseInt(selectedStakeId, 10) : null,
-      };
-      updateCongregationMutation.mutate(updatedCongregation);
-    }
-  };
-
-  const openEditDialog = (congregation: Congregation) => {
+  const handleEditCongregation = (congregation: Congregation) => {
     setCurrentCongregation(congregation);
-    setCongregationName(congregation.name);
-    setCongregationAccessCode(congregation.accessCode);
-    setCongregationActive(congregation.active);
-    setSelectedStakeId(congregation.stakeId ? String(congregation.stakeId) : null);
+    setEditedCongregationName(congregation.name);
+    setEditedCongregationAccessCode(congregation.accessCode);
+    setEditedCongregationStakeId(congregation.stakeId || null);
     setIsEditDialogOpen(true);
   };
 
+  const handleUpdateCongregation = () => {
+    if (currentCongregation) {
+      updateCongregationMutation.mutate({
+        id: currentCongregation.id,
+        name: editedCongregationName,
+        accessCode: editedCongregationAccessCode,
+        stakeId: editedCongregationStakeId,
+      });
+    }
+  };
+
   if (isLoadingCongregations || isLoadingStakes) {
-    return (
-      <div className="flex justify-center items-center h-48">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return <div>Loading congregations...</div>;
   }
 
-  if (isErrorCongregations) {
-    return (
-      <Alert variant="destructive">
-        <AlertTitle>Error</AlertTitle>
-        <AlertDescription>Failed to load congregations. Please try again later.</AlertDescription>
-      </Alert>
-    );
+  if (congregationsError) {
+    return <div>Error: {congregationsError.message}</div>;
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold flex items-center">
-          <Users className="mr-2" /> Congregation Management
-        </h2>
-        <div className="flex items-center space-x-4">
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search congregations..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
-            />
-          </div>
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle className="flex justify-between items-center">
+          Congregations Management
           <div className="flex items-center space-x-2">
-            <Switch
-              id="unassigned-congregations-filter"
-              checked={showUnassignedOnly}
-              onCheckedChange={setShowUnassignedOnly}
-            />
-            <Label htmlFor="unassigned-congregations-filter">Show Unassigned Only</Label>
-          </div>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <PlusCircle className="mr-2 h-4 w-4" /> Add Congregation
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Add New Congregation</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">
-                    Name
-                  </Label>
-                  <Input
-                    id="name"
-                    value={congregationName}
-                    onChange={(e) => setCongregationName(e.target.value)}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="accessCode" className="text-right">
-                    Access Code
-                  </Label>
-                  <Input
-                    id="accessCode"
-                    value={congregationAccessCode}
-                    onChange={(e) => setCongregationAccessCode(e.target.value)}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="active" className="text-right">
-                    Active
-                  </Label>
-                  <Switch
-                    id="active"
-                    checked={congregationActive}
-                    onCheckedChange={setCongregationActive}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="stake" className="text-right">
-                    Stake
-                  </Label>
-                  <Combobox
-                    options={stakes || []}
-                    value={selectedStakeId}
-                    onValueChange={(value) => setSelectedStakeId(value)}
-                    placeholder="Select a Stake (Optional)"
-                    searchPlaceholder="Search stakes..."
-                    noResultsMessage="No stake found."
-                    displayKey="name"
-                    valueKey="id"
-                    className="col-span-3 w-full"
-                    contentClassName="max-h-[200px] overflow-y-auto" // Added max-height and overflow
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleAddCongregation} disabled={addCongregationMutation.isPending}>
-                  {addCongregationMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                  Add Congregation
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Access Code</TableHead>
-            <TableHead>Active</TableHead>
-            <TableHead>Stake</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {congregations?.map((congregation) => (
-            <TableRow key={congregation.id}>
-              <TableCell className="font-medium">{congregation.name}</TableCell>
-              <TableCell>{congregation.accessCode}</TableCell>
-              <TableCell>{congregation.active ? 'Yes' : 'No'}</TableCell>
-              <TableCell>{congregation.stake?.name || 'Unassigned'}</TableCell>
-              <TableCell className="text-right">
-                <Button variant="ghost" size="icon" onClick={() => openEditDialog(congregation)}>
-                  <Edit className="h-4 w-4" />
-                </Button>
-                {/* Delete functionality for congregations is not yet implemented in routes.ts */}
-                {/* <Button
+            <div className="relative">
+              <Input
+                placeholder="Search congregations..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8"
+              />
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              {searchTerm && (
+                <Button
                   variant="ghost"
-                  size="icon"
-                  onClick={() => deleteCongregationMutation.mutate(congregation.id)}
-                  disabled={deleteCongregationMutation.isPending}
+                  size="sm"
+                  className="absolute right-1.5 top-1.5 h-6 w-6 p-0"
+                  onClick={() => setSearchTerm('')}
                 >
-                  <Trash2 className="h-4 w-4" />
-                </Button> */}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit Congregation</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-name" className="text-right">
-                Name
-              </Label>
-              <Input
-                id="edit-name"
-                value={congregationName}
-                onChange={(e) => setCongregationName(e.target.value)}
-                className="col-span-3"
-              />
+                  <XCircle className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              )}
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-accessCode" className="text-right">
-                Access Code
-              </Label>
-              <Input
-                id="edit-accessCode"
-                value={congregationAccessCode}
-                onChange={(e) => setCongregationAccessCode(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-active" className="text-right">
-                Active
-              </Label>
-              <Switch
-                id="edit-active"
-                checked={congregationActive}
-                onCheckedChange={setCongregationActive}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-stake" className="text-right">
-                Stake
-              </Label>
-              <Combobox
-                options={stakes || []}
-                value={selectedStakeId}
-                onValueChange={(value) => setSelectedStakeId(value)}
-                placeholder="Select a Stake (Optional)"
-                searchPlaceholder="Search stakes..."
-                noResultsMessage="No stake found."
-                displayKey="name"
-                valueKey="id"
-                className="col-span-3 w-full"
-                contentClassName="max-h-[200px] overflow-y-auto" // Added max-height and overflow
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={handleEditCongregation} disabled={updateCongregationMutation.isPending}>
-              {updateCongregationMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-              Save Changes
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center space-x-1">
+                    <Label htmlFor="unassigned-congregations-mode">Show Unassigned Only</Label>
+                    <Switch
+                      id="unassigned-congregations-mode"
+                      checked={showUnassignedOnly}
+                      onCheckedChange={setShowUnassignedOnly}
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Toggle to display only congregations not assigned to any stake.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <Button onClick={() => setIsAddCongregationDialogOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Congregation
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+          </div>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Access Code</TableHead>
+              <TableHead>Assigned Stake</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {congregations?.map((congregation) => (
+              <TableRow key={congregation.id}>
+                <TableCell className="font-medium">{congregation.name}</TableCell>
+                <TableCell>{congregation.accessCode}</TableCell>
+                <TableCell>{congregation.stake?.name || 'Unassigned'}</TableCell>
+                <TableCell className="text-right">
+                  <Button variant="ghost" size="sm" onClick={() => handleEditCongregation(congregation)}>Edit</Button>
+                  {/* <Button variant="destructive" size="sm" onClick={() => handleDeleteCongregation(congregation.id)}>Delete</Button> */}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+
+        {/* Add Congregation Dialog */}
+        <Dialog open={isAddCongregationDialogOpen} onOpenChange={setIsAddCongregationDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Congregation</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">
+                  Name
+                </Label>
+                <Input
+                  id="name"
+                  value={newCongregationName}
+                  onChange={(e) => setNewCongregationName(e.target.value)}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="accessCode" className="text-right">
+                  Access Code
+                </Label>
+                <Input
+                  id="accessCode"
+                  value={newCongregationAccessCode}
+                  onChange={(e) => setNewCongregationAccessCode(e.target.value)}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="assign-stake" className="text-right">
+                  Assign to Stake
+                </Label>
+                <Combobox
+                  options={stakeOptions}
+                  value={newCongregationStakeId || ''}
+                  onChange={(value) => setNewCongregationStakeId(value as number | null)}
+                  placeholder="Select a stake..."
+                  className="col-span-3"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddCongregationDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleAddCongregation} disabled={addCongregationMutation.isPending}>
+                {addCongregationMutation.isPending ? 'Creating...' : 'Add Congregation'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Congregation Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Congregation</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-name" className="text-right">
+                  Name
+                </Label>
+                <Input
+                  id="edit-name"
+                  value={editedCongregationName}
+                  onChange={(e) => setEditedCongregationName(e.target.value)}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-accessCode" className="text-right">
+                  Access Code
+                </Label>
+                <Input
+                  id="edit-accessCode"
+                  value={editedCongregationAccessCode}
+                  onChange={(e) => setEditedCongregationAccessCode(e.target.value)}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-assign-stake" className="text-right">
+                  Assign to Stake
+                </Label>
+                <Combobox
+                  options={stakeOptions}
+                  value={editedCongregationStakeId || ''}
+                  onChange={(value) => setEditedCongregationStakeId(value as number | null)}
+                  placeholder="Select a stake..."
+                  className="col-span-3"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleUpdateCongregation} disabled={updateCongregationMutation.isPending}>
+                {updateCongregationMutation.isPending ? 'Updating...' : 'Update Congregation'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
   );
 }
