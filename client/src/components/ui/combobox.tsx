@@ -22,8 +22,8 @@ import {
 
 interface ComboboxProps<T> {
   options: T[];
-  value: string | null;
-  onValueChange: (value: string | null) => void;
+  value: string | number | null | undefined;
+  onValueChange: (value: string | number | null | undefined) => void;
   placeholder?: string;
   searchPlaceholder?: string;
   noResultsMessage?: string;
@@ -47,7 +47,7 @@ export function Combobox<T extends Record<string, any>>({
 }: ComboboxProps<T>) {
   const [open, setOpen] = React.useState(false)
 
-  const selectedOption = options.find((option) => String(option[valueKey]) === value);
+  const selectedOption = options.find((option) => String(option[valueKey]) === String(value));
   const displayValue = selectedOption ? String(selectedOption[displayKey]) : "";
 
   return (
@@ -63,28 +63,28 @@ export function Combobox<T extends Record<string, any>>({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className={cn("w-[200px] p-0", contentClassName)}>
+      <PopoverContent className={cn("w-[var(--radix-popover-trigger-width)] p-0", contentClassName)}>
         <Command>
-          <CommandInput placeholder={searchPlaceholder} />
-          <CommandList> {/* Use CommandList for scrollability */}
-            <CommandEmpty>{noResultsMessage}</CommandEmpty>
+          <CommandInput placeholder={searchPlaceholder} className="h-9" />
+          <CommandEmpty>{noResultsMessage}</CommandEmpty>
+          <CommandList> {/* Use CommandList for scrolling behavior */}
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem
                   key={String(option[valueKey])}
-                  value={String(option[displayKey])} // Searchable value
+                  value={String(option[displayKey])} // Use displayKey for searchability
                   onSelect={() => {
-                    onValueChange(String(option[valueKey]) === value ? null : String(option[valueKey]))
-                    setOpen(false)
+                    onValueChange(String(option[valueKey]) === String(value) ? undefined : option[valueKey]);
+                    setOpen(false);
                   }}
                 >
+                  {option.label}
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4",
-                      value === String(option[valueKey]) ? "opacity-100" : "opacity-0"
+                      "ml-auto h-4 w-4",
+                      String(option[valueKey]) === String(value) ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  {String(option[displayKey])}
                 </CommandItem>
               ))}
             </CommandGroup>
