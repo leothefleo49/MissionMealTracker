@@ -70,6 +70,7 @@ export const congregationsRelations = relations(congregations, ({ one, many }) =
 export const insertCongregationSchema = createInsertSchema(congregations, {
     description: z.string().optional(),
     // accessCode is now REQUIRED, matching the DB's NOT NULL constraint
+    // accessCode is now REQUIRED, matching the DB's NOT NULL constraint
     accessCode: z.string().min(6, { message: "Access code must be at least 6 characters" }),
     allowCombinedBookings: z.boolean().default(false),
     maxBookingsPerPeriod: z.number().min(0).default(0),
@@ -78,7 +79,9 @@ export const insertCongregationSchema = createInsertSchema(congregations, {
     bookingPeriodDays: z.number().min(1).default(30),
     active: z.boolean().default(true),
 }).omit({ // Omit fields not provided by client or auto-generated
+}).omit({ // Omit fields not provided by client or auto-generated
   id: true,
+  stakeId: true, // Client does not provide stakeId for creation
   stakeId: true, // Client does not provide stakeId for creation
 });
 
