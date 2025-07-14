@@ -354,6 +354,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateMissionary(id: number, data: Partial<Missionary>): Promise<Missionary | undefined> {
+    // If setting active to false, set deletedAt timestamp. If setting to true, clear deletedAt.
+    if (data.active === false) {
+      data.deletedAt = new Date();
+    } else if (data.active === true) {
+      data.deletedAt = null;
+    }
+
     const [updatedMissionary] = await db
       .update(missionaries)
       .set(data)
@@ -363,11 +370,35 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteMissionary(id: number): Promise<boolean> {
+    // This method is now used for permanent deletion
+    await db
+      .delete(meals) // Delete associated meals first due to foreign key constraints
+      .where(eq(meals.missionaryId, id));
+
     await db
       .delete(missionaries)
       .where(eq(missionaries.id, id));
     return true;
   }
+
+  async getInactiveMissionariesOlderThan(months: number): Promise<Missionary[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setMonth(cutoffDate.getMonth() - months);
+
+    return await db.select().from(missionaries).where(
+      and(
+        eq(missionaries.active, false),
+        sql`${missionaries.deletedAt} < ${cutoffDate}`
+      )
+    );
+  }
+
+  async permanentlyDeleteMissionary(id: number): Promise<boolean> {
+      // This function already exists as deleteMissionary
+      // Renaming it for clarity but keeping the original implementation.
+      return this.deleteMissionary(id);
+  }
+
 
   // Meal methods
   async getMeal(id: number): Promise<Meal | undefined> {
