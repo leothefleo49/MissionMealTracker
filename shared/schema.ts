@@ -26,6 +26,10 @@ export const regionsRelations = relations(regions, ({ many }) => ({
   users: many(users),
 }));
 
+// Export the TypeScript type for Region
+export type Region = typeof regions.$inferSelect;
+
+
 // Missions table
 export const missions = pgTable("missions", {
   id: serial("id").primaryKey(),
@@ -50,6 +54,10 @@ export const missionsRelations = relations(missions, ({ one, many }) => ({
   users: many(users),
 }));
 
+// Export the TypeScript type for Mission
+export type Mission = typeof missions.$inferSelect;
+
+
 // Stakes table
 export const stakes = pgTable("stakes", {
   id: serial("id").primaryKey(),
@@ -72,6 +80,10 @@ export const stakesRelations = relations(stakes, ({ one, many }) => ({
   congregations: many(congregations),
   users: many(users),
 }));
+
+// Export the TypeScript type for Stake
+export type Stake = typeof stakes.$inferSelect;
+
 
 // Congregations (formerly Wards) table
 export const congregations = pgTable("congregations", {
@@ -111,8 +123,10 @@ export const insertCongregationSchema = createInsertSchema(congregations, {
 });
 
 
-export type InsertCongregation = z.infer<typeof insertCongregationSchema>;
+// Export the TypeScript type for Congregation
 export type Congregation = typeof congregations.$inferSelect;
+export type InsertCongregation = z.infer<typeof insertCongregationSchema>;
+
 
 // Users table
 export const users = pgTable("users", {
@@ -158,10 +172,12 @@ export const insertUserCongregationSchema = createInsertSchema(userCongregations
     congregationId: true,
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type InsertUserCongregation = z.infer<typeof insertUserCongregationSchema>;
+// Export the TypeScript type for User and UserCongregation
 export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UserCongregation = typeof userCongregations.$inferSelect;
+export type InsertUserCongregation = z.infer<typeof insertUserCongregationSchema>;
+
 
 // Missionaries table
 export const missionaries = pgTable("missionaries", {
@@ -198,7 +214,7 @@ export const missionaries = pgTable("missionaries", {
   consentDate: timestamp("consent_date"),
   consentVerificationToken: text("consent_verification_token"),
   consentVerificationSentAt: timestamp("consent_verification_sent_at"),
-  deletedAt: timestamp("deleted_at"), // NEW: Add deletedAt timestamp for soft delete tracking
+  deletedAt: timestamp("deleted_at"), // Re-add this column as it was in my planned changes
 });
 
 export const missionariesRelations = relations(missionaries, ({ one, many }) => ({
@@ -248,8 +264,10 @@ export const insertMissionarySchema = createInsertSchema(missionaries, {
   deletedAt: true, // Include the new field here
 });
 
-export type InsertMissionary = z.infer<typeof insertMissionarySchema>;
+// Export the TypeScript type for Missionary
 export type Missionary = typeof missionaries.$inferSelect;
+export type InsertMissionary = z.infer<typeof insertMissionarySchema>;
+
 
 // Meals table
 export const meals = pgTable("meals", {
@@ -295,9 +313,11 @@ export const updateMealSchema = z.object({
   specialNotes: z.string().optional(),
 });
 
+// Export the TypeScript type for Meal
+export type Meal = typeof meals.$inferSelect;
 export type InsertMeal = z.infer<typeof insertMealSchema>;
 export type UpdateMeal = z.infer<typeof updateMealSchema>;
-export type Meal = typeof meals.$inferSelect;
+
 
 // Schema for meal availability checking
 export const checkMealAvailabilitySchema = z.object({
@@ -346,8 +366,10 @@ export const insertMessageLogSchema = createInsertSchema(messageLogs).pick({
   estimatedCost: true,
 });
 
-export type InsertMessageLog = z.infer<typeof insertMessageLogSchema>;
+// Export the TypeScript type for MessageLog
 export type MessageLog = typeof messageLogs.$inferSelect;
+export type InsertMessageLog = z.infer<typeof insertMessageLogSchema>;
+
 
 // Message Stats schema
 export const messageStatsSchema = z.object({
